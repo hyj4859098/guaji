@@ -1,0 +1,21 @@
+/* 基础样式重置和全局设置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Microsoft YaHei', Arial, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  height: 100vh;
+  padding-top: 80px;
+  padding-bottom: 175px;
+  overflow: hidden;
+}
+
+#app {
+  height: calc(100vh - 255px);
+  overflow: hidden;
+}

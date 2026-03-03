@@ -1,0 +1,70 @@
+const API = {
+  baseUrl: 'http://localhost:3000/api',
+
+  async request(url, options = {}) {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+
+    if (State.token) {
+      headers['Authorization'] = `Bearer ${State.token}`;
+    }
+
+    try {
+      const requestUrl = `${this.baseUrl}${url}`;
+      console.log('API Request:', requestUrl, options);
+      const response = await fetch(requestUrl, {
+        ...options,
+        headers
+      });
+
+      console.log('API Response Status:', response.status);
+      const responseText = await response.text();
+      console.log('API Response Text:', responseText);
+      
+      const result = JSON.parse(responseText);
+
+      if (result.code === 401) {
+        State.clear();
+        window.location.reload();
+      }
+
+      return result;
+    } catch (error) {
+      console.error('API Error:', error);
+      return {
+        code: 500,
+        msg: '网络错误',
+        data: null
+      };
+    }
+  },
+
+  get(url, params = {}) {
+    const queryString = new URLSearchParams(params).toString();
+    return this.request(`${url}${queryString ? '?' + queryString : ''}`, {
+      method: 'GET'
+    });
+  },
+
+  post(url, data = {}) {
+    return this.request(url, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  put(url, data = {}) {
+    return this.request(url, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  },
+
+  delete(url) {
+    return this.request(url, {
+      method: 'DELETE'
+    });
+  }
+};

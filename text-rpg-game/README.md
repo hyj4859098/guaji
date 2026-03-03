@@ -1,0 +1,44 @@
+# 文字回合制挂机游戏
+
+## 快速启动（小白版）
+
+### 1. 确保 MongoDB 已启动
+
+项目使用 MongoDB 存储数据，请先启动 MongoDB 服务。
+
+### 2. 启动后端
+
+在项目根目录打开命令行，执行：
+
+```
+cd server
+npm run dev
+```
+
+看到 `HTTP Server running on port 3000` 表示启动成功。
+
+**开发模式说明**：`npm run dev` 使用热重载，修改 `server/src` 下的代码并保存后会自动重启，无需手动重启。若使用 `npm start` 则运行编译后的代码，修改后需先执行 `npm run build` 再重启。
+
+### 3. 访问游戏
+
+在浏览器打开：**http://localhost:3000**
+
+后端会同时提供前端页面，无需单独启动前端。
+
+---
+
+## 项目配置
+
+在 `server/src/config/index.ts` 中可修改：
+
+- **port**: HTTP 端口（默认 3000）
+- **jwt_secret**: JWT 密钥（生产环境必须修改）
+- **mongodb.url**: MongoDB 连接地址（默认 mongodb://localhost:27017）
+- **mongodb.database**: 数据库名（默认 turn-based-game）
+- **ws_port**: WebSocket 端口（默认 3001）
+
+## 访问地址
+
+- 游戏主界面: http://localhost:3000
+- 后端 API: http://localhost:3000/api
+- WebSocket: ws://localhost:3001

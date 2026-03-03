@@ -1,0 +1,30 @@
+/* 浏览器重置样式 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+body {
+  font-family: 'Microsoft YaHei', Arial, sans-serif;
+  background: #1a1a2e;
+  color: #eee;
+  height: 100vh;
+  padding-top: 80px;
+  padding-bottom: 175px;
+  overflow: hidden;
+}
+
+#app {
+  height: calc(100vh - 255px);
+  overflow: hidden;
+}

@@ -1,0 +1,378 @@
+/* 主容器 */
+.main-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 15px;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas: 
+    "role-info equipment"
+    "role-info backpack";
+  gap: 15px;
+  height: calc(100vh - 255px);
+  overflow: hidden;
+}
+
+/* 角色信息 */
+.role-info {
+  grid-area: role-info;
+  background: #16213e;
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid #0f3460;
+  overflow-y: auto;
+}
+
+.role-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.role-header h2 {
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.role-level {
+  background: #0f3460;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.status-bar {
+  margin-bottom: 16px;
+}
+
+.status-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #0f3460;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+/* 装备栏 */
+.equipment {
+  grid-area: equipment;
+  background: #16213e;
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid #0f3460;
+}
+
+.equipment h2 {
+  font-size: 18px;
+  color: #3b82f6;
+  margin-bottom: 16px;
+}
+
+.equip-slots {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 10px;
+}
+
+.equip-slot {
+  background: #0f3460;
+  border-radius: 6px;
+  padding: 8px;
+  text-align: center;
+  border: 1px solid #1a508b;
+  min-width: 70px;
+}
+
+.equip-slot-name {
+  font-size: 10px;
+  color: #a0aec0;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.equip-slot-item {
+  width: 45px;
+  height: 45px;
+  background: #1a508b;
+  margin: 0 auto 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: white;
+  overflow: hidden;
+}
+
+.equip-slot-item.equipped {
+  background: #3b82f6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.equip-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.equip-btn {
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  border: none;
+}
+
+.equip-btn.wear {
+  background: #10b981;
+  color: white;
+}
+
+.equip-btn.remove {
+  background: #ef4444;
+  color: white;
+}
+
+/* 背包 */
+.backpack {
+  grid-area: backpack;
+  background: #16213e;
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid #0f3460;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.backpack h2 {
+  font-size: 18px;
+  color: #3b82f6;
+  margin-bottom: 16px;
+}
+
+.bag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.bag-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.bag-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.bag-tab {
+  padding: 8px 16px;
+  background: #1a1a2e;
+  border: 1px solid #16213e;
+  border-radius: 20px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.bag-tab.active {
+  background: #0f3460;
+  border-color: #0f3460;
+}
+
+.bag-tab:hover {
+  background: #16213e;
+}
+
+.bag-grid {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 10px;
+  min-height: 0;
+}
+
+.bag-item {
+  display: flex;
+  align-items: center;
+  background: #1a1a2e;
+  border: 1px solid #16213e;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
+.bag-item:hover {
+  border-color: #0f3460;
+  background: #16213e;
+}
+
+.bag-item-icon {
+  width: 48px;
+  height: 48px;
+  background: #0f3460;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  color: #e94560;
+  margin-right: 15px;
+}
+
+.bag-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bag-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: auto;
+  display: block;
+}
+
+.bag-item-desc {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bag-item-count {
+  font-size: 12px;
+  color: #e94560;
+  font-weight: bold;
+}
+
+.bag-item-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.bag-item-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.bag-item-btn.use {
+  background: #4CAF50;
+  color: white;
+}
+
+.bag-item-btn.wear {
+  background: #2196F3;
+  color: white;
+}
+
+.bag-item-btn.drop {
+  background: #f44336;
+  color: white;
+}
+
+.bag-item-btn:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.bag-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pagination {
+  display: flex;
+  gap: 5px;
+}
+
+.pagination-btn {
+  padding: 8px 12px;
+  background: #1a1a2e;
+  border: 1px solid #16213e;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.pagination-btn.active {
+  background: #0f3460;
+  border-color: #0f3460;
+}
+
+.pagination-btn:hover:not(.active) {
+  background: #16213e;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .main-container {
+    grid-template-columns: 1fr;
+    grid-template-areas: 
+      "role-info"
+      "equipment"
+      "backpack";
+  }
+  
+  .role-info {
+    order: 1;
+  }
+  
+  .equipment {
+    order: 2;
+  }
+  
+  .backpack {
+    order: 3;
+  }
+}

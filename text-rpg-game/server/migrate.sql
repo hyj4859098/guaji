@@ -1,0 +1,4 @@
+-- 为player表添加新列
+ALTER TABLE player ADD COLUMN mp INT DEFAULT 50;
+ALTER TABLE player ADD COLUMN max_mp INT DEFAULT 50;
+ALTER TABLE player ADD COLUMN reputation INT DEFAULT 0;

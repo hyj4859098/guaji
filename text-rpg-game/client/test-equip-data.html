@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试装备数据</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 20px auto;
+      padding: 20px;
+      background: #1a1a2e;
+      color: #fff;
+    }
+    .test-section {
+      background: rgba(0, 0, 0, 0.5);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+    }
+    .test-title {
+      color: #66ccff;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .test-data {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .equip-item {
+      background: rgba(102, 126, 234, 0.2);
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 4px;
+      border-left: 3px solid #667eea;
+    }
+    .equip-name {
+      color: #66ccff;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .equip-attr {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+    .equip-attr-name {
+      color: #b0b0b0;
+    }
+    .equip-attr-value {
+      color: #4caf50;
+    }
+  </style>
+</head>
+<body>
+  <h1>装备数据测试页面</h1>
+  
+  <div class="test-section">
+    <div class="test-title">1. 测试API连接</div>
+    <button onclick="testAPI()">测试API</button>
+    <div id="api-result" class="test-data"></div>
+  </div>
+  
+  <div class="test-section">
+    <div class="test-title">2. 装备数据展示</div>
+    <div id="equip-display"></div>
+  </div>
+
+  <script>
+    // 模拟API配置
+    const API_BASE = 'http://localhost:3000/api';
+    
+    // 模拟token（需要替换为实际token）
+    const token = localStorage.getItem('token') || '';
+    
+    async function testAPI() {
+      const resultDiv = document.getElementById('api-result');
+      resultDiv.textContent = '正在测试API...';
+      
+      try {
+        const response = await fetch(`${API_BASE}/bag/list`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        resultDiv.textContent = JSON.stringify(data, null, 2);
+        
+        // 显示装备数据
+        displayEquipData(data);
+        
+      } catch (error) {
+        resultDiv.textContent = `错误: ${error.message}`;
+        console.error('API测试失败:', error);
+      }
+    }
+    
+    function displayEquipData(data) {
+      const displayDiv = document.getElementById('equip-display');
+      
+      if (data.code !== 0) {
+        displayDiv.innerHTML = `<div style="color: #ff4444;">API错误: ${data.msg}</div>`;
+        return;
+      }
+      
+      const items = data.data;
+      if (!items || items.length === 0) {
+        displayDiv.innerHTML = '<div style="color: #ffcc00;">背包为空</div>';
+        return;
+      }
+      
+      let html = '';
+      items.forEach((item, index) => {
+        html += `<div class="equip-item">`;
+        html += `<div class="equip-name">${index + 1}. ${item.name || '未知物品'}</div>`;
+        html += `<div>equipment_uid: ${item.equipment_uid || '无'}</div>`;
+        html += `<div>level: ${item.level || '无'}</div>`;
+        
+        if (item.equip_attributes) {
+          const attrs = item.equip_attributes;
+          html += `<div class="equip-attr"><span class="equip-attr-name">生命值:</span><span class="equip-attr-value">+${attrs.hp || 0}</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">物理攻击:</span><span class="equip-attr-value">+${attrs.phy_atk || 0}</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">物理防御:</span><span class="equip-attr-value">+${attrs.phy_def || 0}</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">魔法值:</span><span class="equip-attr-value">+${attrs.mp || 0}</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">魔法防御:</span><span class="equip-attr-value">+${attrs.mag_def || 0}</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">魔法攻击:</span><span class="equip-attr-value">+${attrs.mag_atk || 0}</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">命中率:</span><span class="equip-attr-value">+${attrs.hit_rate || 0}%</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">闪避率:</span><span class="equip-attr-value">+${attrs.dodge_rate || 0}%</span></div>`;
+          html += `<div class="equip-attr"><span class="equip-attr-name">暴击率:</span><span class="equip-attr-value">+${attrs.crit_rate || 0}%</span></div>`;
+        } else {
+          html += `<div style="color: #ff4444;">❌ 没有equip_attributes数据</div>`;
+        }
+        
+        html += `</div>`;
+      });
+      
+      displayDiv.innerHTML = html;
+    }
+  </script>
+</body>
+</html>

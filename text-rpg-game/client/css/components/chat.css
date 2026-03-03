@@ -1,0 +1,125 @@
+.chat-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #16213e;
+  border-top: 1px solid #0f3460;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  height: 120px;
+  overflow-y: auto;
+  padding: 6px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-msg {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cbd5e0;
+}
+
+.chat-msg-me .chat-name { color: #48bb78; }
+
+.chat-time {
+  color: #4a5568;
+  font-size: 11px;
+  margin-right: 6px;
+}
+
+.chat-name {
+  color: #63b3ed;
+  font-weight: bold;
+  margin-right: 6px;
+}
+
+.chat-name::after {
+  content: ':';
+}
+
+.chat-text {
+  color: #e2e8f0;
+  word-break: break-all;
+}
+
+/* 系统消息 */
+.chat-msg-system {
+  opacity: 0.92;
+}
+
+.chat-sys-tag {
+  color: #ecc94b;
+  font-weight: bold;
+  font-size: 11px;
+  margin-right: 6px;
+  padding: 0 4px;
+  border: 1px solid rgba(236,201,75,0.3);
+  border-radius: 3px;
+  line-height: 1.6;
+}
+
+.chat-msg-system .chat-text {
+  color: #ecc94b;
+}
+
+.chat-msg-success .chat-sys-tag {
+  color: #48bb78;
+  border-color: rgba(72,187,120,0.3);
+}
+.chat-msg-success .chat-text {
+  color: #68d391;
+}
+
+.chat-msg-error .chat-sys-tag {
+  color: #fc8181;
+  border-color: rgba(252,129,129,0.3);
+}
+.chat-msg-error .chat-text {
+  color: #fc8181;
+}
+
+.chat-msg-trade .chat-sys-tag {
+  color: #63b3ed;
+  border-color: rgba(99,179,237,0.3);
+}
+.chat-msg-trade .chat-text {
+  color: #90cdf4;
+}
+
+.chat-input {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 20px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 8px 12px;
+  background: #0f3460;
+  border: 1px solid #1a508b;
+  border-radius: 4px;
+  color: white;
+  font-size: 14px;
+}
+
+.chat-input button {
+  padding: 8px 16px;
+  background: #3b82f6;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.chat-input button:hover {
+  background: #2563eb;
+}

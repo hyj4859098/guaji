@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GM工具</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #f0f0f0; margin: 0; padding: 20px; }
+    .container { max-width: 1200px; margin: 0 auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { color: #333; text-align: center; }
+    .tab-container { margin: 20px 0; }
+    .tab-btn { padding: 10px 15px; margin-right: 5px; background-color: #f1f1f1; border: 1px solid #ddd; border-bottom: none; cursor: pointer; color: #333; }
+    .tab-btn.active { background-color: white; font-weight: bold; color: #333; border-top: 2px solid #4CAF50; }
+    .tab-content { border: 1px solid #ddd; padding: 20px; margin-top: -1px; }
+    .hidden { display: none; }
+    .btn { padding: 8px 16px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-primary { background-color: #4CAF50; color: white; }
+    .btn-danger { background-color: #f44336; color: white; }
+    .btn-info { background-color: #2196F3; color: white; }
+    .btn-success { background-color: #4CAF50; color: white; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    .toast { position: fixed; top: 20px; right: 20px; padding: 15px; border-radius: 4px; color: white; z-index: 1000; }
+    .toast.success { background-color: #4CAF50; }
+    .toast.error { background-color: #f44336; }
+
+    /* 表格 */
+    .gm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .gm-table th { background: #f5f5f5; padding: 6px 8px; text-align: left; border-bottom: 2px solid #ddd; font-size: 12px; color: #555; white-space: nowrap; }
+    .gm-table td { padding: 5px 8px; border-bottom: 1px solid #eee; }
+    .gm-table tr:hover { background: #f9f9f9; }
+    .gm-table .btn { padding: 3px 8px; margin: 1px; font-size: 11px; }
+    .gm-table td.num { text-align: right; font-family: monospace; }
+
+    /* 搜索 */
+    .gm-search { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .gm-search input { width: 200px; padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+
+    /* 弹窗 */
+    .gm-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 900; }
+    .gm-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: white; border-radius: 8px; padding: 20px; z-index: 901; min-width: 500px; max-width: 700px; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .gm-modal h4 { margin: 0 0 12px; color: #333; }
+    .gm-modal .gm-form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+    .gm-modal .gm-form-row label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; white-space: nowrap; }
+    .gm-modal .gm-form-row input, .gm-modal .gm-form-row select { padding: 5px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+    .gm-modal .gm-form-actions { margin-top: 12px; display: flex; gap: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GM工具</h1>
+    <div id="gm-content">
+      <div class="tab-container">
+        <button class="tab-btn active" onclick="switchTab('monster', event)">怪物管理</button>
+        <button class="tab-btn" onclick="switchTab('boss', event)">Boss管理</button>
+        <button class="tab-btn" onclick="switchTab('skill', event)">技能管理</button>
+        <button class="tab-btn" onclick="switchTab('map', event)">地图管理</button>
+        <button class="tab-btn" onclick="switchTab('item', event)">物品管理</button>
+        <button class="tab-btn" onclick="switchTab('equip', event)">装备管理</button>
+        <button class="tab-btn" onclick="switchTab('drop', event)">掉落管理</button>
+        <button class="tab-btn" onclick="switchTab('level', event)">等级管理</button>
+        <button class="tab-btn" onclick="switchTab('shop', event)">商店管理</button>
+        <button class="tab-btn" onclick="switchTab('cache', event)">缓存管理</button>
+        <button class="tab-btn" onclick="switchTab('player', event)">玩家管理</button>
+        <button class="btn btn-danger" onclick="logout()" style="float: right;">退出</button>
+      </div>
+      
+      <div id="monster-tab" class="tab-content">
+        <h3>怪物管理</h3>
+        <button class="btn btn-primary" onclick="addMonster()">新增怪物</button>
+        <div id="monster-list"></div>
+      </div>
+      
+      <div id="boss-tab" class="tab-content hidden">
+        <h3>Boss管理</h3>
+        <p style="color:#666;">Boss 血量全局共享，死亡后 30 秒刷新。掉落请在「掉落管理」中选择「Boss掉落」进行配置。</p>
+        <button class="btn btn-primary" onclick="addBoss()">新增Boss</button>
+        <div id="boss-list"></div>
+      </div>
+      
+      <div id="skill-tab" class="tab-content hidden">
+        <h3>技能管理</h3>
+        <button class="btn btn-primary" onclick="addSkill()">新增技能</button>
+        <div id="skill-list"></div>
+      </div>
+      
+      <div id="map-tab" class="tab-content hidden">
+        <h3>地图管理</h3>
+        <button class="btn btn-primary" onclick="addMap()">新增地图</button>
+        <div id="map-list"></div>
+      </div>
+      
+      <div id="item-tab" class="tab-content hidden">
+        <h3>物品管理</h3>
+        <button class="btn btn-primary" onclick="addItem()">新增物品</button>
+        <div id="item-list"></div>
+      </div>
+      
+      <div id="equip-tab" class="tab-content hidden">
+        <h3>装备管理</h3>
+        <p style="color:#666;">管理装备基础配置（equip_base），需先在物品管理中创建类型为装备的物品。</p>
+        <button class="btn btn-primary" onclick="addEquip()">新增装备基础</button>
+        <div id="equip-list"></div>
+      </div>
+      
+      <div id="drop-tab" class="tab-content hidden">
+        <h3>掉落管理</h3>
+        <p style="color:#666;">管理怪物掉落（monster_drop）和 Boss 掉落（boss_drop）。上方下拉切换类型，填入怪物ID或BossID、物品ID、数量、概率(0-100)。Boss 优先使用 boss_drop，无则用 monster_drop。</p>
+        <button class="btn btn-primary" onclick="addDrop()">新增掉落</button>
+        <div id="drop-list"></div>
+      </div>
+      
+      <div id="level-tab" class="tab-content hidden">
+        <h3>等级管理</h3>
+        <button class="btn btn-primary" onclick="addLevelExp()">新增等级经验</button>
+        <div id="level-list"></div>
+      </div>
+      
+      <div id="shop-tab" class="tab-content hidden">
+        <h3>商店管理</h3>
+        <p style="color:#666;">管理各类商店的商品配置（金币商店、声望商店等），物品须先在物品管理中创建。</p>
+        <button class="btn btn-primary" onclick="addShopItem()">新增商品</button>
+        <div id="shop-list"></div>
+      </div>
+      
+      <div id="cache-tab" class="tab-content hidden">
+        <h3>缓存管理</h3>
+        <button class="btn btn-info" onclick="clearCache('monster')">清除怪物缓存</button>
+        <button class="btn btn-info" onclick="clearCache('skill')">清除技能缓存</button>
+        <button class="btn btn-info" onclick="clearCache('map')">清除地图缓存</button>
+        <button class="btn btn-info" onclick="clearCache('item')">清除物品缓存</button>
+        <button class="btn btn-info" onclick="clearCache('level_exp')">清除等级经验缓存</button>
+      </div>
+      
+      <div id="player-tab" class="tab-content hidden">
+        <h3>玩家管理</h3>
+        <div class="form-group">
+          <label for="player-uid">玩家UID</label>
+          <input type="number" id="player-uid" placeholder="请输入玩家UID">
+          <button class="btn btn-info" onclick="getPlayerInfo()">查询玩家</button>
+        </div>
+        <div id="player-info"></div>
+        <hr style="margin:20px 0;border-color:#ddd;">
+        <h3>发放物品</h3>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;">
+            <label for="give-uid">玩家UID</label>
+            <input type="number" id="give-uid" placeholder="UID" style="width:100px;">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:200px;">
+            <label for="give-item">物品</label>
+            <select id="give-item" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;">
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="give-count">数量</label>
+            <input type="number" id="give-count" value="1" min="1" style="width:80px;">
+          </div>
+          <button class="btn btn-success" onclick="giveItemToPlayer()">发放</button>
+        </div>
+        <hr style="margin:20px 0;border-color:#ddd;">
+        <h3>发放金币</h3>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;">
+            <label for="gold-uid">玩家UID</label>
+            <input type="number" id="gold-uid" placeholder="UID" style="width:100px;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="gold-amount">金额</label>
+            <input type="number" id="gold-amount" value="1000000" min="1" style="width:150px;">
+          </div>
+          <button class="btn btn-success" onclick="giveGoldToPlayer()">发放</button>
+        </div>
+        <hr style="margin:20px 0;border-color:#ddd;">
+        <h3>设置VIP</h3>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;">
+            <label for="vip-uid">玩家UID</label>
+            <input type="number" id="vip-uid" placeholder="UID" style="width:100px;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="vip-days">增加天数(0=取消VIP)</label>
+            <input type="number" id="vip-days" value="30" min="0" style="width:150px;">
+          </div>
+          <button class="btn btn-success" onclick="setPlayerVip()">设置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div id="toast" class="toast hidden"></div>
+  <div id="gm-modal-overlay" class="gm-overlay hidden" onclick="hideFormModal()"></div>
+  <div id="gm-modal-box" class="gm-modal hidden"></div>
+  
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
