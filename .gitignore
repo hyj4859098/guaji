@@ -1,6 +1,7 @@
 node_modules/
 dist/
 logs/
+*.lnk
 *.log
 npm-debug.log*
 .env
