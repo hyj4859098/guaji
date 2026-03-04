@@ -2,6 +2,7 @@ import { WebSocket } from 'ws';
 import { Uid } from '../types/index';
 import { logger } from '../utils/logger';
 import { tradeService } from '../service/trade.service';
+import { subscribeBoss, unsubscribeBoss } from './boss-subscription';
 
 interface ConnectionInfo {
   ws: WebSocket;
@@ -74,6 +75,11 @@ class WSManager {
               data: { uid: String(uid), name: message.data?.name || '???', text, time: Date.now() }
             });
           }
+        } else if (message.type === 'subscribe_boss') {
+          const mapId = Number(message.data?.map_id);
+          if (mapId > 0) subscribeBoss(uid, mapId);
+        } else if (message.type === 'unsubscribe_boss') {
+          unsubscribeBoss(uid);
         }
       } catch (error) {
         logger.error('解析WebSocket消息失败', { error: error instanceof Error ? error.message : String(error) });

@@ -12,10 +12,13 @@ import { SkillService } from './skill.service';
 import { EquipInstanceService } from './equip_instance.service';
 import { BagService } from './bag.service';
 import { BoostService } from './boost.service';
+import { WealthTitleService } from './wealth-title.service';
+import { LevelTitleService } from './level-title.service';
 import { Uid } from '../types/index';
 import { isVipActive } from '../types/player';
 import { BattleResultEnum } from '../types/enum';
 import { wsManager } from '../event/ws-manager';
+import { sendBossRespawnToSubscribers } from '../event/boss-subscription';
 import { logger } from '../utils/logger';
 import { dataStorageService } from './data-storage.service';
 import { findOneAndUpdate } from '../config/db';
@@ -37,6 +40,7 @@ interface BossResult {
 
 const bossLockMap = new Map<string, boolean>();
 const bossBattleState = new Map<string, { stopRequested: boolean }>();
+const respawnTimers = new Map<number, NodeJS.Timeout>();
 
 function toKey(uid: Uid): string {
   return String(uid);
@@ -46,6 +50,8 @@ export class BossService {
   private playerService = new PlayerService();
   private bossModel = new BossModel();
   private skillService = new SkillService();
+  private wealthTitleService = new WealthTitleService();
+  private levelTitleService = new LevelTitleService();
   private equipInstanceService = new EquipInstanceService();
   private bagService = new BagService();
   private _seq = 0;
@@ -86,10 +92,7 @@ export class BossService {
 
       if (state.last_death_time > 0 && now - state.last_death_time >= RESPAWN_SECONDS) {
         await this.respawnBoss(boss.id, boss.hp);
-        wsManager.broadcast({
-          type: 'chat',
-          data: { uid: '0', name: '系统', text: `【Boss】${boss.name || '未知Boss'} 已复活！`, time: Date.now() }
-        });
+        sendBossRespawnToSubscribers(boss.map_id || 1, boss.id, boss.name || '未知Boss');
         state = { boss_id: boss.id, current_hp: boss.hp, max_hp: boss.hp, last_death_time: 0 };
       }
 
@@ -183,6 +186,22 @@ export class BossService {
         last_death_time: 0,
       });
     }
+  }
+
+  /** Boss 死亡后 30 秒复活，并推送给已订阅的玩家 */
+  private scheduleBossRespawn(bossId: number, mapId: number, bossName: string, maxHp: number): void {
+    const existing = respawnTimers.get(bossId);
+    if (existing) clearTimeout(existing);
+    const timer = setTimeout(async () => {
+      respawnTimers.delete(bossId);
+      try {
+        await this.respawnBoss(bossId, maxHp);
+        sendBossRespawnToSubscribers(mapId, bossId, bossName || '未知Boss');
+      } catch (e) {
+        logger.error('Boss 复活推送失败', { bossId, error: e instanceof Error ? e.message : String(e) });
+      }
+    }, RESPAWN_SECONDS * 1000);
+    respawnTimers.set(bossId, timer);
   }
 
   private async atomicDamageBoss(bossId: number, damage: number): Promise<{ newHp: number; isKill: boolean } | null> {
@@ -393,6 +412,7 @@ export class BossService {
       }
 
       if (iGotKill) {
+        this.scheduleBossRespawn(bossCopy.id, bossCopy.map_id || 1, bossCopy.name || '未知Boss', bossCopy.hp || 0);
         this.pushEvent(uid, 'battle_win', `战斗胜利！击败了${bossCopy.name}`);
         const boostSvc = new BoostService();
         const bCfg = await boostSvc.getBoostConfig(uid);
@@ -435,8 +455,14 @@ export class BossService {
     const players = await this.playerService.list(uid);
     const vipMult = (players.length && isVipActive(players[0])) ? 2 : 1;
 
-    const finalExp = result.exp * mult.exp * vipMult;
-    const finalGold = result.gold * mult.gold * vipMult;
+    let finalExp = result.exp * mult.exp * vipMult;
+    let finalGold = result.gold * mult.gold * vipMult;
+    const [wealthBonus, expBonus] = await Promise.all([
+      this.wealthTitleService.getGoldBonus(uid),
+      this.levelTitleService.getExpBonus(uid),
+    ]);
+    finalExp = Math.floor(finalExp * expBonus);
+    finalGold = Math.floor(finalGold * wealthBonus);
     const finalRep = result.reputation * mult.reputation * vipMult;
 
     try {

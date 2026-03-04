@@ -18,6 +18,8 @@ import { logger } from '../utils/logger';
 import { Uid } from '../types/index';
 import { AutoBattleConfig, isVipActive, BoostConfig, getDefaultBoostConfig } from '../types/player';
 import { BoostService } from './boost.service';
+import { WealthTitleService } from './wealth-title.service';
+import { LevelTitleService } from './level-title.service';
 
 interface PotionInfo {
   count: number;
@@ -69,6 +71,8 @@ export class OfflineBattleService {
   private bagService = new BagService();
   private equipInstanceService = new EquipInstanceService();
   private levelExpService = new LevelExpService();
+  private wealthTitleService = new WealthTitleService();
+  private levelTitleService = new LevelTitleService();
 
   async simulate(uid: Uid, config: AutoBattleConfig): Promise<{ totalBattles: number; died: boolean }> {
     const now = Math.floor(Date.now() / 1000);
@@ -132,6 +136,11 @@ export class OfflineBattleService {
       }
     }
 
+    const [wealthBonus, expBonus] = await Promise.all([
+      this.wealthTitleService.getGoldBonus(uid),
+      this.levelTitleService.getExpBonus(uid),
+    ]);
+
     let batchCounter = 0;
     while (state.elapsedSeconds < maxSeconds) {
       const result = this.simulateOneBattle(state, monster, skills, config.auto_heal);
@@ -144,7 +153,7 @@ export class OfflineBattleService {
         const simTime = config.last_battle_time + state.elapsedSeconds;
         const vipMult = (state.vipExpireTime > 0 && state.vipExpireTime > simTime) ? 2 : 1;
         this.processDrops(state, monster, itemMap, mult.drop * vipMult);
-        const mExp = (monster.exp || 0) * mult.exp * vipMult;
+        const mExp = (monster.exp || 0) * mult.exp * vipMult * expBonus;
         const mGold = (monster.gold || 0) * mult.gold * vipMult;
         const mRep = (monster.reputation || 0) * mult.reputation * vipMult;
         state.totalExp += mExp;
@@ -166,6 +175,9 @@ export class OfflineBattleService {
         await new Promise(resolve => setImmediate(resolve));
       }
     }
+
+    state.gold = Math.floor(state.gold * wealthBonus);
+    state.totalGold = state.gold;
 
     await this.writeResults(uid, player, state);
 

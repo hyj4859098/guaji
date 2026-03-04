@@ -14,7 +14,7 @@ const Pages = {
   shop: ShopPage,
   auction: AuctionPage,
   boss: BossPage,
-  pvp: PvpPage
+  rank: RankPage
 };
 
 // 统一刷新：所有数据变更通过 RefreshBus.emit，此处集中注册订阅
@@ -93,7 +93,6 @@ function renderTopNav() {
       <button class="nav-btn ${State.currentPage === 'shop' ? 'active' : ''}" onclick="navigateTo('shop')">商店</button>
       <button class="nav-btn ${State.currentPage === 'auction' ? 'active' : ''}" onclick="navigateTo('auction')">拍卖</button>
       <button class="nav-btn ${State.currentPage === 'rank' ? 'active' : ''}" onclick="navigateTo('rank')">排行</button>
-      <button class="nav-btn ${State.currentPage === 'pvp' ? 'active' : ''}" onclick="navigateTo('pvp')">竞技场</button>
       <button class="nav-btn ${State.currentPage === 'boost' ? 'active' : ''}" onclick="navigateTo('boost')">多倍/VIP</button>
     </div>
     <div class="role-info-preview">
@@ -268,6 +267,22 @@ WS.on('trade', (data) => {
   if (Pages.trade && Pages.trade.handleTradeEvent) Pages.trade.handleTradeEvent(data);
 });
 WS.on('chat', (data) => appendChatMessage(data));
+WS.on('title_login', (data) => {
+  const box = document.getElementById('chatMessages');
+  if (!box) return;
+  const titles = Array.isArray(data.titles) ? data.titles : [];
+  const name = String(data.name || '玩家').replace(/</g, '&lt;');
+  const tagHtml = titles.map(t => `【${String(t).replace(/</g, '&lt;')}】`).join('');
+  const text = `${tagHtml} ${name} 已上线！`;
+  const msg = document.createElement('div');
+  msg.className = 'chat-msg chat-msg-system chat-msg-title-login';
+  const time = new Date();
+  const timeStr = `${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+  msg.innerHTML = `<span class="chat-time">${timeStr}</span><span class="chat-sys-tag">系统</span><span class="chat-text">${text}</span>`;
+  box.appendChild(msg);
+  if (box.children.length > 100) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+});
 // 战斗事件唯一入口：支持批量（按回合）和单条事件
 WS.on('battle', (data) => {
   if (!Pages.battle) return;
@@ -292,18 +307,6 @@ WS.on('boss_battle', (data) => {
     }
   }
 });
-WS.on('pvp_battle', (data) => {
-  if (!Pages.pvp) return;
-  if (data.batch && Array.isArray(data.events)) {
-    Pages.pvp.handleBattleEventBatch(data.events);
-  } else {
-    Pages.pvp.handleBattleEvent(data);
-  }
-});
-WS.on('pvp_notify', (data) => {
-  if (data?.message) UI.showToast(data.message);
-});
-
 window.showLogin = function() {
   document.getElementById('authForm').innerHTML = `
     <input type="text" id="username" placeholder="用户名" class="input" style="width: 100%; margin-bottom: 8px;">

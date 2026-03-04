@@ -11,6 +11,9 @@ import { success, fail } from './utils/response';
 import { ErrorCode } from './utils/error';
 import { logger } from './utils/logger';
 import { wsManager } from './event/ws-manager';
+import { wealthTitleService } from './service/wealth-title.service';
+import { levelTitleService } from './service/level-title.service';
+import { PlayerService } from './service/player.service';
 import playerRouter from './api/player';
 import userRouter from './api/user';
 import equipRouter from './api/equip';
@@ -25,7 +28,7 @@ import skillRouter from './api/skill';
 import shopRouter from './api/shop';
 import auctionRouter from './api/auction';
 import bossRouter from './api/boss';
-import pvpRouter from './api/pvp';
+import rankRouter from './api/rank';
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ port: config.ws_port });
@@ -63,6 +66,27 @@ wss.on('connection', (ws: WebSocket, req) => {
         // 添加连接到管理器
         wsManager.addConnection(uid, ws);
         logger.info(`WebSocket connected for user ${uid}`);
+
+        // 称号玩家上线全服通报
+        (async () => {
+          try {
+            const [wealthTitles, levelTitles] = await Promise.all([
+              wealthTitleService.getAllTitles(uid),
+              levelTitleService.getAllTitles(uid),
+            ]);
+            const titles = [...wealthTitles, ...levelTitles];
+            if (titles.length === 0) return;
+            const playerService = new PlayerService();
+            const players = await playerService.list(uid);
+            const name = players[0]?.name || '玩家';
+            wsManager.broadcast({
+              type: 'title_login',
+              data: { titles, name }
+            });
+          } catch (e) {
+            logger.error('称号上线通报失败', { uid, error: e instanceof Error ? e.message : String(e) });
+          }
+        })();
         
       } catch (error) {
         logger.error('WebSocket authentication failed:', error);
@@ -102,7 +126,7 @@ app.use('/api/skill', skillRouter);
 app.use('/api/shop', shopRouter);
 app.use('/api/auction', auctionRouter);
 app.use('/api/boss', bossRouter);
-app.use('/api/pvp', pvpRouter);
+app.use('/api/rank', rankRouter);
 
 // 管理接口路由配置
 const { adminAuth } = require('./middleware/auth');

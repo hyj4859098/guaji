@@ -34,7 +34,7 @@ const BossListPage = {
 
   bosses: [],
   currentMap: null,
-  refreshTimer: null,
+  _bossRespawnHandler: null,
 
   render() {
     const visibleBosses = this.bosses.filter(b => b.can_fight && !b.respawn_remain);
@@ -81,16 +81,33 @@ const BossListPage = {
     if (bossResult.code === 0) this.bosses = bossResult.data || [];
     else this.bosses = [];
 
-    this._clearRefreshTimer();
+    this._unsubscribeBoss();
+    this._subscribeBoss(mapId);
     this.render();
-    this._startRefreshTimer();
   },
 
-  _clearRefreshTimer() {
-    if (this.refreshTimer) {
-      clearInterval(this.refreshTimer);
-      this.refreshTimer = null;
+  async _subscribeBoss(mapId) {
+    await WS.ensureConnected(2000);
+    if (!WS.isConnected()) return;
+    WS.send({ type: 'subscribe_boss', data: { map_id: mapId } });
+    this._bossRespawnHandler = (data) => {
+      if (State.currentPage !== 'boss-list') return;
+      const mapIdCur = State.getCurrentMapId();
+      if (data.map_id === mapIdCur) this._refreshBossList();
+    };
+    WS.on('boss_respawn', this._bossRespawnHandler);
+  },
+
+  _unsubscribeBoss() {
+    if (this._bossRespawnHandler) {
+      const fns = WS.handlers['boss_respawn'];
+      if (fns) {
+        const idx = fns.indexOf(this._bossRespawnHandler);
+        if (idx >= 0) fns.splice(idx, 1);
+      }
+      this._bossRespawnHandler = null;
     }
+    if (WS.isConnected()) WS.send({ type: 'unsubscribe_boss' });
   },
 
   async _refreshBossList() {
@@ -101,13 +118,8 @@ const BossListPage = {
     this.render();
   },
 
-  _startRefreshTimer() {
-    this._clearRefreshTimer();
-    this.refreshTimer = setInterval(() => this._refreshBossList(), 1000);
-  },
-
   onLeave() {
-    this._clearRefreshTimer();
+    this._unsubscribeBoss();
   },
 
   startBattle(bossId) {

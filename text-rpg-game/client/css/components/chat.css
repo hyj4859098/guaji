@@ -92,6 +92,12 @@
   color: #90cdf4;
 }
 
+/* 称号玩家上线通报 */
+.chat-msg-title-login .chat-text {
+  color: #ecc94b;
+  font-weight: 500;
+}
+
 .chat-input {
   display: flex;
   gap: 10px;

@@ -14,6 +14,8 @@ import { OfflineBattleService } from './offline-battle.service';
 import { Uid } from '../types/index';
 import { AutoBattleConfig, isVipActive } from '../types/player';
 import { BoostService } from './boost.service';
+import { WealthTitleService } from './wealth-title.service';
+import { LevelTitleService } from './level-title.service';
 import { BattleResultEnum } from '../types/enum';
 import { wsManager } from '../event/ws-manager';
 import { logger } from '../utils/logger';
@@ -46,6 +48,8 @@ export class BattleService {
   private equipInstanceService = new EquipInstanceService();
   private bagService = new BagService();
   private offlineBattleService = new OfflineBattleService();
+  private wealthTitleService = new WealthTitleService();
+  private levelTitleService = new LevelTitleService();
   private _eventSeq = 0;
 
   // ==================== 单场战斗（不变） ====================
@@ -409,8 +413,14 @@ export class BattleService {
     const players = await this.playerService.list(uid);
     const vipMult = (players.length && isVipActive(players[0])) ? 2 : 1;
 
-    const finalExp = result.exp * mult.exp * vipMult;
-    const finalGold = result.gold * mult.gold * vipMult;
+    let finalExp = result.exp * mult.exp * vipMult;
+    let finalGold = result.gold * mult.gold * vipMult;
+    const [wealthBonus, expBonus] = await Promise.all([
+      this.wealthTitleService.getGoldBonus(uid),
+      this.levelTitleService.getExpBonus(uid),
+    ]);
+    finalExp = Math.floor(finalExp * expBonus);
+    finalGold = Math.floor(finalGold * wealthBonus);
     const finalReputation = result.reputation * mult.reputation * vipMult;
 
     try {
