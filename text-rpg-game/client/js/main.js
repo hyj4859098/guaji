@@ -6,7 +6,6 @@ const Pages = {
   'enemy-list': EnemyListPage,
   'boss-list': BossListPage,
   battle: BattlePage,
-  mail: MailPage,
   skill: SkillPage,
   enhance: EnhancePage,
   boost: BoostPage,
@@ -86,7 +85,6 @@ function renderTopNav() {
     <div class="nav-buttons">
       <button class="nav-btn ${State.currentPage === 'role' ? 'active' : ''}" onclick="navigateTo('role')">角色</button>
       <button class="nav-btn ${State.currentPage === 'map' ? 'active' : ''}" onclick="navigateTo('map')">地图</button>
-      <button class="nav-btn ${State.currentPage === 'mail' ? 'active' : ''}" onclick="navigateTo('mail')">邮件</button>
       <button class="nav-btn ${State.currentPage === 'skill' ? 'active' : ''}" onclick="navigateTo('skill')">技能</button>
       <button class="nav-btn ${State.currentPage === 'enhance' ? 'active' : ''}" onclick="navigateTo('enhance')">强化</button>
       <button class="nav-btn ${State.currentPage === 'trade' ? 'active' : ''}" onclick="navigateTo('trade')">交易</button>
