@@ -35,8 +35,8 @@ const State = {
 
   getBag() {
     const b = this.bag;
-    if (!b) return [];
-    return Array.isArray(b) ? b : (b.items ?? []);
+    if (!b || typeof b !== 'object') return [];
+    return b.items ?? [];
   },
 
   setCurrentPage(page) {

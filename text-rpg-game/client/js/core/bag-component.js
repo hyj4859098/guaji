@@ -30,15 +30,15 @@ const BagComponent = {
     const result = await BagService.fetchList();
     UI.hideLoading();
     
-    if (result.code === 0) {
-      this.allItems = result.data;
+    if (result.code === 0 && result.data) {
+      this.allItems = result.data.items;
       // 更新所有背包栏
       Object.keys(this.bags).forEach(bagId => {
         this.updateBagItems(bagId);
       });
-      // 更新全局状态
+      // 更新全局状态（统一格式）
       if (State.setBag) {
-        State.setBag(this.allItems);
+        State.setBag(result.data);
       }
     } else {
       UI.showToast('加载背包失败');

@@ -79,6 +79,20 @@ router.post('/update', auth, async (req: AuthRequest, res: Response, next: NextF
   }
 });
 
+router.post('/clear-equipment', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    logger.info(`一键清包 - uid: ${req.uid}`);
+    const deleted = await bagService.clearAllEquipment(req.uid!);
+    const payload = await bagService.getListPayload(req.uid!);
+    wsManager.sendToUser(req.uid!, { type: 'bag', data: payload });
+    logger.info(`一键清包完成 - uid: ${req.uid}, 删除装备数: ${deleted}`);
+    success(res, { deleted }, `已清除 ${deleted} 件装备`);
+  } catch (error) {
+    logger.error(`一键清包失败 - uid: ${req.uid}, 错误: ${error}`);
+    next(error);
+  }
+});
+
 router.post('/delete', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.body;

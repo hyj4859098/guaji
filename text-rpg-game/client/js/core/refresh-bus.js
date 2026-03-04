@@ -40,7 +40,9 @@ const RefreshBus = {
       State.setPlayer(data);
     }
     if (type === 'bag' && data && typeof State !== 'undefined' && State.setBag) {
-      State.setBag(data);
+      const payload = typeof BagService !== 'undefined' && BagService.parseBagPayload
+        ? BagService.parseBagPayload(data) : data;
+      State.setBag(payload);
     }
 
     const handlers = this._handlers[type];

@@ -86,7 +86,7 @@ const Tooltip = {
         const parts = [];
         if (hpVal > 0) parts.push(`+${hpVal} HP`);
         if (mpVal > 0) parts.push(`+${mpVal} MP`);
-        content += `<div class="tooltip-effect"><span class="tooltip-attr-name">效果:</span><span class="tooltip-attr-value">${parts.join(' ')}</span></div>`;
+        content += `<div class="tooltip-effect"><span class="tooltip-attr-value">${parts.join(' ')}</span></div>`;
         hasAttributes = true;
       } else if (item.effect) {
         try {
@@ -101,7 +101,7 @@ const Tooltip = {
           if (effect.exp) effects.push(`经验值+${effect.exp}`);
           if (effect.gold) effects.push(`金币+${effect.gold}`);
           if (effects.length > 0) {
-            content += `<div class="tooltip-effect"><span class="tooltip-attr-name">效果:</span><span class="tooltip-attr-value">${effects.join(', ')}</span></div>`;
+            content += `<div class="tooltip-effect"><span class="tooltip-attr-value">${effects.join(', ')}</span></div>`;
             hasAttributes = true;
           }
         } catch (e) {
@@ -121,7 +121,15 @@ const Tooltip = {
     }
 
     if (!hasAttributes) {
-      content += `<div class="tooltip-attr"><span class="tooltip-attr-name">属性:</span><span class="tooltip-attr-value">无</span></div>`;
+      const isMaterialOrTool = (item.type === 3 || item.type === 4 || item.type === 5 || item.type === 6);
+      if (isMaterialOrTool && item.description) {
+        const desc = String(item.description).replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        content += `<div class="tooltip-effect"><span class="tooltip-attr-value">${desc}</span></div>`;
+      } else if (isMaterialOrTool) {
+        content += `<div class="tooltip-effect"><span class="tooltip-attr-value">无</span></div>`;
+      } else {
+        content += `<div class="tooltip-attr"><span class="tooltip-attr-name">属性:</span><span class="tooltip-attr-value">无</span></div>`;
+      }
     }
 
     if (item.count && item.count > 1) {

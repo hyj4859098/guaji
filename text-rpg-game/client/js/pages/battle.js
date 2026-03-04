@@ -263,8 +263,9 @@ const BattlePage = {
     this.syncPlayerHpMp(data.hp, data.max_hp || data.hp, data.mp, data.max_mp || data.mp);
   },
 
-  updateBagPotions(bagData) {
-    this.bagItems = (bagData || []).filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0);
+  updateBagPotions(bagPayload) {
+    const payload = BagService.parseBagPayload(bagPayload);
+    this.bagItems = payload.items.filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0);
     const saved = this.loadAutoHealSettings();
     const hpSelect = document.getElementById('hpPotion');
     const mpSelect = document.getElementById('mpPotion');
@@ -535,9 +536,8 @@ const BattlePage = {
       if (!ok) console.warn('[battle] WebSocket 未能在 3 秒内连接，奖励可能无法实时显示');
     }
     const bagResult = await BagService.fetchList();
-    this.bagItems = (bagResult.code === 0 && bagResult.data)
-      ? bagResult.data.filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0)
-      : [];
+    const bagPayload = (bagResult.code === 0 && bagResult.data) ? bagResult.data : { items: [] };
+    this.bagItems = bagPayload.items.filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0);
     const playerResult = await API.get('/player/list');
     if (playerResult.code === 0 && playerResult.data?.length) this.player = playerResult.data[0];
     const equippedResult = await API.get('/skill/equipped');

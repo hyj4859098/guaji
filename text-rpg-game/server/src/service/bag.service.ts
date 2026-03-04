@@ -42,7 +42,8 @@ export class BagService implements IBaseService<Bag> {
             name: itemInfo.name,
             type: itemInfo.type,
             hp_restore: itemInfo.hp_restore,
-            mp_restore: itemInfo.mp_restore
+            mp_restore: itemInfo.mp_restore,
+            description: itemInfo.description
           };
           
           if (bag.equipment_uid) {
@@ -179,6 +180,23 @@ export class BagService implements IBaseService<Bag> {
       }
     }
     return await this.model.delete(id);
+  }
+
+  /** 一键清除背包内所有装备（高危操作，需前端确认） */
+  async clearAllEquipment(uid: Uid): Promise<number> {
+    const bags = await this.model.listByUid(uid);
+    const equipBags = bags.filter((b: Bag) => b.equipment_uid != null && String(b.equipment_uid).trim() !== '');
+    let deleted = 0;
+    for (const bag of equipBags) {
+      const instanceId = parseInt(String(bag.equipment_uid), 10);
+      if (!isNaN(instanceId)) {
+        await this.equipInstanceService.deleteInstance(instanceId);
+      }
+      await this.model.delete(bag.id);
+      deleted++;
+    }
+    logger.info('一键清包', { uid, deleted });
+    return deleted;
   }
 
   async useItem(uid: Uid, itemId: Id, useCount: number = 1): Promise<boolean> {

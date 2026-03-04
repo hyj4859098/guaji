@@ -23,18 +23,14 @@ const EnhancePage = {
     return (this.equipItems || []).slice(start, start + this.pageSize);
   },
 
-  async load(bagData) {
-    if (!bagData) {
+  async load(bagPayload) {
+    if (!bagPayload) {
       const bagResult = await BagService.fetchList();
-      bagData = (bagResult.code === 0) ? bagResult.data : null;
+      bagPayload = (bagResult.code === 0 && bagResult.data) ? bagResult.data : null;
     }
-    if (bagData) {
-      this.equipItems = (bagData || []).filter(i => i.type === 2 && (i.equipment_uid || i.equip_attributes));
-      this.materials = (bagData || []).filter(i => [6, 7, 8, 10].includes(Number(i.item_id)));
-    } else {
-      this.equipItems = [];
-      this.materials = [];
-    }
+    const payload = BagService.parseBagPayload(bagPayload);
+    this.equipItems = payload.items.filter(i => i.type === 2 && (i.equipment_uid || i.equip_attributes));
+    this.materials = payload.items.filter(i => [6, 7, 8, 10].includes(Number(i.item_id)));
     if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
     this._enhancing = false;
     this._blessing = false;

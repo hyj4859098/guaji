@@ -187,7 +187,9 @@ const TradePage = {
     this.view = 'lobby';
     this.resetTradeState();
     const bagResult = await BagService.fetchList();
-    if (bagResult.code === 0) this.bagItems = bagResult.data || [];
+    if (bagResult.code === 0 && bagResult.data) {
+      this.bagItems = bagResult.data.items;
+    }
     this.render();
     WS.send({ type: 'trade', data: { action: 'join' } });
   },
@@ -257,7 +259,9 @@ const TradePage = {
 
   async loadBag() {
     const result = await BagService.fetchList();
-    if (result.code === 0) this.bagItems = result.data || [];
+    if (result.code === 0 && result.data) {
+      this.bagItems = result.data.items;
+    }
   },
 
   render() {

@@ -57,10 +57,12 @@ const BagPage = {
         .bag-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
         .bag-header-left { display: flex; align-items: center; gap: 12px; }
         .bag-capacity { font-size: 12px; color: #a0aec0; }
+        .bag-page-title { margin: 0 10px 0 0; font-size: 18px; color: #3b82f6; }
       </style>
-      <h2>背包</h2>
       <div class="bag-header">
         <div class="bag-header-left">
+          <h2 class="bag-page-title">背包</h2>
+          <button class="bag-item-btn drop" onclick="BagPage.clearAllEquipment()">一键清包</button>
           <div class="bag-title">物品</div>
           <div class="bag-tabs">
           ${this.itemTypes.map(type => `
@@ -146,11 +148,11 @@ const BagPage = {
 
   async load() {
     const result = await BagService.fetchList();
-    if (result.code === 0) {
-      const data = result.data;
-      this.items = data?.items ?? data ?? [];
-      this.equipment_count = data?.equipment_count ?? 0;
-      this.equipment_capacity = data?.equipment_capacity ?? 100;
+    if (result.code === 0 && result.data) {
+      const { items, equipment_count, equipment_capacity } = result.data;
+      this.items = items;
+      this.equipment_count = equipment_count;
+      this.equipment_capacity = equipment_capacity;
       this.filterItems();
       this.render();
     } else {
@@ -241,6 +243,23 @@ const BagPage = {
       UI.showToast('丢弃成功');
     } else {
       UI.showToast(result.msg || '丢弃失败');
+    }
+  },
+
+  async clearAllEquipment() {
+    const equipCount = this.items.filter(it => Helper.getItemType(it) === 'equipment').length;
+    if (equipCount <= 0) {
+      UI.showToast('背包内没有装备');
+      return;
+    }
+    const msg = `【高危操作】确定要一键清除背包内全部 ${equipCount} 件装备吗？\n\n此操作不可撤销，装备将永久删除。`;
+    if (!confirm(msg)) return;
+    const result = await BagService.clearAllEquipment();
+    if (result.code === 0) {
+      UI.showToast(result.msg || '清包成功');
+      this.load();
+    } else {
+      UI.showToast(result.msg || '清包失败');
     }
   }
 };

@@ -43,24 +43,24 @@ function setupRefreshBus() {
   });
   let _enhanceTimer = null;
   RefreshBus.on('bag', (data) => {
-    const items = Array.isArray(data) ? data : (data?.items ?? []);
+    const payload = BagService.parseBagPayload(data);
     if (Pages.bag) {
-      Pages.bag.items = items;
-      Pages.bag.equipment_count = data?.equipment_count ?? 0;
-      Pages.bag.equipment_capacity = data?.equipment_capacity ?? 100;
+      Pages.bag.items = payload.items;
+      Pages.bag.equipment_count = payload.equipment_count;
+      Pages.bag.equipment_capacity = payload.equipment_capacity;
       Pages.bag.filterItems();
       Pages.bag.render();
     }
     if (typeof BagComponent !== 'undefined' && BagComponent.bags && Object.keys(BagComponent.bags).length) {
-      BagComponent.allItems = items;
+      BagComponent.allItems = payload.items;
       Object.keys(BagComponent.bags).forEach(bagId => BagComponent.updateBagItems(bagId));
     }
     if (State.currentPage === 'battle' && Pages.battle && Pages.battle.updateBagPotions) {
-      Pages.battle.updateBagPotions(items);
+      Pages.battle.updateBagPotions(payload);
     }
     if (State.currentPage === 'enhance' && Pages.enhance && Pages.enhance.load) {
       clearTimeout(_enhanceTimer);
-      _enhanceTimer = setTimeout(() => Pages.enhance.load(items), 200);
+      _enhanceTimer = setTimeout(() => Pages.enhance.load(payload), 200);
     }
   });
   RefreshBus.on('equip', (data) => {
