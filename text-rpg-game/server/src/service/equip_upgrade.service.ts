@@ -201,12 +201,12 @@ export class EquipUpgradeService {
       const bagService = new BagService();
       const playerService = new PlayerService();
       const equipService = new EquipService();
-      const [bags, players, equips] = await Promise.all([
-        bagService.list(uid),
+      const [bagPayload, players, equips] = await Promise.all([
+        bagService.getListPayload(uid),
         playerService.list(uid),
         equipService.list(uid),
       ]);
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
+      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
       if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
       wsManager.sendToUser(uid, { type: 'equip', data: equips });
     } catch (e) {

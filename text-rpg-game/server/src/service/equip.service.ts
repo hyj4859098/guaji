@@ -7,7 +7,7 @@ import { Id, Uid } from '../types/index';
 import { dataStorageService } from './data-storage.service';
 import { EquipEffectUtil } from '../utils/equip-effect';
 import { logger } from '../utils/logger';
-import { createError, ErrorCode } from '../utils/error';
+import { createError, ErrorCode, AppError } from '../utils/error';
 import { wsManager } from '../event/ws-manager';
 
 export class EquipService {
@@ -151,10 +151,14 @@ export class EquipService {
       const attrs = await this.equipInstanceService.buildEquipAttrs(instance);
       const equipData = { equip_attributes: attrs, item_id: instance.item_id };
 
-      await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: String(instanceId) });
-
       const BagService = require('./bag.service').BagService;
       const bagService = new BagService();
+      const canAdd = await bagService.canAddEquipment(uid);
+      if (!canAdd) {
+        throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法卸下');
+      }
+
+      await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: String(instanceId) });
       await bagService.add({ uid, item_id: instance.item_id, count: 1, equipment_uid: String(instanceId) });
 
       await EquipEffectUtil.removeEquipEffect(uid, equipData);
@@ -163,6 +167,7 @@ export class EquipService {
       return true;
     } catch (error) {
       logger.error('卸下装备失败:', error);
+      if (error instanceof AppError) throw error;
       return false;
     }
   }
@@ -173,14 +178,14 @@ export class EquipService {
       const BagService = require('./bag.service').BagService;
       const playerService = new PlayerService();
       const bagService = new BagService();
-      const [players, equips, bags] = await Promise.all([
+      const [players, equips, bagPayload] = await Promise.all([
         playerService.list(uid),
         this.list(uid),
-        bagService.list(uid)
+        bagService.getListPayload(uid)
       ]);
       if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
       wsManager.sendToUser(uid, { type: 'equip', data: equips });
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
+      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
     } catch (e) {
       logger.warn('装备变更推送失败', { uid });
     }

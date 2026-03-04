@@ -91,6 +91,8 @@ export interface Player extends IUserBase {
   vip_expire_time?: number;
   auto_battle_config?: AutoBattleConfig | null;
   boost_config?: BoostConfig | null;
+  /** 背包装备容量上限，默认 100，最高 500 */
+  equipment_capacity?: number;
 }
 
 export function isVipActive(player: Player): boolean {

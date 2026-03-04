@@ -478,12 +478,12 @@ export class BossService {
     });
 
     try {
-      const [pList, bags] = await Promise.all([
+      const [pList, bagPayload] = await Promise.all([
         this.playerService.list(uid),
-        this.bagService.list(uid),
+        this.bagService.getListPayload(uid),
       ]);
       if (pList.length) wsManager.sendToUser(uid, { type: 'player', data: pList[0] });
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
+      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
     } catch { logger.warn('Boss 推送 player/bag 失败', { uid }); }
   }
 
@@ -517,10 +517,16 @@ export class BossService {
       const itemType = itemInfo?.type ?? 2;
       if (itemType === 2) {
         for (let i = 0; i < qty; i++) {
+          const canAdd = await this.bagService.canAddEquipment(uid);
+          if (!canAdd) continue;
           const equipId = await this.equipInstanceService.createFromDrop(uid, itemId);
           if (equipId) {
-            await this.bagService.addEquipInstanceToBag(uid, itemId, String(equipId));
-            result.push({ item_id: itemId, name: itemInfo?.name || `物品${itemId}`, count: 1, equipment_uid: String(equipId) });
+            try {
+              await this.bagService.addEquipInstanceToBag(uid, itemId, String(equipId));
+              result.push({ item_id: itemId, name: itemInfo?.name || `物品${itemId}`, count: 1, equipment_uid: String(equipId) });
+            } catch {
+              await this.equipInstanceService.deleteInstance(equipId);
+            }
           }
         }
       } else {

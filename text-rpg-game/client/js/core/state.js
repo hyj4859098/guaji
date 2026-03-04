@@ -34,7 +34,9 @@ const State = {
   },
 
   getBag() {
-    return this.bag || [];
+    const b = this.bag;
+    if (!b) return [];
+    return Array.isArray(b) ? b : (b.items ?? []);
   },
 
   setCurrentPage(page) {

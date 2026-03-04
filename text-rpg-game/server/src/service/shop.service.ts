@@ -116,8 +116,8 @@ export class ShopService {
     if (updatedPlayers.length) {
       wsManager.sendToUser(uid, { type: 'player', data: updatedPlayers[0] });
     }
-    const bags = await this.bagService.list(uid);
-    wsManager.sendToUser(uid, { type: 'bag', data: bags });
+    const bagPayload = await this.bagService.getListPayload(uid);
+    wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
 
     logger.info('商店购买成功', { uid, shopItemId, itemId: shopItem.item_id, count, totalCost, shopType: shopItem.shop_type });
   }

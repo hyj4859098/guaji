@@ -26,13 +26,13 @@ export class BoostService {
     return players[0].boost_config || getDefaultBoostConfig();
   }
 
-  async useBoostCard(uid: Uid, itemId: number): Promise<boolean> {
+  async useBoostCard(uid: Uid, itemId: number, count: number = 1): Promise<boolean> {
     const itemInfo = await dataStorageService.getByCondition('item', { id: itemId });
     if (!itemInfo || itemInfo.type !== 5) return false;
 
     const category = itemInfo.boost_category as BoostCategoryKey;
     const mult = itemInfo.boost_multiplier as number;
-    const charges = itemInfo.boost_charges as number || 100;
+    const chargesPerCard = itemInfo.boost_charges as number || 100;
 
     if (!VALID_CATEGORIES.includes(category)) return false;
     const key = `x${mult}` as BoostMultiplierKey;
@@ -42,10 +42,11 @@ export class BoostService {
     if (!players.length) return false;
 
     const config = players[0].boost_config || getDefaultBoostConfig();
-    config[category][key].charges += charges;
+    const addedCharges = chargesPerCard * count;
+    config[category][key].charges += addedCharges;
 
     await this.playerService.update(players[0].id, { boost_config: config } as any);
-    logger.info('多倍卡使用成功', { uid, category, multiplier: mult, addedCharges: charges });
+    logger.info('多倍卡使用成功', { uid, category, multiplier: mult, count, addedCharges });
     return true;
   }
 

@@ -2,13 +2,18 @@ import { BagModel } from '../model/bag.model';
 import { EquipInstanceService } from './equip_instance.service';
 import { Bag } from '../types/bag';
 import { IBaseService, Id, Uid } from '../types/index';
-import { query, getCollection } from '../config/db';
 import { dataStorageService } from './data-storage.service';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { EquipEffectUtil } from '../utils/equip-effect';
-import { transaction, TransactionContext } from '../utils/transaction';
 import { wsManager } from '../event/ws-manager';
+import { cacheService } from './cache.service';
+
+const DEFAULT_EQUIPMENT_CAPACITY = 100;
+const MAX_EQUIPMENT_CAPACITY = 500;
+/** 扩容袋固定 item_id，使用后 +50 容量 */
+const EXPANSION_BAG_ITEM_ID = 11;
+const EXPANSION_BAG_CAPACITY = 50;
 
 export class BagService implements IBaseService<Bag> {
   private model: BagModel;
@@ -113,6 +118,41 @@ export class BagService implements IBaseService<Bag> {
     return result;
   }
 
+  /** 统计背包中装备数量（equipment_uid 不为空的记录数） */
+  async getEquipmentCount(uid: Uid): Promise<number> {
+    const bags = await this.model.listByUid(uid);
+    return bags.filter((b: Bag) => b.equipment_uid != null && String(b.equipment_uid).trim() !== '').length;
+  }
+
+  /** 获取背包装备容量上限，无则返回 100 */
+  async getEquipmentCapacity(uid: Uid): Promise<number> {
+    const PlayerService = require('./player.service').PlayerService;
+    const playerService = new PlayerService();
+    const players = await playerService.list(uid);
+    const cap = players[0]?.equipment_capacity;
+    if (cap == null) return DEFAULT_EQUIPMENT_CAPACITY;
+    return Math.min(Math.max(Number(cap) || DEFAULT_EQUIPMENT_CAPACITY, 0), MAX_EQUIPMENT_CAPACITY);
+  }
+
+  /** 是否还能添加装备 */
+  async canAddEquipment(uid: Uid): Promise<boolean> {
+    const [count, capacity] = await Promise.all([
+      this.getEquipmentCount(uid),
+      this.getEquipmentCapacity(uid)
+    ]);
+    return count < capacity;
+  }
+
+  /** 获取背包列表及容量信息（供 API / WS 使用） */
+  async getListPayload(uid: Uid): Promise<{ items: any[]; equipment_count: number; equipment_capacity: number }> {
+    const [items, equipment_count, equipment_capacity] = await Promise.all([
+      this.list(uid),
+      this.getEquipmentCount(uid),
+      this.getEquipmentCapacity(uid)
+    ]);
+    return { items, equipment_count, equipment_capacity };
+  }
+
   async add(data: Omit<Bag, 'id' | 'create_time' | 'update_time'>): Promise<Id> {
     // 构建新物品数据
     const newItem = {
@@ -169,8 +209,45 @@ export class BagService implements IBaseService<Bag> {
     const itemType = Number(itemInfo.type);
     logger.info('物品类型', { itemId: item.item_id, type: itemType });
 
+    // 扩容袋：固定 item_id 11，使用后 +50 容量，上限 500
+    if (item.item_id === EXPANSION_BAG_ITEM_ID) {
+      const PlayerService = require('./player.service').PlayerService;
+      const playerService = new PlayerService();
+      const players = await playerService.list(uid);
+      if (!players.length) throw createError(ErrorCode.SYSTEM_ERROR, '扩容袋使用失败');
+      const player = players[0];
+      const currentCap = player.equipment_capacity ?? DEFAULT_EQUIPMENT_CAPACITY;
+      const roomToMax = MAX_EQUIPMENT_CAPACITY - currentCap;
+      const maxUsable = Math.floor(roomToMax / EXPANSION_BAG_CAPACITY);
+      if (maxUsable <= 0) {
+        throw createError(ErrorCode.INVALID_PARAMS, '背包装备容量已达上限');
+      }
+      if (actualCount > maxUsable) {
+        throw createError(ErrorCode.INVALID_PARAMS, `最多只能使用 ${maxUsable} 个扩容袋，当前容量距上限仅可增加 ${roomToMax} 点`);
+      }
+      const addCap = actualCount * EXPANSION_BAG_CAPACITY;
+      const newCap = currentCap + addCap;
+      await playerService.update(player.id, { equipment_capacity: newCap } as any);
+      cacheService.player.invalidateByUid(uid);
+      if (item.count <= actualCount) {
+        await this.model.delete(item.original_id || item.id);
+      } else {
+        await this.model.update(item.original_id || item.id, {
+          count: item.count - actualCount,
+          update_time: Math.floor(Date.now() / 1000),
+        });
+      }
+      const updatedPlayers = await playerService.list(uid);
+      if (updatedPlayers.length) wsManager.sendToUser(uid, { type: 'player', data: updatedPlayers[0] });
+      const payload = await this.getListPayload(uid);
+      wsManager.sendToUser(uid, { type: 'bag', data: payload });
+      logger.info('扩容袋使用成功', { uid, currentCap, newCap, usedCount: actualCount });
+      return true;
+    }
+
     if (itemType === 6) {
-      const vipDays = Number(itemInfo.vip_days) || 30;
+      const vipDaysPerCard = Number(itemInfo.vip_days) || 30;
+      const totalDays = vipDaysPerCard * actualCount;
       const PlayerService = require('./player.service').PlayerService;
       const playerService = new PlayerService();
       const players = await playerService.list(uid);
@@ -179,40 +256,40 @@ export class BagService implements IBaseService<Bag> {
       const now = Math.floor(Date.now() / 1000);
       const currentExpire = (player.vip_expire_time && player.vip_expire_time > now)
         ? player.vip_expire_time : now;
-      const newExpire = currentExpire + vipDays * 86400;
+      const newExpire = currentExpire + totalDays * 86400;
       await playerService.update(player.id, { vip_level: 1, vip_expire_time: newExpire } as any);
-      if (item.count === 1) {
+      if (item.count <= actualCount) {
         await this.model.delete(item.original_id || item.id);
       } else {
         await this.model.update(item.original_id || item.id, {
-          count: item.count - 1, update_time: now,
+          count: item.count - actualCount, update_time: now,
         });
       }
       const updatedPlayers = await playerService.list(uid);
       if (updatedPlayers.length) wsManager.sendToUser(uid, { type: 'player', data: updatedPlayers[0] });
-      const bags = await this.list(uid);
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
-      logger.info('VIP卡使用成功', { uid, vipDays, newExpire });
+      const payload = await this.getListPayload(uid);
+      wsManager.sendToUser(uid, { type: 'bag', data: payload });
+      logger.info('VIP卡使用成功', { uid, totalDays, usedCount: actualCount, newExpire });
       return true;
     }
 
     if (itemType === 5) {
       const BoostService = require('./boost.service').BoostService;
       const boostService = new BoostService();
-      const ok = await boostService.useBoostCard(uid, item.item_id);
+      const ok = await boostService.useBoostCard(uid, item.item_id, actualCount);
       if (!ok) {
         throw createError(ErrorCode.SYSTEM_ERROR, '多倍卡使用失败');
       }
-      if (item.count === 1) {
+      if (item.count <= actualCount) {
         await this.model.delete(item.original_id || item.id);
       } else {
         await this.model.update(item.original_id || item.id, {
-          count: item.count - 1,
+          count: item.count - actualCount,
           update_time: Math.floor(Date.now() / 1000),
         });
       }
-      const bags = await this.list(uid);
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
+      const payload = await this.getListPayload(uid);
+      wsManager.sendToUser(uid, { type: 'bag', data: payload });
       return true;
     }
 
@@ -252,8 +329,8 @@ export class BagService implements IBaseService<Bag> {
           update_time: Math.floor(Date.now() / 1000)
         });
       }
-      const bags = await this.list(uid);
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
+      const payload = await this.getListPayload(uid);
+      wsManager.sendToUser(uid, { type: 'bag', data: payload });
       return true;
     }
 
@@ -287,6 +364,10 @@ export class BagService implements IBaseService<Bag> {
    * 将装备实例加入背包（equipment_uid = String(equip_instance_id)）
    */
   async addEquipInstanceToBag(uid: Uid, item_id: number, equipment_uid: string): Promise<void> {
+    const canAdd = await this.canAddEquipment(uid);
+    if (!canAdd) {
+      throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法获得更多装备');
+    }
     await this.model.addItem(uid, item_id, 1, equipment_uid);
   }
 
@@ -301,6 +382,10 @@ export class BagService implements IBaseService<Bag> {
 
     if (itemType === 2) {
       for (let i = 0; i < count; i++) {
+        const canAdd = await this.canAddEquipment(uid);
+        if (!canAdd) {
+          throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法获得更多装备');
+        }
         const instanceId = await this.equipInstanceService.createFromBase(uid, itemId);
         if (!instanceId) {
           throw createError(ErrorCode.ITEM_NOT_FOUND, '装备基础属性不存在');

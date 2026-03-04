@@ -43,21 +43,24 @@ function setupRefreshBus() {
   });
   let _enhanceTimer = null;
   RefreshBus.on('bag', (data) => {
+    const items = Array.isArray(data) ? data : (data?.items ?? []);
     if (Pages.bag) {
-      Pages.bag.items = data;
+      Pages.bag.items = items;
+      Pages.bag.equipment_count = data?.equipment_count ?? 0;
+      Pages.bag.equipment_capacity = data?.equipment_capacity ?? 100;
       Pages.bag.filterItems();
       Pages.bag.render();
     }
     if (typeof BagComponent !== 'undefined' && BagComponent.bags && Object.keys(BagComponent.bags).length) {
-      BagComponent.allItems = data;
+      BagComponent.allItems = items;
       Object.keys(BagComponent.bags).forEach(bagId => BagComponent.updateBagItems(bagId));
     }
     if (State.currentPage === 'battle' && Pages.battle && Pages.battle.updateBagPotions) {
-      Pages.battle.updateBagPotions(data);
+      Pages.battle.updateBagPotions(items);
     }
     if (State.currentPage === 'enhance' && Pages.enhance && Pages.enhance.load) {
       clearTimeout(_enhanceTimer);
-      _enhanceTimer = setTimeout(() => Pages.enhance.load(data), 200);
+      _enhanceTimer = setTimeout(() => Pages.enhance.load(items), 200);
     }
   });
   RefreshBus.on('equip', (data) => {

@@ -338,6 +338,10 @@ class TradeService {
       const isEquip = itemInfo?.type === 2;
 
       if (isEquip && ti.equipment_uid) {
+        const canAdd = await this.bagService.canAddEquipment(toUid);
+        if (!canAdd) {
+          throw new Error('对方背包装备已满，无法完成交易');
+        }
         const instanceId = parseInt(ti.equipment_uid, 10);
         if (!isNaN(instanceId)) {
           await this.equipInstanceService.tradeToUser(fromUid, toUid, instanceId);
@@ -360,12 +364,12 @@ class TradeService {
 
   private async pushPlayerAndBag(uid: Uid): Promise<void> {
     try {
-      const [players, bags] = await Promise.all([
+      const [players, bagPayload] = await Promise.all([
         this.playerService.list(uid),
-        this.bagService.list(uid),
+        this.bagService.getListPayload(uid),
       ]);
       if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
-      wsManager.sendToUser(uid, { type: 'bag', data: bags });
+      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
     } catch { /* ignore */ }
   }
 

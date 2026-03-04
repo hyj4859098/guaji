@@ -213,8 +213,8 @@ export class AuctionService {
 
     const auctionId = await dataStorageService.insert('auction', auctionData);
 
-    const bagsUpdated = await this.bagService.list(uid);
-    wsManager.sendToUser(uid, { type: 'bag', data: bagsUpdated });
+    const payload = await this.bagService.getListPayload(uid);
+    wsManager.sendToUser(uid, { type: 'bag', data: payload });
 
     logger.info('拍卖上架成功', { uid, auctionId, item_id: bagItem.item_id, count, price });
     return auctionId;
@@ -301,6 +301,13 @@ export class AuctionService {
 
     const totalCost = auction.price * buyCount;
 
+    if (auction.equipment_uid) {
+      const canAdd = await this.bagService.canAddEquipment(uid);
+      if (!canAdd) {
+        throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法购买');
+      }
+    }
+
     const players = await this.playerService.list(uid);
     if (players.length === 0) {
       throw createError(ErrorCode.USER_NOT_FOUND, '玩家不存在');
@@ -334,8 +341,8 @@ export class AuctionService {
     if (buyerPlayers.length) {
       wsManager.sendToUser(uid, { type: 'player', data: buyerPlayers[0] });
     }
-    const buyerBags = await this.bagService.list(uid);
-    wsManager.sendToUser(uid, { type: 'bag', data: buyerBags });
+    const buyerPayload = await this.bagService.getListPayload(uid);
+    wsManager.sendToUser(uid, { type: 'bag', data: buyerPayload });
 
     const sellerPlayers = await this.playerService.list(auction.seller_uid);
     if (sellerPlayers.length) {
@@ -366,6 +373,10 @@ export class AuctionService {
     }
 
     if (auction.equipment_uid) {
+      const canAdd = await this.bagService.canAddEquipment(uid);
+      if (!canAdd) {
+        throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法下架');
+      }
       await this.bagService.addEquipInstanceToBag(uid, auction.item_id, String(auction.equipment_uid));
     } else {
       await this.bagService.addItem(uid, auction.item_id, auction.count);
@@ -373,8 +384,8 @@ export class AuctionService {
 
     await dataStorageService.delete('auction', auctionId);
 
-    const bags = await this.bagService.list(uid);
-    wsManager.sendToUser(uid, { type: 'bag', data: bags });
+    const payload = await this.bagService.getListPayload(uid);
+    wsManager.sendToUser(uid, { type: 'bag', data: payload });
 
     logger.info('拍卖下架成功', { uid, auctionId });
   }

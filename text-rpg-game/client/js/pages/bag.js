@@ -1,6 +1,8 @@
 const BagPage = {
   items: [],
   filteredItems: [],
+  equipment_count: 0,
+  equipment_capacity: 100,
   currentTab: 'equipment',
   currentPage: 1,
   pageSize: 15,
@@ -52,17 +54,23 @@ const BagPage = {
         .bag-item-btn.list { background: #ed8936; color: white; }
         .bag-item-btn.drop { background: #f44336; color: white; }
         .bag-page-info { color: #718096; font-size: 12px; text-align: center; margin-top: 4px; }
+        .bag-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .bag-header-left { display: flex; align-items: center; gap: 12px; }
+        .bag-capacity { font-size: 12px; color: #a0aec0; }
       </style>
       <h2>背包</h2>
       <div class="bag-header">
-        <div class="bag-title">物品</div>
-        <div class="bag-tabs">
+        <div class="bag-header-left">
+          <div class="bag-title">物品</div>
+          <div class="bag-tabs">
           ${this.itemTypes.map(type => `
             <div class="bag-tab ${this.currentTab === type.key ? 'active' : ''}" onclick="BagPage.switchTab('${type.key}')">
               ${type.label}
             </div>
           `).join('')}
+          </div>
         </div>
+        <div class="bag-capacity">背包容量: ${this.equipment_count}/${this.equipment_capacity}</div>
       </div>
       <div class="bag-grid" id="bagGrid">
         ${(this._bagTooltipItems = this.pagedItems).length ? this.pagedItems.map((item, index) => {
@@ -139,7 +147,10 @@ const BagPage = {
   async load() {
     const result = await BagService.fetchList();
     if (result.code === 0) {
-      this.items = result.data;
+      const data = result.data;
+      this.items = data?.items ?? data ?? [];
+      this.equipment_count = data?.equipment_count ?? 0;
+      this.equipment_capacity = data?.equipment_capacity ?? 100;
       this.filterItems();
       this.render();
     } else {

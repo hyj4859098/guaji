@@ -320,8 +320,16 @@ export class OfflineBattleService {
       const itemId = drop.isEquip ? Math.floor(key / 100000) : key;
       if (drop.isEquip) {
         for (let i = 0; i < drop.count; i++) {
+          const canAdd = await this.bagService.canAddEquipment(uid);
+          if (!canAdd) continue;
           const eqId = await this.equipInstanceService.createFromDrop(uid, itemId);
-          if (eqId) await this.bagService.addEquipInstanceToBag(uid, itemId, String(eqId));
+          if (eqId) {
+            try {
+              await this.bagService.addEquipInstanceToBag(uid, itemId, String(eqId));
+            } catch {
+              await this.equipInstanceService.deleteInstance(eqId);
+            }
+          }
         }
       } else {
         await this.bagService.addItem(uid, itemId, drop.count);

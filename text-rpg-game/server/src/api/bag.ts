@@ -12,10 +12,10 @@ const bagService = new BagService();
 router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     logger.info(`获取背包列表 - uid: ${req.uid}`);
-    const bags = await bagService.list(req.uid!);
+    const payload = await bagService.getListPayload(req.uid!);
     
-    logger.info(`背包列表获取成功 - uid: ${req.uid}, 物品数量: ${bags.length}`);
-    success(res, bags);
+    logger.info(`背包列表获取成功 - uid: ${req.uid}, 物品数量: ${payload.items.length}`);
+    success(res, payload);
   } catch (error) {
     logger.error(`背包列表获取失败 - uid: ${req.uid}, 错误: ${error}`);
     next(error);
@@ -88,8 +88,8 @@ router.post('/delete', auth, async (req: AuthRequest, res: Response, next: NextF
     logger.info(`背包物品删除${successResult ? '成功' : '失败'} - uid: ${req.uid}, 物品ID: ${id}`);
     if (successResult) {
       success(res, null);
-      const bags = await bagService.list(req.uid!);
-      wsManager.sendToUser(req.uid!, { type: 'bag', data: bags });
+      const payload = await bagService.getListPayload(req.uid!);
+      wsManager.sendToUser(req.uid!, { type: 'bag', data: payload });
     } else {
       fail(res, 1, 'failed');
     }
