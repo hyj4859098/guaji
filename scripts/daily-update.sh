@@ -15,10 +15,11 @@ PREV_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo "")
 echo "$PREV_COMMIT" > /opt/guaji/.rollback_commit
 echo ">>> 当前版本: $PREV_COMMIT"
 
-# 拉取代码
+# 拉取代码（强制同步，避免本地修改导致冲突）
 echo ""
 echo ">>> [1/4] 拉取最新代码..."
-git pull origin main || git pull origin master || { echo "拉取失败"; exit 1; }
+git fetch origin
+git reset --hard origin/main
 
 # 构建
 echo ""
