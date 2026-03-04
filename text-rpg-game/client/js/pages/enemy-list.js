@@ -132,6 +132,9 @@ const EnemyListPage = {
   startBattle(enemyId) {
     State.setCurrentEnemyId(enemyId);
     State.setCurrentBossId(0);
+    State.setCurrentPvpTargetUid(null);
+    State.setCurrentPvpTargetInfo(null);
+    State.currentBattleMode = 'monster';
     navigateTo('battle');
   }
 };

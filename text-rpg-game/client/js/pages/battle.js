@@ -247,7 +247,7 @@ const BattlePage = {
     }
   },
 
-  /** 统一设置战斗按钮启用/禁用 */
+  /** 统一设置战斗按钮启用/禁用（与导航栏同步：战斗中禁用，未战斗启用） */
   setBattleButtonsEnabled(enabled) {
     ['.start-battle-btn', '.auto-battle-btn'].forEach(sel => {
       const btn = document.querySelector(sel);
@@ -256,6 +256,7 @@ const BattlePage = {
         btn.style.opacity = enabled ? '1' : '0.6';
       }
     });
+    if (typeof setNavDisabledByBattle === 'function') setNavDisabledByBattle(!enabled);
   },
 
   updatePlayerInfo(data) {
@@ -554,6 +555,7 @@ const BattlePage = {
 
   // ==================== 加载 ====================
   async load() {
+    this.battleLogs = [];
     if (typeof WS !== 'undefined' && WS.ensureConnected) {
       const ok = await WS.ensureConnected(3000);
       if (!ok) console.warn('[battle] WebSocket 未能在 3 秒内连接，奖励可能无法实时显示');
@@ -769,6 +771,7 @@ const BattlePage = {
   },
 
   onStopBattle() {
+    this.setBattleButtonsEnabled(true);
     this.stopBattle();
   },
 
@@ -805,6 +808,7 @@ const BattlePage = {
       this._scheduleExitBattle(3000);
     }
     if (this.isPvpMode() && (eventData.event === 'battle_win' || eventData.event === 'battle_lose' || eventData.event === 'battle_draw')) {
+      this.setBattleButtonsEnabled(true);
       this._scheduleExitBattle(3000);
     }
     this.battleLogs.push(eventData);

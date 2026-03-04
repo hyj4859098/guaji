@@ -7,20 +7,6 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-router.get('/players', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const mapId = req.query.map_id != null ? Number(req.query.map_id) : undefined;
-    if (!mapId || mapId <= 0) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少或无效的 map_id');
-    }
-    const players = await pvpService.getPlayersInMap(mapId, req.uid!);
-    success(res, { players });
-  } catch (error) {
-    logger.error('获取 PVP 玩家列表失败', { uid: req.uid, error });
-    next(error);
-  }
-});
-
 router.get('/opponent', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const raw = req.query.uid;

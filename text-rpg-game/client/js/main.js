@@ -117,17 +117,29 @@ function renderChatBar() {
   document.body.appendChild(chatBar);
 }
 
+let navDisabledByBattle = false;
+
+/** 战斗页专用：战斗进行中时禁用导航栏，战斗结束或手动停止时启用。由 battle.js 调用 */
+window.setNavDisabledByBattle = function(disabled) {
+  navDisabledByBattle = !!disabled;
+  if (State.currentPage !== 'battle') return;
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    if (btn.classList.contains('logout-btn')) return;
+    btn.disabled = navDisabledByBattle;
+  });
+};
+
 async function navigateTo(pageKey) {
   const prevPage = Pages[State.currentPage];
   if (prevPage && prevPage.onLeave) prevPage.onLeave();
+  if (prevPage === Pages.battle) navDisabledByBattle = false;
   State.setCurrentPage(pageKey);
-  // 更新导航按钮状态
   const navButtons = document.querySelectorAll('.nav-btn');
-  const isBattle = pageKey === 'battle';
+  const shouldDisableNav = pageKey === 'battle' && navDisabledByBattle;
   navButtons.forEach(btn => {
     btn.classList.remove('active');
-    btn.disabled = isBattle;
-    if (!isBattle && btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${pageKey}'`)) {
+    if (!btn.classList.contains('logout-btn')) btn.disabled = shouldDisableNav;
+    if (!shouldDisableNav && btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${pageKey}'`)) {
       btn.classList.add('active');
     }
   });

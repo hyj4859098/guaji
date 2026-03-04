@@ -57,6 +57,7 @@ const BossListPage = {
   render() {
     const visibleBosses = this.bosses.filter(b => b.can_fight && !b.respawn_remain);
     const hasDeadBoss = this.bosses.some(b => !b.can_fight || b.respawn_remain > 0);
+    const otherPlayers = (this.mapPlayers || []).filter(p => String(p.uid) !== String(State.uid));
     const app = document.getElementById('app');
     app.innerHTML = `
       ${this.style}
@@ -87,7 +88,7 @@ const BossListPage = {
         <div class="boss-list-pvp-section">
           <div class="pvp-title">同地图玩家（PVP）</div>
           <div class="pvp-player-grid">
-            ${(this.mapPlayers || []).map(p => `
+            ${otherPlayers.map(p => `
               <div class="pvp-player-card">
                 <div class="pvp-player-avatar">${(p.name || '?').charAt(0)}</div>
                 <div class="pvp-player-name">${(p.name || '玩家').replace(/</g, '&lt;')}</div>
@@ -98,7 +99,7 @@ const BossListPage = {
               </div>
             `).join('')}
           </div>
-          ${(!this.mapPlayers || this.mapPlayers.length === 0) ? '<div style="color:#a0aec0;font-size:12px;">暂无其他玩家</div>' : ''}
+          ${otherPlayers.length === 0 ? '<div style="color:#a0aec0;font-size:12px;">暂无其他玩家</div>' : ''}
         </div>
       </div>
     `;
@@ -118,13 +119,10 @@ const BossListPage = {
     if (bossResult.code === 0) this.bosses = bossResult.data || [];
     else this.bosses = [];
 
-    const pvpResult = await API.get(`/pvp/players?map_id=${mapId}`);
-    if (pvpResult.code === 0 && pvpResult.data?.players) this.mapPlayers = pvpResult.data.players;
-    else this.mapPlayers = [];
-
+    this.mapPlayers = [];
     this._unsubscribeBoss();
-    this._subscribeBoss(mapId);
     this._subscribePvpMapPlayers(mapId);
+    this._subscribeBoss(mapId);
     this.render();
   },
 
