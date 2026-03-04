@@ -1,7 +1,8 @@
 /**
  * GM 工具核心模块：API 配置、Token、提示、登出、Token 验证
  */
-export const API_BASE_URL = 'http://localhost:3000/api';
+// 使用相对路径，本地和服务器均可访问
+export const API_BASE_URL = (typeof window !== 'undefined' && window.location?.origin) ? `${window.location.origin}/api` : '/api';
 
 export function getToken() {
   return localStorage.getItem('gm_token');

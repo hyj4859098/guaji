@@ -148,18 +148,8 @@ const TradePage = {
     .trade-bag-section h4 { margin: 0 0 6px; font-size: 12px; color: #a0aec0; }
   </style>`,
 
-  getItemType(item) {
-    switch (item.type) {
-      case 1: return 'consumable';
-      case 2: return 'equipment';
-      case 3: return 'material';
-      case 4: case 5: case 6: return 'tool';
-      default: return 'tool';
-    }
-  },
-
   filterByTab(items, tab) {
-    return items.filter(i => this.getItemType(i) === tab);
+    return items.filter(i => Helper.getItemType(i) === tab);
   },
 
   paginate(items, page, pageSize) {
@@ -177,10 +167,12 @@ const TradePage = {
     return `<div class="t-pager">${h}</div>`;
   },
 
-  renderItemRow(item, actions) {
-    const jsonStr = JSON.stringify(item).replace(/"/g, '&quot;');
+  renderItemRow(item, actions, index, listType) {
+    const tipHandler = (typeof index === 'number' && listType)
+      ? `onmouseenter="TradePage.showItemTooltip(event, ${index}, '${listType}')"`
+      : 'onmouseenter="Tooltip.hide()"';
     return `<div class="t-item">
-      <div class="t-item-icon" onmouseenter="Tooltip.show(event, ${jsonStr}, 'item')" onmouseleave="Tooltip.hide()">
+      <div class="t-item-icon" ${tipHandler} onmouseleave="Tooltip.hide()">
         ${(item.name || '?')[0]}
       </div>
       <span class="t-item-name">${item.name || '未知'}</span>
@@ -194,7 +186,7 @@ const TradePage = {
   async load() {
     this.view = 'lobby';
     this.resetTradeState();
-    const bagResult = await API.get('/bag/list');
+    const bagResult = await BagService.fetchList();
     if (bagResult.code === 0) this.bagItems = bagResult.data || [];
     this.render();
     WS.send({ type: 'trade', data: { action: 'join' } });
@@ -264,8 +256,8 @@ const TradePage = {
   },
 
   async loadBag() {
-    const r = await API.get('/bag/list');
-    if (r.code === 0) this.bagItems = r.data || [];
+    const result = await BagService.fetchList();
+    if (result.code === 0) this.bagItems = result.data || [];
   },
 
   render() {
@@ -353,11 +345,12 @@ const TradePage = {
       `<span class="t-tab ${this.offerTab === t.key ? 'active' : ''}" onclick="TradePage.setOfferTab('${t.key}')">${t.label}</span>`
     ).join('');
 
+    this._myOfferFiltered = pg.items;
     const offerItems = pg.items.length
       ? pg.items.map((it, i) => {
           const realIdx = this.myOffer.items.indexOf(it);
           const rmBtn = this.myItemsConfirmed ? '' : `<button class="remove-btn" onclick="TradePage.removeItem(${realIdx})">移除</button>`;
-          return this.renderItemRow(it, rmBtn);
+          return this.renderItemRow(it, rmBtn, i, 'myOffer');
         }).join('')
       : '<div class="t-empty">暂无物品</div>';
 
@@ -385,10 +378,11 @@ const TradePage = {
       `<span class="t-tab ${this.bagTab === t.key ? 'active' : ''}" onclick="TradePage.setBagTab('${t.key}')">${t.label}</span>`
     ).join('');
 
+    this._bagFiltered = pg.items;
     const items = pg.items.length
-      ? pg.items.map(b => {
+      ? pg.items.map((b, i) => {
           const bagId = b.original_id || b.id;
-          return this.renderItemRow(b, `<button class="add-btn" onclick="TradePage.addItem(${bagId})">添加</button>`);
+          return this.renderItemRow(b, `<button class="add-btn" onclick="TradePage.addItem(${bagId})">添加</button>`, i, 'bag');
         }).join('')
       : '<div class="t-empty">暂无物品</div>';
 
@@ -414,8 +408,9 @@ const TradePage = {
       `<span class="t-tab ${this.partnerTab === t.key ? 'active' : ''}" onclick="TradePage.setPartnerTab('${t.key}')">${t.label}</span>`
     ).join('');
 
+    this._partnerOfferFiltered = pg.items;
     const items = pg.items.length
-      ? pg.items.map(it => this.renderItemRow(it, '')).join('')
+      ? pg.items.map((it, i) => this.renderItemRow(it, '', i, 'partnerOffer')).join('')
       : '<div class="t-empty">等待对方放入物品...</div>';
 
     return `<h3>对方出价 ${statusTag}</h3>
@@ -454,6 +449,15 @@ const TradePage = {
   updateTradeButtons() {
     const el = document.getElementById('trade-actions');
     if (el) el.innerHTML = this.renderActionButtons();
+  },
+
+  showItemTooltip(event, index, listType) {
+    let list;
+    if (listType === 'myOffer') list = this._myOfferFiltered;
+    else if (listType === 'partnerOffer') list = this._partnerOfferFiltered;
+    else if (listType === 'bag') list = this._bagFiltered;
+    const item = list && list[index];
+    if (item) Tooltip.showForItem(event, item);
   },
 
   // ==================== 分页/标签切换 ====================
@@ -500,8 +504,18 @@ const TradePage = {
   _confirmQty(bagId, forceCount) {
     const item = this.bagItems.find(b => (b.original_id || b.id) === bagId);
     if (!item) { this.removeQtyPopup(); return; }
-    let count = forceCount > 0 ? forceCount : parseInt(document.getElementById('qty-value')?.value || '1', 10);
-    count = Math.max(1, Math.min(count, item.count || 1));
+    const maxCount = item.count || 1;
+    let count;
+    if (forceCount > 0) {
+      count = forceCount;
+    } else {
+      const rawVal = parseInt(document.getElementById('qty-value')?.value, 10);
+      if (isNaN(rawVal) || rawVal < 1 || rawVal > maxCount) {
+        UI.showToast(`放入失败：数量超出范围，最多可放入 ${maxCount} 个`, 'error');
+        return;
+      }
+      count = rawVal;
+    }
     this.removeQtyPopup();
     this._doAddItem(item, bagId, count);
   },
@@ -512,9 +526,9 @@ const TradePage = {
 
   _doAddItem(item, bagId, count) {
     this.myOffer.items.push({
-      bag_id: bagId, item_id: item.item_id, count,
-      name: item.name || '未知', equipment_uid: item.equipment_uid || undefined,
-      type: item.type,
+      ...item,
+      bag_id: bagId,
+      count,
     });
     this.sendOfferUpdate();
     this.refreshMySide();
@@ -529,7 +543,19 @@ const TradePage = {
 
   updateGold(val) {
     if (this.myItemsConfirmed) return;
-    this.myOffer.gold = Math.max(0, parseInt(val) || 0);
+    const rawVal = parseInt(val, 10);
+    if (isNaN(rawVal) || rawVal < 0) {
+      UI.showToast('放入失败：请输入有效金币数量', 'error');
+      this.refreshMySide();
+      return;
+    }
+    const balance = State.player?.gold ?? 0;
+    if (rawVal > balance) {
+      UI.showToast(`放入失败：金币不足，最多可放入 ${balance} 金币`, 'error');
+      this.refreshMySide();
+      return;
+    }
+    this.myOffer.gold = rawVal;
     this.sendOfferUpdate();
   },
 

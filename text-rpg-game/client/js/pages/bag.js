@@ -49,6 +49,7 @@ const BagPage = {
         }
         .bag-item-btn.use { background: #4CAF50; color: white; }
         .bag-item-btn.wear { background: #2196F3; color: white; }
+        .bag-item-btn.list { background: #ed8936; color: white; }
         .bag-item-btn.drop { background: #f44336; color: white; }
         .bag-page-info { color: #718096; font-size: 12px; text-align: center; margin-top: 4px; }
       </style>
@@ -64,11 +65,11 @@ const BagPage = {
         </div>
       </div>
       <div class="bag-grid" id="bagGrid">
-        ${this.pagedItems.length ? this.pagedItems.map((item, index) => {
-          const itemType = this.getItemType(item);
+        ${(this._bagTooltipItems = this.pagedItems).length ? this.pagedItems.map((item, index) => {
+          const itemType = Helper.getItemType(item);
           return `
             <div class="bag-item">
-              <div class="bag-item-icon" onmouseenter="Tooltip.show(event, ${JSON.stringify(item).replace(/"/g, '&quot;')}, 'item')" onmouseleave="Tooltip.hide()">
+              <div class="bag-item-icon" onmouseenter="BagPage.showItemTooltip(event, ${index})" onmouseleave="Tooltip.hide()">
                 ${item.name?.charAt(0) || '物'}
               </div>
               <div class="bag-item-info">
@@ -78,6 +79,7 @@ const BagPage = {
               <div class="bag-item-actions">
                 ${itemType === 'equipment' ? `<button class="bag-item-btn wear" onclick="BagPage.wearItem(${item.original_id || item.id})">穿戴</button>` : ''}
                 ${itemType === 'consumable' || itemType === 'tool' ? `<button class="bag-item-btn use" onclick="BagPage.onUseItem(${item.original_id || item.id}, ${item.count || 1})">使用</button>` : ''}
+                <button class="bag-item-btn list" onclick="AuctionPage.showListPopupFromBagId(${item.original_id || item.id})">上架</button>
                 <button class="bag-item-btn drop" onclick="BagPage.dropItem(${item.original_id || item.id})">丢弃</button>
               </div>
             </div>`;
@@ -117,19 +119,9 @@ const BagPage = {
     this.render();
   },
 
-  getItemType(item) {
-    if (item.type) {
-      switch (item.type) {
-        case 1: return 'consumable';
-        case 2: return 'equipment';
-        case 3: return 'material';
-        case 4: return 'tool';
-        case 5: return 'tool';
-        case 6: return 'tool';
-        default: return 'tool';
-      }
-    }
-    return 'tool';
+  showItemTooltip(event, index) {
+    const item = this._bagTooltipItems?.[index];
+    if (item) Tooltip.showForItem(event, item);
   },
 
   switchTab(tab) {
@@ -140,12 +132,12 @@ const BagPage = {
   },
 
   filterItems() {
-    this.filteredItems = this.items.filter(item => this.getItemType(item) === this.currentTab);
+    this.filteredItems = this.items.filter(item => Helper.getItemType(item) === this.currentTab);
     if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
   },
 
   async load() {
-    const result = await API.get('/bag/list');
+    const result = await BagService.fetchList();
     if (result.code === 0) {
       this.items = result.data;
       this.filterItems();
@@ -177,17 +169,26 @@ const BagPage = {
       <input type="number" id="bag-qty-value" value="1" min="1" max="${maxCount}" style="width:80px;padding:6px;background:#2d3748;border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#e2e8f0;font-size:15px;text-align:center;">
       <div style="font-size:11px;color:#718096;margin:6px 0;">最多 ${maxCount} 个</div>
       <div style="display:flex;justify-content:center;gap:8px;">
-        <button onclick="BagPage.confirmUseQty(${itemId},${maxCount})" style="padding:6px 16px;background:#48bb78;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">全部</button>
-        <button onclick="BagPage.confirmUseQty(${itemId},0)" style="padding:6px 16px;background:#4299e1;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">确定</button>
+        <button onclick="BagPage.confirmUseQty(${itemId},${maxCount},${maxCount})" style="padding:6px 16px;background:#48bb78;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">全部</button>
+        <button onclick="BagPage.confirmUseQty(${itemId},${maxCount},0)" style="padding:6px 16px;background:#4299e1;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">确定</button>
         <button onclick="BagPage.removeUseQtyPopup()" style="padding:6px 16px;background:#718096;color:white;border:none;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
       </div>`;
     document.body.appendChild(popup);
     setTimeout(() => document.getElementById('bag-qty-value')?.focus(), 50);
   },
 
-  confirmUseQty(itemId, forceCount) {
-    let count = forceCount > 0 ? forceCount : parseInt(document.getElementById('bag-qty-value')?.value || '1', 10);
-    count = Math.max(1, count);
+  confirmUseQty(itemId, maxCount, forceCount) {
+    let count;
+    if (forceCount > 0) {
+      count = forceCount;
+    } else {
+      const rawVal = parseInt(document.getElementById('bag-qty-value')?.value, 10);
+      if (isNaN(rawVal) || rawVal < 1 || rawVal > maxCount) {
+        UI.showToast(`使用失败：数量超出范围，最多可使用 ${maxCount} 个`, 'error');
+        return;
+      }
+      count = rawVal;
+    }
     this.removeUseQtyPopup();
     this.useItem(itemId, count);
   },
@@ -198,7 +199,7 @@ const BagPage = {
   },
 
   async useItem(itemId, count = 1) {
-    const result = await API.post('/bag/use', { id: itemId, count });
+    const result = await BagService.useItem(itemId, count);
     if (result.code === 0) {
       UI.showToast(result.msg || '使用成功');
     } else {
@@ -211,7 +212,7 @@ const BagPage = {
     if (this._wearLoading) return;
     this._wearLoading = true;
     try {
-      const result = await API.post('/bag/wear', { id: itemId });
+      const result = await BagService.wearItem(itemId);
       if (result.code === 0) {
         UI.showToast('穿戴成功');
       } else {
@@ -224,7 +225,7 @@ const BagPage = {
 
   async dropItem(itemId) {
     if (!confirm('确定要丢弃这个物品吗？')) return;
-    const result = await API.post('/bag/delete', { id: itemId });
+    const result = await BagService.deleteItem(itemId);
     if (result.code === 0) {
       UI.showToast('丢弃成功');
     } else {

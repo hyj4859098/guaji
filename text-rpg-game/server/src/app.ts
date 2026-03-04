@@ -23,6 +23,7 @@ import battleRouter from './api/battle';
 import boostRouter from './api/boost';
 import skillRouter from './api/skill';
 import shopRouter from './api/shop';
+import auctionRouter from './api/auction';
 import bossRouter from './api/boss';
 import pvpRouter from './api/pvp';
 const app = express();
@@ -99,6 +100,7 @@ app.use('/api/battle', battleRouter);
 app.use('/api/boost', boostRouter);
 app.use('/api/skill', skillRouter);
 app.use('/api/shop', shopRouter);
+app.use('/api/auction', auctionRouter);
 app.use('/api/boss', bossRouter);
 app.use('/api/pvp', pvpRouter);
 

@@ -64,6 +64,11 @@ document.head.appendChild(style);
 const RolePage = {
   levelExp: 0,
 
+  async load() {
+    await EquipPage.load();
+    await BagPage.load();
+  },
+
   render() {
     const roleInfo = document.getElementById('roleInfo');
     if (!roleInfo) return;

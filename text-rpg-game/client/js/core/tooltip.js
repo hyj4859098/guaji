@@ -1,37 +1,26 @@
 const Tooltip = {
   /**
-   * 显示悬浮窗
+   * 显示物品/装备悬浮窗（唯一入口）
    * @param {Event} event 鼠标事件
-   * @param {Object} data 要显示的数据
-   * @param {string} type 悬浮窗类型 (equipment, item, etc.)
+   * @param {Object} item 物品/装备对象（完整引用，勿序列化）
    */
-  show(event, data, type = 'equipment') {
-    // 解析数据
-    const itemData = typeof data === 'string' ? JSON.parse(data) : data;
-    
-    // 创建悬浮窗元素
+  showForItem(event, item) {
+    if (!item) return;
+    const type = (item.type === 2 || item.equipment_uid) ? 'equipment' : 'item';
+
     const tooltip = document.createElement('div');
     tooltip.id = 'common-tooltip';
     tooltip.className = 'common-tooltip';
-    
-    // 构建悬浮窗内容
-    let tooltipContent = this.buildContent(itemData, type);
-    tooltip.innerHTML = tooltipContent;
-    
-    // 获取触发元素位置
+    tooltip.innerHTML = this.buildContent(item, type);
+
     const target = event.currentTarget;
     const rect = target.getBoundingClientRect();
-    
-    // 设置悬浮窗位置
     tooltip.style.position = 'fixed';
     tooltip.style.left = `${rect.right + 10}px`;
     tooltip.style.top = `${rect.top}px`;
     tooltip.style.zIndex = '1000';
-    
-    // 添加到文档
+
     document.body.appendChild(tooltip);
-    
-    // 调整位置以避免溢出
     this.adjustPosition(tooltip);
   },
 

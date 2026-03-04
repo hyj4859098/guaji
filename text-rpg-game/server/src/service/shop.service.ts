@@ -38,7 +38,14 @@ export class ShopService {
     const items = await dataStorageService.list('shop', { shop_type: shopType, enabled: true });
     const enriched = await Promise.all(items.map(async (si: any) => {
       const itemInfo = await dataStorageService.getByCondition('item', { id: si.item_id });
-      return { ...si, item_name: itemInfo?.name || '未知物品', item_type: itemInfo?.type, item_description: itemInfo?.description || '' };
+      return {
+        ...si,
+        item_name: itemInfo?.name || '未知物品',
+        item_type: itemInfo?.type,
+        item_description: itemInfo?.description || '',
+        hp_restore: itemInfo?.hp_restore ?? 0,
+        mp_restore: itemInfo?.mp_restore ?? 0,
+      };
     }));
     enriched.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     return enriched;

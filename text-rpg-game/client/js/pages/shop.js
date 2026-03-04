@@ -174,8 +174,10 @@ const ShopPage = {
     const title = isLeft ? '消耗品' : '材料 / 道具';
     const emptyText = isLeft ? '暂无消耗品出售' : '暂无材料道具出售';
 
+    if (isLeft) this._shopLeftItems = pg.items;
+    else this._shopRightItems = pg.items;
     const itemsHtml = pg.items.length
-      ? pg.items.map(si => this.renderShopItem(si, info, isLeft ? 'consumable' : 'material')).join('')
+      ? pg.items.map((si, i) => this.renderShopItem(si, info, isLeft ? 'consumable' : 'material', i, side)).join('')
       : `<div class="shop-empty">${emptyText}</div>`;
 
     const pager = this.renderPager(pg.page, pg.total, side);
@@ -183,15 +185,10 @@ const ShopPage = {
     return `<h3>${title}</h3><div class="shop-list">${itemsHtml}</div>${pager}`;
   },
 
-  renderShopItem(si, info, iconClass) {
-    const itemData = {
-      name: si.item_name, type: si.item_type, item_id: si.item_id,
-      description: si.item_description, hp_restore: si.hp_restore, mp_restore: si.mp_restore,
-    };
-    const jsonStr = JSON.stringify(itemData).replace(/"/g, '&quot;');
+  renderShopItem(si, info, iconClass, index, side) {
     return `<div class="shop-item">
       <div class="shop-item-icon ${iconClass}"
-        onmouseenter="Tooltip.show(event, ${jsonStr}, 'item')" onmouseleave="Tooltip.hide()">
+        onmouseenter="ShopPage.showItemTooltip(event, ${index}, '${side}')" onmouseleave="Tooltip.hide()">
         ${(si.item_name || '?')[0]}
       </div>
       <div class="shop-item-info">
@@ -212,6 +209,14 @@ const ShopPage = {
       h += `<button class="shop-pager-btn ${i === current ? 'active' : ''}" onclick="ShopPage.setPage('${side}',${i})">${i}</button>`;
     }
     return `<div class="shop-pager">${h}</div>`;
+  },
+
+  showItemTooltip(event, index, side) {
+    const list = side === 'left' ? this._shopLeftItems : this._shopRightItems;
+    const si = list?.[index];
+    if (!si) return;
+    const item = { name: si.item_name, type: si.item_type, item_id: si.item_id, description: si.item_description, hp_restore: si.hp_restore, mp_restore: si.mp_restore };
+    Tooltip.showForItem(event, item);
   },
 
   setPage(side, p) {
@@ -289,8 +294,25 @@ const ShopPage = {
   },
 
   doBuyFromPopup(shopItemId) {
+    const si = this.items.find(i => i.id === shopItemId);
+    if (!si) { this.removeConfirmPopup(); return; }
+
     const inp = document.getElementById('shop-buy-qty');
-    const count = Math.max(1, parseInt(inp?.value) || 1);
+    const rawVal = parseInt(inp?.value, 10);
+    if (isNaN(rawVal) || rawVal < 1) {
+      UI.showToast('购买失败：请输入有效数量', 'error');
+      return;
+    }
+    const count = rawVal;
+
+    const info = this.getCurrencyInfo();
+    const totalCost = si.price * count;
+    const balance = this.getBalance();
+    if (totalCost > balance) {
+      UI.showToast(`${info.currency}不足！需要 ${totalCost}，当前 ${balance}`, 'error');
+      return;
+    }
+
     this.doBuy(shopItemId, count);
   },
 

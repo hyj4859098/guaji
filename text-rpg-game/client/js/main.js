@@ -12,6 +12,7 @@ const Pages = {
   boost: BoostPage,
   trade: TradePage,
   shop: ShopPage,
+  auction: AuctionPage,
   boss: BossPage,
   pvp: PvpPage
 };
@@ -32,6 +33,9 @@ function setupRefreshBus() {
     }
     if (State.currentPage === 'shop' && Pages.shop && Pages.shop.refreshBalance) {
       Pages.shop.refreshBalance();
+    }
+    if (State.currentPage === 'auction' && Pages.auction && Pages.auction.refreshBalance) {
+      Pages.auction.refreshBalance();
     }
     const playerName = document.getElementById('playerName');
     const playerLevel = document.getElementById('playerLevel');
@@ -133,14 +137,12 @@ async function loadPage(pageKey) {
   const page = Pages[pageKey];
   const app = document.getElementById('app');
   if (app) app.innerHTML = '';
-  
-  if (pageKey === 'role') {
-    renderRolePage();
-    return;
-  }
-  
+
   if (page && page.load) {
     await page.load();
+  }
+  if (pageKey === 'role') {
+    renderRolePage();
   }
 }
 

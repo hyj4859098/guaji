@@ -25,8 +25,8 @@ const EnhancePage = {
 
   async load(bagData) {
     if (!bagData) {
-      const bagRes = await API.get('/bag/list');
-      bagData = (bagRes.code === 0) ? bagRes.data : null;
+      const bagResult = await BagService.fetchList();
+      bagData = (bagResult.code === 0) ? bagResult.data : null;
     }
     if (bagData) {
       this.equipItems = (bagData || []).filter(i => i.type === 2 && (i.equipment_uid || i.equip_attributes));
@@ -49,6 +49,11 @@ const EnhancePage = {
   goPage(p) {
     this.currentPage = Math.max(1, Math.min(p, this.totalPages));
     this.render();
+  },
+
+  showItemTooltip(event, index) {
+    const item = this._enhanceTooltipItems?.[index];
+    if (item) Tooltip.showForItem(event, item);
   },
 
   renderPagination() {
@@ -148,14 +153,13 @@ const EnhancePage = {
           <span class="enhance-page-info">${this.equipItems.length} 件 · 第 ${this.currentPage}/${this.totalPages} 页</span>
         </div>
         <div class="enhance-bag-grid">
-          ${this.pagedItems.length ? this.pagedItems.map(e => {
+          ${(this._enhanceTooltipItems = this.pagedItems).length ? this.pagedItems.map((e, index) => {
             const lv = e.enhance_level ?? 0;
             const equipLevel = e.equip_level ?? e.level ?? 0;
             const targetLv = lv + 1;
             const stoneCost = this.getStoneCost(targetLv);
             const canEnhance = lv < maxLevel && stoneCount >= stoneCost;
             const instanceId = e.equipment_uid ? (parseInt(String(e.equipment_uid), 10) || 0) : 0;
-            const itemJson = JSON.stringify(e).replace(/"/g, '&quot;');
             const baseRate = lv < maxLevel ? this.getBaseSuccessRate(targetLv) : 0;
             const finalRate = lv < maxLevel ? Math.min(100, baseRate + (this.useLuckyCharm ? 20 : 0)) : 0;
             const rateColor = finalRate >= 80 ? '#48bb78' : finalRate >= 50 ? '#ecc94b' : '#fc8181';
@@ -165,7 +169,7 @@ const EnhancePage = {
             const costText = lv < maxLevel ? `→+${targetLv} 需${stoneCost}石 | <span style="color:${rateColor}">${finalRate}%</span>` : '';
             return `
             <div class="e-item" data-instance-id="${instanceId}">
-              <div class="e-item-icon" onmouseenter="Tooltip.show(event, ${itemJson}, 'item')" onmouseleave="Tooltip.hide()">
+              <div class="e-item-icon" onmouseenter="EnhancePage.showItemTooltip(event, ${index})" onmouseleave="Tooltip.hide()">
                 ${(e.name || '装').charAt(0)}
               </div>
               <div class="e-item-info">

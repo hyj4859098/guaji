@@ -4,12 +4,12 @@ const BagComponent = {
   // 存储各个栏的配置
   bags: {},
 
-  // 物品类型映射
+  // 物品类型映射（与数据库、GM 一致：3=材料 4=道具）
   itemTypes: [
     { key: 'equipment', label: '装备', type: 2 },
     { key: 'consumable', label: '消耗品', type: 1 },
-    { key: 'tool', label: '道具', type: 3 },
-    { key: 'material', label: '材料', type: 4 }
+    { key: 'tool', label: '道具', type: 4 },
+    { key: 'material', label: '材料', type: 3 }
   ],
 
   // 初始化一个背包栏
@@ -27,7 +27,7 @@ const BagComponent = {
   // 加载所有背包数据
   async load() {
     UI.showLoading();
-    const result = await API.get('/bag/list');
+    const result = await BagService.fetchList();
     UI.hideLoading();
     
     if (result.code === 0) {
@@ -60,16 +60,8 @@ const BagComponent = {
     this.renderBag(bagId);
   },
 
-  // 获取物品类型
   getItemType(item) {
-    const type = item.type || 0;
-    const typeMap = {
-      1: 'consumable',
-      2: 'equipment',
-      3: 'tool',
-      4: 'material'
-    };
-    return typeMap[type] || 'other';
+    return Helper.getItemType(item);
   },
 
   // 渲染指定背包栏
@@ -252,10 +244,14 @@ const BagComponent = {
     const itemElement = document.createElement('div');
     itemElement.className = 'bag-item';
     
-    // 物品图标
+    // 物品图标（支持 Tooltip 悬浮窗，统一使用 Tooltip.showForItem）
     const icon = document.createElement('div');
     icon.className = 'bag-item-icon';
     icon.textContent = item.name ? item.name[0] : '?';
+    if (typeof Tooltip !== 'undefined') {
+      icon.onmouseenter = (e) => Tooltip.showForItem(e, item);
+      icon.onmouseleave = () => Tooltip.hide();
+    }
     itemElement.appendChild(icon);
     
     // 物品信息
@@ -318,7 +314,7 @@ const BagComponent = {
   // 使用物品
   async useItem(item) {
     UI.showLoading();
-    const result = await API.post('/bag/use', { id: item.original_id || item.id });
+    const result = await BagService.useItem(item.original_id || item.id);
     UI.hideLoading();
     
     if (result.code === 0) {
@@ -332,7 +328,7 @@ const BagComponent = {
   async dropItem(item) {
     if (!confirm('确定要丢弃这个物品吗？')) return;
     UI.showLoading();
-    const result = await API.post('/bag/delete', { id: item.original_id || item.id });
+    const result = await BagService.deleteItem(item.original_id || item.id);
     UI.hideLoading();
 
     if (result.code === 0) {

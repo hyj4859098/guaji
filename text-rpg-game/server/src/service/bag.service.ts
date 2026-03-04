@@ -272,6 +272,18 @@ export class BagService implements IBaseService<Bag> {
   }
 
   /**
+   * 从背包减少可堆叠物品数量（拍卖上架等场景）
+   */
+  async reduceBagItemCount(bagId: number, count: number): Promise<boolean> {
+    const bag = await this.model.get(bagId);
+    if (!bag || bag.equipment_uid) return false;
+    if ((bag.count ?? 0) <= count) {
+      return await this.model.delete(bagId);
+    }
+    return await this.model.update(bagId, { count: (bag.count ?? 0) - count });
+  }
+
+  /**
    * 将装备实例加入背包（equipment_uid = String(equip_instance_id)）
    */
   async addEquipInstanceToBag(uid: Uid, item_id: number, equipment_uid: string): Promise<void> {

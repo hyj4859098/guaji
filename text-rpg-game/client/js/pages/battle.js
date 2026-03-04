@@ -534,7 +534,7 @@ const BattlePage = {
       const ok = await WS.ensureConnected(3000);
       if (!ok) console.warn('[battle] WebSocket 未能在 3 秒内连接，奖励可能无法实时显示');
     }
-    const bagResult = await API.get('/bag/list');
+    const bagResult = await BagService.fetchList();
     this.bagItems = (bagResult.code === 0 && bagResult.data)
       ? bagResult.data.filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0)
       : [];

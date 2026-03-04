@@ -1,5 +1,5 @@
 const API = {
-  baseUrl: 'http://localhost:3000/api',
+  baseUrl: `${location.protocol}//${location.hostname}:${location.port || 3000}/api`,
 
   async request(url, options = {}) {
     const headers = {
@@ -13,15 +13,12 @@ const API = {
 
     try {
       const requestUrl = `${this.baseUrl}${url}`;
-      console.log('API Request:', requestUrl, options);
       const response = await fetch(requestUrl, {
         ...options,
         headers
       });
 
-      console.log('API Response Status:', response.status);
       const responseText = await response.text();
-      console.log('API Response Text:', responseText);
       
       const result = JSON.parse(responseText);
 

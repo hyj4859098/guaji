@@ -17,13 +17,12 @@ const EquipPage = {
       { pos: 8, name: '坐骑' }
     ];
 
+    this._equipSlots = slots.map(slot => ({ slot, equip: this.equips.find(e => e.pos === slot.pos) }));
     equipSlots.innerHTML = `
-      ${slots.map(slot => {
-        const equip = this.equips.find(e => e.pos === slot.pos);
-        return `
+      ${this._equipSlots.map(({ slot, equip }, index) => `
           <div class="equip-slot">
             <div class="equip-slot-name">${slot.name}</div>
-            <div class="equip-slot-item ${equip ? 'equipped' : ''}" ${equip ? `onmouseenter="Tooltip.show(event, ${JSON.stringify(equip).replace(/"/g, '&quot;')}, 'item')" onmouseleave="Tooltip.hide()"` : ''}>
+            <div class="equip-slot-item ${equip ? 'equipped' : ''}" ${equip ? `onmouseenter="EquipPage.showEquipTooltip(event, ${index})" onmouseleave="Tooltip.hide()"` : ''}>
               ${equip ? equip.name : '空'}
             </div>
             ${equip ? `
@@ -32,12 +31,14 @@ const EquipPage = {
               </div>
             ` : ''}
           </div>
-        `;
-      }).join('')}
+        `).join('')}
     `;
   },
 
-
+  showEquipTooltip(event, index) {
+    const { equip } = this._equipSlots?.[index] || {};
+    if (equip) Tooltip.showForItem(event, equip);
+  },
 
   async load() {
     const result = await API.get('/equip/list');

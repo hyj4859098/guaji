@@ -10,7 +10,9 @@ const WS = {
   connect() {
     const token = localStorage.getItem('token');
     if (!token) return;
-    const url = `ws://localhost:3001?token=${token}`;
+    const wsHost = location.hostname;
+    const wsPort = location.port === '3000' ? '3001' : (location.port || '3001');
+    const url = `ws://${wsHost}:${wsPort}?token=${token}`;
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
     if (this._connecting) return;
     this._connecting = true;

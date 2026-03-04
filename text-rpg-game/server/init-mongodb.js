@@ -25,7 +25,9 @@ async function initMongoDB() {
       'map',
       'level_exp',
       'item',
-      'equip_base'
+      'equip_base',
+      'auction',
+      'auction_record'
     ];
     
     for (const collectionName of collections) {
@@ -54,10 +56,14 @@ async function initMongoDB() {
         { id: 2, name: '铁盾', type: 2, pos: 2, description: '一把普通的铁盾' },
         { id: 3, name: '小血瓶', type: 1, pos: 0, hp_restore: 50, mp_restore: 0, description: '恢复50点生命值' },
         { id: 4, name: '小蓝瓶', type: 3, pos: 0, hp_restore: 0, mp_restore: 30, description: '恢复30点魔法值' },
-        { id: 5, name: '技能书-火球术', type: 4, pos: 0, description: '学习火球术技能' }
+        { id: 5, name: '技能书-火球术', type: 4, pos: 0, description: '学习火球术技能' },
+        { id: 6, name: '强化石', type: 3, pos: 0, description: '装备强化材料' },
+        { id: 7, name: '装备防爆符', type: 3, pos: 0, description: '强化失败时防止装备损坏' },
+        { id: 8, name: '装备幸运符', type: 3, pos: 0, description: '强化时提高20%成功率' },
+        { id: 10, name: '祝福油', type: 3, pos: 0, description: '装备祝福材料，50%成功率' }
       ];
       await itemCollection.insertMany(items);
-      console.log('Inserted initial item data');
+      console.log('Inserted initial item data (including materials)');
     } else {
       // 迁移：为旧的血药蓝药补充 hp_restore/mp_restore（缺省时用 effect_value 或默认值）
       const bloodPotion = await itemCollection.findOne({ type: 1 });
@@ -180,58 +186,71 @@ async function initMongoDB() {
       }
     }
     
-    // 插入初始怪物数据
+    // 插入/增量更新怪物数据（在此数组添加新怪物，更新时会自动同步到服务器）
     const monsterCollection = db.collection('monster');
     const monsterCount = await monsterCollection.countDocuments();
+    const allMonsters = [
+      {
+        id: 1,
+        name: '哥布林',
+        level: 1,
+        hp: 50,
+        mp: 0,
+        phy_atk: 5,
+        phy_def: 2,
+        mag_atk: 0,
+        mag_def: 0,
+        hit_rate: 80,
+        dodge_rate: 10,
+        crit_rate: 5,
+        exp: 10,
+        gold: 5,
+        reputation: 1,
+        map_id: 1,
+        description: '低级怪物，攻击力较低',
+        drop_items: [{ item_id: 1, prob: 25 }, { item_id: 2, prob: 20 }],
+        create_time: Math.floor(Date.now() / 1000),
+        update_time: Math.floor(Date.now() / 1000)
+      },
+      {
+        id: 2,
+        name: '骷髅兵',
+        level: 2,
+        hp: 80,
+        mp: 0,
+        phy_atk: 8,
+        phy_def: 3,
+        mag_atk: 0,
+        mag_def: 0,
+        hit_rate: 85,
+        dodge_rate: 15,
+        crit_rate: 8,
+        exp: 20,
+        gold: 10,
+        reputation: 2,
+        map_id: 1,
+        description: '中级怪物，防御力较高',
+        drop_items: [{ item_id: 1, prob: 30 }, { item_id: 2, prob: 25 }],
+        create_time: Math.floor(Date.now() / 1000),
+        update_time: Math.floor(Date.now() / 1000)
+      }
+      // 在此添加新怪物，格式同上，id 递增
+    ];
     if (monsterCount === 0) {
-      const monsters = [
-        {
-          id: 1,
-          name: '哥布林',
-          level: 1,
-          hp: 50,
-          mp: 0,
-          phy_atk: 5,
-          phy_def: 2,
-          mag_atk: 0,
-          mag_def: 0,
-          hit_rate: 80,
-          dodge_rate: 10,
-          crit_rate: 5,
-          exp: 10,
-          gold: 5,
-          reputation: 1,
-          map_id: 1,
-          description: '低级怪物，攻击力较低',
-          drop_items: [{ item_id: 1, prob: 25 }, { item_id: 2, prob: 20 }],
-          create_time: Math.floor(Date.now() / 1000),
-          update_time: Math.floor(Date.now() / 1000)
-        },
-        {
-          id: 2,
-          name: '骷髅兵',
-          level: 2,
-          hp: 80,
-          mp: 0,
-          phy_atk: 8,
-          phy_def: 3,
-          mag_atk: 0,
-          mag_def: 0,
-          hit_rate: 85,
-          dodge_rate: 15,
-          crit_rate: 8,
-          exp: 20,
-          gold: 10,
-          reputation: 2,
-          map_id: 1,
-          description: '中级怪物，防御力较高',
-          drop_items: [{ item_id: 1, prob: 30 }, { item_id: 2, prob: 25 }],
-          create_time: Math.floor(Date.now() / 1000),
-          update_time: Math.floor(Date.now() / 1000)
-        }
-      ];
-      await monsterCollection.insertMany(monsters);
+      await monsterCollection.insertMany(allMonsters);
       console.log('Inserted initial monster data');
+    } else {
+      // 增量：只插入不存在的怪物（按 id 判断）
+      let added = 0;
+      for (const m of allMonsters) {
+        const exists = await monsterCollection.findOne({ id: m.id });
+        if (!exists) {
+          await monsterCollection.insertOne(m);
+          added++;
+          console.log(`Inserted new monster: ${m.name} (id=${m.id})`);
+        }
+      }
+      if (added > 0) console.log(`Added ${added} new monster(s)`);
     }
 
     // 迁移：将怪物内嵌的 drop_items 迁移到 monster_drop 表，并移除怪物中的 drop_items
@@ -330,6 +349,47 @@ async function initMongoDB() {
         console.log('Migrated level_exp: added id to', withoutId.length, 'documents');
       }
     }
+
+    // 插入/更新加成卡道具（双倍/四倍/八倍 经验/金币/掉落/声望）
+    const BOOST_ITEMS = [
+      { id: 101, name: '双倍经验卡', type: 5, boost_category: 'exp', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍经验' },
+      { id: 102, name: '四倍经验卡', type: 5, boost_category: 'exp', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍经验' },
+      { id: 103, name: '八倍经验卡', type: 5, boost_category: 'exp', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍经验' },
+      { id: 104, name: '双倍金币卡', type: 5, boost_category: 'gold', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍金币' },
+      { id: 105, name: '四倍金币卡', type: 5, boost_category: 'gold', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍金币' },
+      { id: 106, name: '八倍金币卡', type: 5, boost_category: 'gold', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍金币' },
+      { id: 107, name: '双倍掉落卡', type: 5, boost_category: 'drop', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍掉落' },
+      { id: 108, name: '四倍掉落卡', type: 5, boost_category: 'drop', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍掉落' },
+      { id: 109, name: '八倍掉落卡', type: 5, boost_category: 'drop', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍掉落' },
+      { id: 110, name: '双倍声望卡', type: 5, boost_category: 'reputation', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍声望' },
+      { id: 111, name: '四倍声望卡', type: 5, boost_category: 'reputation', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍声望' },
+      { id: 112, name: '八倍声望卡', type: 5, boost_category: 'reputation', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍声望' }
+    ];
+    for (const item of BOOST_ITEMS) {
+      const exists = await itemCollection.findOne({ id: item.id });
+      if (exists) {
+        await itemCollection.updateOne({ id: item.id }, { $set: item });
+      } else {
+        await itemCollection.insertOne(item);
+        console.log(`Inserted boost item: ${item.name} (id=${item.id})`);
+      }
+    }
+    console.log('Boost items (12) initialized.');
+
+    // 插入/更新 VIP 卡（type 6，背包使用后增加 vip_expire_time）
+    const VIP_ITEMS = [
+      { id: 201, name: 'VIP卡（月卡）', type: 6, pos: 0, vip_days: 30, description: '使用后增加30天VIP时间，享受双倍经验/金币/掉落/声望' }
+    ];
+    for (const item of VIP_ITEMS) {
+      const exists = await itemCollection.findOne({ id: item.id });
+      if (exists) {
+        await itemCollection.updateOne({ id: item.id }, { $set: item });
+      } else {
+        await itemCollection.insertOne(item);
+        console.log(`Inserted VIP item: ${item.name} (id=${item.id})`);
+      }
+    }
+    console.log('VIP items initialized.');
     
     console.log('MongoDB initialization completed successfully!');
     
