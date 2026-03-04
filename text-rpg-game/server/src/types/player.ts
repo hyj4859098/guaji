@@ -87,6 +87,8 @@ export interface Player extends IUserBase {
   elem_fire: number;
   elem_earth: number;
   reputation: number;
+  /** 积分（充值获得，用于积分商店） */
+  points?: number;
   vip_level?: number;
   vip_expire_time?: number;
   auto_battle_config?: AutoBattleConfig | null;

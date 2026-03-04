@@ -44,6 +44,16 @@
   background: #0f3460;
 }
 
+.nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.nav-btn:disabled:hover {
+  background: transparent;
+}
+
 .role-info-preview {
   display: flex;
   gap: 10px;
@@ -63,6 +73,16 @@
 
 .logout-btn:hover {
   background: #dc2626;
+}
+
+.logout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.logout-btn:disabled:hover {
+  background: #ef4444;
 }
 
 /* 响应式设计 */

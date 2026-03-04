@@ -66,6 +66,22 @@ export async function giveGoldToPlayer() {
   } catch (e) { showToast('网络错误', 'error'); }
 }
 
+export async function givePointsToPlayer() {
+  const uid = document.getElementById('points-uid')?.value;
+  const amount = document.getElementById('points-amount')?.value;
+  if (!uid || !amount) { showToast('请填写UID和积分', 'error'); return; }
+  try {
+    const r = await fetch(`${API_BASE_URL}/admin/player/give-points`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      body: JSON.stringify({ uid: Number(uid), amount: Number(amount) })
+    });
+    const result = await r.json();
+    if (result.code === 0) showToast(`发放成功: +${result.data.amount} 积分，当前: ${result.data.points}`);
+    else showToast(result.msg || '发放失败', 'error');
+  } catch (e) { showToast('网络错误', 'error'); }
+}
+
 export async function setPlayerVip() {
   const uid = document.getElementById('vip-uid')?.value;
   const days = document.getElementById('vip-days')?.value || 0;
@@ -106,6 +122,7 @@ export async function getPlayerInfo() {
           <p>等级: ${result.data.level}</p>
           <p>经验: ${result.data.exp}</p>
           <p>金币: ${result.data.gold}</p>
+          <p>积分: ${result.data.points ?? 0}</p>
           <p>生命值: ${result.data.hp}/${result.data.max_hp}</p>
         </div>
       `;

@@ -158,6 +158,29 @@ export class PlayerService implements IBaseService<Player> {
   }
 
   /**
+   * 为玩家添加积分（充值获得，用于积分商店）
+   * @param uid 用户ID
+   * @param points 积分数量
+   * @param ctx 事务上下文（可选）
+   * @returns 是否添加成功
+   */
+  async addPoints(uid: Uid, points: number, ctx?: any): Promise<boolean> {
+    const players = await this.list(uid, ctx);
+    if (players.length === 0) return false;
+    const player = players[0];
+
+    const newPoints = (player.points ?? 0) + points;
+    if (newPoints < 0) return false;
+
+    await this.model.update(player.id, {
+      points: newPoints,
+      update_time: Math.floor(Date.now() / 1000)
+    } as any, ctx);
+    if (!ctx) cacheService.player.invalidateByUid(uid);
+    return true;
+  }
+
+  /**
    * 为玩家添加声望
    * @param uid 用户ID
    * @param reputation 声望值

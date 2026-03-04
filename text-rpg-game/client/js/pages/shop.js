@@ -9,6 +9,7 @@ const ShopPage = {
   shopTypes: [
     { key: 'gold', label: '金币商店', currency: '金币', color: '#ecc94b' },
     { key: 'reputation', label: '声望商店', currency: '声望', color: '#9f7aea' },
+    { key: 'points', label: '积分商店', currency: '积分', color: '#f56565' },
   ],
 
   style: `<style>
@@ -123,7 +124,7 @@ const ShopPage = {
     const info = this.getCurrencyInfo();
     const player = State.player;
     if (!player) return 0;
-    return player[info.key] || 0;
+    return player[info.key] ?? 0;
   },
 
   getLeftItems() {

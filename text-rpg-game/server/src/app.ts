@@ -29,6 +29,9 @@ import shopRouter from './api/shop';
 import auctionRouter from './api/auction';
 import bossRouter from './api/boss';
 import rankRouter from './api/rank';
+import pvpRouter from './api/pvp';
+import { setOnMapSubscribeChange } from './event/boss-subscription';
+import { pvpService } from './service/pvp.service';
 const app = express();
 const server = createServer(app);
 const wss = new WebSocketServer({ port: config.ws_port });
@@ -127,6 +130,9 @@ app.use('/api/shop', shopRouter);
 app.use('/api/auction', auctionRouter);
 app.use('/api/boss', bossRouter);
 app.use('/api/rank', rankRouter);
+app.use('/api/pvp', pvpRouter);
+
+setOnMapSubscribeChange((mapId) => pvpService.notifyMapPlayersChanged(mapId));
 
 // 管理接口路由配置
 const { adminAuth } = require('./middleware/auth');

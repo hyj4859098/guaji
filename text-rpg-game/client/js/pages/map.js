@@ -100,6 +100,13 @@ const MapPage = {
   },
 
   enterBossList(mapId) {
+    const banUntil = State.getMapBanUntil(mapId);
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (banUntil > nowSec) {
+      const remain = banUntil - nowSec;
+      UI.showToast(`${remain} 秒后可再次进入该地图`);
+      return;
+    }
     State.setCurrentMapId(mapId);
     navigateTo('boss-list');
   }

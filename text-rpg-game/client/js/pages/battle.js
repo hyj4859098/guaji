@@ -116,6 +116,7 @@ const BattlePage = {
       .character-info { flex: 1; }
       .character-name { font-size: 13px; font-weight: bold; margin-bottom: 2px; }
       .character-level { font-size: 11px; color: #a0aec0; }
+      .pvp-countdown { font-size: 16px; font-weight: bold; color: #fbbf24; }
     </style>
   `,
 
@@ -131,6 +132,10 @@ const BattlePage = {
 
   isBossMode() {
     return !!State.getCurrentBossId();
+  },
+
+  isPvpMode() {
+    return State.currentBattleMode === 'pvp' && !!State.currentPvpTargetUid;
   },
 
   // ==================== 自动喝药 ====================
@@ -296,7 +301,8 @@ const BattlePage = {
       case 'player_mag_attack': className += eventData.is_crit ? ' battle-log-crit' : ' battle-log-player'; break;
       case 'player_skill_attack': className += ' battle-log-skill'; break;
       case 'monster_phy_attack':
-      case 'monster_mag_attack': className += eventData.is_crit ? ' battle-log-crit' : ' battle-log-monster'; break;
+      case 'monster_mag_attack':
+      case 'monster_skill_attack': className += eventData.is_crit ? ' battle-log-crit' : ' battle-log-monster'; break;
       case 'battle_win': className += ' battle-log-win'; break;
       case 'battle_lose': className += ' battle-log-lose'; break;
       case 'battle_draw': className += ' battle-log-draw'; break;
@@ -344,6 +350,7 @@ const BattlePage = {
 
   // ==================== 渲染子模块 ====================
   _renderButtons() {
+    if (this.isPvpMode()) return '<div class="battle-top"><span class="pvp-countdown" id="pvpCountdown">战斗即将开始 3...</span></div>';
     const showAuto = !this.isBossMode();
     return `
       <div class="battle-top">
@@ -435,13 +442,17 @@ const BattlePage = {
   _renderEnemyInfo() {
     const e = this.enemy;
     const mHp = e?.hp ?? 0;
+    const maxHp = e?.max_hp ?? e?.hp ?? 1;
     const mMp = e?.mp ?? 0;
-    const stats = [
+    const maxMp = e?.max_mp ?? e?.mp ?? 1;
+    const hpPct = maxHp > 0 ? Math.min(100, (mHp / maxHp) * 100) : 0;
+    const mpPct = maxMp > 0 ? Math.min(100, (mMp / maxMp) * 100) : 0;
+    const baseStats = [
       ['物理攻击', e?.phy_atk], ['魔法攻击', e?.mag_atk], ['物理防御', e?.phy_def], ['魔法防御', e?.mag_def],
       ['命中', (e?.hit_rate || 0) + '%'], ['闪避', (e?.dodge_rate || 0) + '%'], ['暴击', (e?.crit_rate || 0) + '%'],
-      ['经验', e?.exp], ['金币', e?.gold], ['声望', e?.reputation],
     ];
-    const title = this.isBossMode() ? 'Boss 信息' : '怪物信息';
+    const stats = this.isPvpMode() ? baseStats : [...baseStats, ['经验', e?.exp], ['金币', e?.gold], ['声望', e?.reputation]];
+    const title = this.isPvpMode() ? '对手信息' : (this.isBossMode() ? 'Boss 信息' : '怪物信息');
     return `
       <div class="enemy-info battle-module">
         <h3>${title}</h3>
@@ -453,12 +464,12 @@ const BattlePage = {
           </div>
         </div>
         <div class="status-bar">
-          <div class="status-bar-label"><span>HP</span><span id="monsterHpText">${mHp} / ${mHp || 1}</span></div>
-          <div class="status-bar-track"><div class="status-bar-fill hp" id="monsterHpBar" style="width:100%"></div></div>
+          <div class="status-bar-label"><span>HP</span><span id="monsterHpText">${mHp} / ${maxHp}</span></div>
+          <div class="status-bar-track"><div class="status-bar-fill hp" id="monsterHpBar" style="width:${hpPct}%"></div></div>
         </div>
         <div class="status-bar">
-          <div class="status-bar-label"><span>MP</span><span id="monsterMpText">${mMp} / ${mMp || 1}</span></div>
-          <div class="status-bar-track"><div class="status-bar-fill mp" id="monsterMpBar" style="width:100%"></div></div>
+          <div class="status-bar-label"><span>MP</span><span id="monsterMpText">${mMp} / ${maxMp}</span></div>
+          <div class="status-bar-track"><div class="status-bar-fill mp" id="monsterMpBar" style="width:${mpPct}%"></div></div>
         </div>
         <div class="stats-list">${stats.map(([k, v]) => `<div class="stat-item"><span>${k}</span><span>${v ?? 0}</span></div>`).join('')}</div>
       </div>
@@ -486,11 +497,23 @@ const BattlePage = {
   },
 
   _renderDrops() {
+    if (this.isPvpMode()) return '';
     const drops = this.enemy?.drops;
     const content = drops?.length
       ? drops.map(d => `<div class="drop-item stat-item"><span>${d.item_name || '未知'}</span><span>×${d.quantity ?? 1} ${d.probability != null ? d.probability + '%' : ''}</span></div>`).join('')
       : '<div class="empty-hint">暂无掉落信息</div>';
     return `<div class="bonus-info drop-panel battle-module"><h3>掉落信息</h3><div class="stats-list" id="dropInfo">${content}</div></div>`;
+  },
+
+  _renderEnemySkills() {
+    if (this.isPvpMode()) {
+      const skills = this.enemy?.skills || [];
+      const title = '对手技能';
+      if (!skills.length) return `<div class="monster-skills battle-module"><h3>${title}</h3><div class="empty-hint">暂无已装备技能</div></div>`;
+      const items = skills.map(s => `<div class="skill-item"><span class="skill-item-name">${s.name || '未知'}</span><span class="skill-item-prob">概率: ${s.probability ?? 0}%</span></div>`).join('');
+      return `<div class="monster-skills battle-module"><h3>${title}</h3><div class="skills-list">${items}</div></div>`;
+    }
+    return `<div class="monster-skills battle-module"><h3>怪物技能</h3><div class="empty-hint">暂无技能信息</div></div>`;
   },
 
   render() {
@@ -500,7 +523,7 @@ const BattlePage = {
       ${this.style}
       <div class="battle-container">
         ${this._renderButtons()}
-        ${this._renderAutoHeal(saved)}
+        ${!this.isPvpMode() ? this._renderAutoHeal(saved) : ''}
         <div class="battle-body">
           <div class="battle-col-left">
             ${this._renderPlayerInfo()}
@@ -512,7 +535,7 @@ const BattlePage = {
           </div>
           <div class="battle-col-right">
             ${this._renderEnemyInfo()}
-            <div class="monster-skills battle-module"><h3>怪物技能</h3><div class="empty-hint">暂无技能信息</div></div>
+            ${this._renderEnemySkills()}
             ${this._renderDrops()}
           </div>
         </div>
@@ -549,15 +572,26 @@ const BattlePage = {
     }
     const bossId = State.getCurrentBossId();
     const enemyId = State.getCurrentEnemyId();
-    if (bossId) {
+    if (this.isPvpMode()) {
+      const targetUid = State.currentPvpTargetUid;
+      const info = State.currentPvpTargetInfo;
+      this.enemy = info ? { name: info.name, level: info.level, hp: 0, max_hp: 0, mp: 0 } : { name: '对手', level: 1, hp: 0, max_hp: 0, mp: 0 };
+      if (targetUid) {
+        try {
+          const oppRes = await API.get(`/pvp/opponent?uid=${encodeURIComponent(targetUid)}`);
+          if (oppRes.code === 0 && oppRes.data) this.enemy = oppRes.data;
+        } catch (e) { console.warn('[battle] 获取对手信息失败', e); }
+      }
+    } else if (bossId) {
       const bossResult = await API.get(`/boss/get?id=${bossId}`);
       if (bossResult.code === 0) this.enemy = bossResult.data;
     } else if (enemyId) {
       const enemyResult = await API.get(`/monster/get?id=${enemyId}`);
       if (enemyResult.code === 0) this.enemy = enemyResult.data;
     }
-    if (!this.isBossMode()) await this._updateBattleStatus();
+    if (!this.isBossMode() && !this.isPvpMode()) await this._updateBattleStatus();
     this.render();
+    if (this.isPvpMode()) this._startPvpCountdown();
   },
 
   // ==================== 战斗逻辑 ====================
@@ -640,12 +674,31 @@ const BattlePage = {
     this.exitBattleTimer = setTimeout(() => {
       this.exitBattleTimer = null;
       if (State.currentPage !== 'battle') return;
-      if (this.isBossMode()) {
+      if (this.isPvpMode()) {
+        const redirect = State._pvpRedirect || 'boss-list';
+        State._pvpRedirect = null;
+        navigateTo(redirect === 'map' ? 'map' : 'boss-list');
+      } else if (this.isBossMode()) {
         navigateTo('boss-list');
       } else {
         navigateTo('enemy-list');
       }
     }, delayMs);
+  },
+
+  _startPvpCountdown() {
+    let n = 3;
+    const el = document.getElementById('pvpCountdown');
+    if (!el) return;
+    const t = setInterval(() => {
+      n--;
+      if (n > 0) el.textContent = `战斗即将开始 ${n}...`;
+      else {
+        clearInterval(t);
+        el.textContent = '战斗中';
+        el.style.opacity = '0.5';
+      }
+    }, 1000);
   },
 
   onLeave() {
@@ -749,6 +802,9 @@ const BattlePage = {
       }
     }
     if (this.isBossMode() && (eventData.event === 'battle_win' || eventData.event === 'battle_lose')) {
+      this._scheduleExitBattle(3000);
+    }
+    if (this.isPvpMode() && (eventData.event === 'battle_win' || eventData.event === 'battle_lose' || eventData.event === 'battle_draw')) {
       this._scheduleExitBattle(3000);
     }
     this.battleLogs.push(eventData);

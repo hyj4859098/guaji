@@ -23,7 +23,7 @@ import { logger } from '../utils/logger';
 import { dataStorageService } from './data-storage.service';
 import { findOneAndUpdate } from '../config/db';
 import { BossModel } from '../model/boss.model';
-import { calculateHit, calcPhysicalDamage, calcMagicDamage, calcElementBonus } from '../battle/core';
+import { runBattle } from '../battle/runner';
 
 const MAX_ROUNDS = 100;
 const RESPAWN_SECONDS = 30;
@@ -234,8 +234,9 @@ export class BossService {
   }
 
   private async runBossBattle(uid: Uid, rawPlayer: any, boss: any, autoHeal?: any): Promise<BossResult> {
+    const key = toKey(uid);
     let player = { ...rawPlayer };
-    const bossCopy = { ...boss };
+    const bossCopy = { ...boss, max_hp: boss.hp };
 
     const phyDefPct = player.phy_def_pct || 0;
     const magDefPct = player.mag_def_pct || 0;
@@ -248,44 +249,30 @@ export class BossService {
       player.max_hp = (player.max_hp || player.hp) + bonus;
     }
 
-    let playerHP = player.hp;
-    const maxHp = player.max_hp || player.hp;
-    const maxMp = player.max_mp || player.mp;
-
     const state = await this.getBossState(boss.id);
-    let bossHP = state?.current_hp ?? boss.hp;
+    const bossCopyWithHp = { ...bossCopy, hp: state?.current_hp ?? boss.hp };
 
-    this.pushEvent(uid, 'battle_start', `战斗开始！对阵${bossCopy.name}`, {
-      player_hp: playerHP, player_max_hp: maxHp,
-      monster_hp: bossHP, monster_max_hp: boss.hp,
-    });
-
-    let round = 1;
-    let iGotKill = false;
-
-    while (playerHP > 0 && round <= MAX_ROUNDS) {
-      const key = toKey(uid);
-      if (bossBattleState.get(key)?.stopRequested) {
-        this.pushEvent(uid, 'battle_end', '战斗已手动停止', { result: 'stopped' });
-        return this.loseResult();
-      }
-
-      const roundEvents: any[] = [];
-      const add = (ev: string, msg: string, d?: any) => roundEvents.push({ event: ev, message: msg, ...d });
-
-      if (autoHeal) {
-        const hpPct = maxHp > 0 ? (playerHP / maxHp) * 100 : 100;
-        const mpPct = maxMp > 0 ? (player.mp / maxMp) * 100 : 100;
+    const runResult = await runBattle(player, bossCopyWithHp, {
+      maxRounds: MAX_ROUNDS,
+      vipSkillBonus: isVipActive(rawPlayer) ? 20 : 0,
+      delayMs: 800,
+      pushEvent: (ev, msg, d) => this.pushEvent(uid, ev, msg, d),
+      pushBatch: (events) => this.pushBatch(uid, events),
+      shouldStop: () => !!bossBattleState.get(key)?.stopRequested,
+      beforeEachRound: autoHeal ? async (attacker) => {
+        const roundEvents: any[] = [];
+        const maxHp = attacker.max_hp || attacker.hp;
+        const maxMp = attacker.max_mp ?? attacker.mp ?? 0;
+        const hpPct = maxHp > 0 ? (attacker.hp / maxHp) * 100 : 100;
+        const mpPct = maxMp > 0 ? ((attacker.mp ?? 0) / maxMp) * 100 : 100;
+        let curPlayer = attacker;
         if (autoHeal.hp_enabled && autoHeal.hp_potion_bag_id && hpPct < (autoHeal.hp_threshold || 50)) {
           try {
             await this.bagService.useItem(uid, autoHeal.hp_potion_bag_id);
             const pList = await this.playerService.list(uid);
             if (pList.length) {
-              player = pList[0];
-              playerHP = player.hp;
-              add('auto_heal', `自动使用补血药水，HP: ${playerHP}/${maxHp}`, {
-                player_hp: playerHP, player_max_hp: maxHp, player_mp: player.mp, player_max_mp: maxMp,
-              });
+              curPlayer = pList[0];
+              roundEvents.push({ event: 'auto_heal', message: `自动使用补血药水，HP: ${curPlayer.hp}/${maxHp}`, player_hp: curPlayer.hp, player_max_hp: maxHp, player_mp: curPlayer.mp, player_max_mp: maxMp });
             }
           } catch { logger.warn('Boss 自动补血失败', { uid }); }
         }
@@ -294,157 +281,58 @@ export class BossService {
             await this.bagService.useItem(uid, autoHeal.mp_potion_bag_id);
             const pList = await this.playerService.list(uid);
             if (pList.length) {
-              player = pList[0];
-              playerHP = player.hp;
-              add('auto_heal', `自动使用补蓝药水，MP: ${player.mp}/${maxMp}`, {
-                player_hp: playerHP, player_max_hp: maxHp, player_mp: player.mp, player_max_mp: maxMp,
-              });
+              curPlayer = pList[0];
+              roundEvents.push({ event: 'auto_heal', message: `自动使用补蓝药水，MP: ${curPlayer.mp}/${maxMp}`, player_hp: curPlayer.hp, player_max_hp: maxHp, player_mp: curPlayer.mp, player_max_mp: maxMp });
             }
           } catch { logger.warn('Boss 自动补蓝失败', { uid }); }
         }
-      }
-
-      add('round_start', `回合 ${round}`);
-
-      const pElemMul = 1 + calcElementBonus(player, bossCopy) / 100;
-      const mElemMul = 1 + calcElementBonus(bossCopy, player) / 100;
-
-      // 技能
-      const skills = await this.skillService.getEquippedSkills(uid);
-      const vipBonus = isVipActive(rawPlayer) ? 20 : 0;
-      const skillDmgMul = player.skill_dmg_pct ? (1 + player.skill_dmg_pct / 100) : 1;
-
-      let totalDamage = 0;
-
-      if (skills.physical?.length) {
-        const s = skills.physical[0];
-        const prob = s.probability + (player.phy_skill_prob || 0) + vipBonus;
-        if (Math.random() * 100 < prob && player.mp >= s.cost) {
-          const dmg = Math.floor(s.damage * skillDmgMul * pElemMul);
-          totalDamage += dmg;
-          player.mp -= s.cost;
-          await this.playerService.update(player.id, { mp: player.mp });
-          add('player_skill_attack', `你使用了 ${s.name} ${bossCopy.name} 掉血 ${dmg}`, {
-            damage: dmg, player_hp: playerHP, player_max_hp: maxHp,
-            monster_hp: bossHP - totalDamage, monster_max_hp: boss.hp,
-          });
+        return { attacker: curPlayer, attackerHp: curPlayer.hp, roundEvents };
+      } : undefined,
+      getAttackerSkills: () => this.skillService.getEquippedSkills(uid),
+      consumeAttackerMp: async (attacker, amount) => {
+        await this.playerService.update(attacker.id, { mp: (attacker.mp ?? 0) - amount });
+      },
+      applyDamageToDefender: async (damage) => {
+        if (damage <= 0) {
+          const s = await this.getBossState(boss.id);
+          return s?.current_hp ?? 0;
         }
-      }
-      if (skills.magic?.length) {
-        const s = skills.magic[0];
-        const prob = s.probability + (player.mag_skill_prob || 0) + vipBonus;
-        if (Math.random() * 100 < prob && player.mp >= s.cost) {
-          const dmg = Math.floor(s.damage * skillDmgMul * pElemMul);
-          totalDamage += dmg;
-          player.mp -= s.cost;
-          await this.playerService.update(player.id, { mp: player.mp });
-          add('player_skill_attack', `你使用了 ${s.name} ${bossCopy.name} 掉血 ${dmg}`, {
-            damage: dmg, player_hp: playerHP, player_max_hp: maxHp,
-            monster_hp: bossHP - totalDamage, monster_max_hp: boss.hp,
-          });
+        const result = await this.atomicDamageBoss(boss.id, damage);
+        if (!result) return null;
+        if (result.isKill) {
+          this.scheduleBossRespawn(boss.id, boss.map_id || 1, boss.name || '未知Boss', boss.hp || 0);
         }
-      }
+        return result.newHp;
+      },
+    });
 
-      const pPhyHit = calculateHit(player, bossCopy);
-      const pPhyR = pPhyHit ? calcPhysicalDamage(player, bossCopy) : { damage: 0, isCrit: false };
-      totalDamage += Math.floor(pPhyR.damage * pElemMul);
-      const pMagHit = calculateHit(player, bossCopy);
-      const pMagR = pMagHit ? calcMagicDamage(player, bossCopy) : { damage: 0, isCrit: false };
-      totalDamage += Math.floor(pMagR.damage * pElemMul);
-
-      const pPhy = { damage: Math.floor(pPhyR.damage * pElemMul), isCrit: pPhyR.isCrit };
-      const pMag = { damage: Math.floor(pMagR.damage * pElemMul), isCrit: pMagR.isCrit };
-
-      const bPhyHit = calculateHit(bossCopy, player);
-      const bPhyR = bPhyHit ? calcPhysicalDamage(bossCopy, player) : { damage: 0, isCrit: false };
-      const bPhy = { damage: Math.floor(bPhyR.damage * mElemMul), isCrit: bPhyR.isCrit };
-      const bMagHit = calculateHit(bossCopy, player);
-      const bMagR = bMagHit ? calcMagicDamage(bossCopy, player) : { damage: 0, isCrit: false };
-      const bMag = { damage: Math.floor(bMagR.damage * mElemMul), isCrit: bMagR.isCrit };
-
-      const newPlayerHP = Math.max(0, playerHP - bPhy.damage - bMag.damage);
-
-      const damageResult = totalDamage > 0 ? await this.atomicDamageBoss(boss.id, totalDamage) : null;
-
-      if (damageResult === null) {
-        add('battle_lose', 'Boss 已被其他玩家击杀');
-        this.pushBatch(uid, roundEvents);
-        return this.loseResult();
-      }
-
-      bossHP = damageResult.newHp;
-      iGotKill = damageResult.isKill;
-
-      const ct = (c: boolean) => c ? '【暴击】' : '';
-      add('player_phy_attack', pPhyHit
-        ? `你使用了 物理攻击${ct(pPhy.isCrit)} Boss 掉血 ${pPhy.damage}`
-        : `你使用了 物理攻击 Boss 掉血 未命中`, {
-        damage: pPhy.damage, player_hp: newPlayerHP, player_max_hp: maxHp,
-        monster_hp: bossHP, monster_max_hp: boss.hp,
-      });
-      add('player_mag_attack', pMagHit
-        ? `你使用了 魔法攻击${ct(pMag.isCrit)} Boss 掉血 ${pMag.damage}`
-        : `你使用了 魔法攻击 Boss 掉血 未命中`, {
-        damage: pMag.damage, player_hp: newPlayerHP, player_max_hp: maxHp,
-        monster_hp: bossHP, monster_max_hp: boss.hp,
-      });
-      add('monster_phy_attack', bPhyHit
-        ? `${bossCopy.name} 使用了 物理攻击${ct(bPhy.isCrit)} 你 掉血 ${bPhy.damage}`
-        : `${bossCopy.name} 使用了 物理攻击 你 掉血 未命中`, {
-        damage: bPhy.damage, player_hp: newPlayerHP, player_max_hp: maxHp,
-        monster_hp: bossHP, monster_max_hp: boss.hp,
-      });
-      add('monster_mag_attack', bMagHit
-        ? `${bossCopy.name} 使用了 魔法攻击${ct(bMag.isCrit)} 你 掉血 ${bMag.damage}`
-        : `${bossCopy.name} 使用了 魔法攻击 你 掉血 未命中`, {
-        damage: bMag.damage, player_hp: newPlayerHP, player_max_hp: maxHp,
-        monster_hp: bossHP, monster_max_hp: boss.hp,
-      });
-
-      this.pushBatch(uid, roundEvents);
-      await this.delay(800);
-
-      playerHP = newPlayerHP;
-
-      if (playerHP <= 0) {
-        this.pushEvent(uid, 'battle_lose', '战斗失败');
-        return this.loseResult();
-      }
-
-      if (iGotKill) {
-        this.scheduleBossRespawn(bossCopy.id, bossCopy.map_id || 1, bossCopy.name || '未知Boss', bossCopy.hp || 0);
-        this.pushEvent(uid, 'battle_win', `战斗胜利！击败了${bossCopy.name}`);
-        const boostSvc = new BoostService();
-        const bCfg = await boostSvc.getBoostConfig(uid);
-        const dropMult = BoostService.calcMultipliers(bCfg).drop;
-        const pList = await this.playerService.list(uid);
-        const vipDropMult = (pList.length && isVipActive(pList[0])) ? 2 : 1;
-        const items = await this.processDrop(uid, bossCopy, dropMult * vipDropMult);
-        await this.settle(uid, {
-          result: BattleResultEnum.WIN,
-          rounds: round,
-          exp: boss.exp || 0,
-          gold: boss.gold || 0,
-          reputation: boss.reputation || 0,
-          items,
-          logs: [],
-        });
-        return {
-          result: BattleResultEnum.WIN,
-          rounds: round,
-          exp: boss.exp || 0,
-          gold: boss.gold || 0,
-          reputation: boss.reputation || 0,
-          items,
-          logs: [],
-        };
-      }
-
-      round++;
+    if (runResult.winner === 'defender' || runResult.winner === 'draw') {
+      return this.loseResult();
     }
 
-    this.pushEvent(uid, 'battle_draw', `战斗超过${MAX_ROUNDS}回合，回合耗尽`);
-    return this.loseResult();
+    const boostSvc = new BoostService();
+    const bCfg = await boostSvc.getBoostConfig(uid);
+    const pList = await this.playerService.list(uid);
+    const vipDropMult = (pList.length && isVipActive(pList[0])) ? 2 : 1;
+    const items = await this.processDrop(uid, bossCopy, BoostService.calcMultipliers(bCfg).drop * vipDropMult);
+    await this.settle(uid, {
+      result: BattleResultEnum.WIN,
+      rounds: runResult.rounds,
+      exp: boss.exp || 0,
+      gold: boss.gold || 0,
+      reputation: boss.reputation || 0,
+      items,
+      logs: [],
+    });
+    return {
+      result: BattleResultEnum.WIN,
+      rounds: runResult.rounds,
+      exp: boss.exp || 0,
+      gold: boss.gold || 0,
+      reputation: boss.reputation || 0,
+      items,
+      logs: [],
+    };
   }
 
   private async settle(uid: Uid, result: BossResult): Promise<void> {

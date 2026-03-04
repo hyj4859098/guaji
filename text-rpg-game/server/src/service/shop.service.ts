@@ -21,6 +21,7 @@ export interface ShopItem {
 const CURRENCY_MAP: Record<string, { field: string; label: string }> = {
   gold: { field: 'gold', label: '金币' },
   reputation: { field: 'reputation', label: '声望' },
+  points: { field: 'points', label: '积分' },
 };
 
 const _shopLocks = new Map<string, Promise<any>>();
@@ -98,14 +99,15 @@ export class ShopService {
       throw createError(ErrorCode.USER_NOT_FOUND, '玩家不存在');
     }
     const player = players[0];
-    const balance = (player as any)[currency.field] || 0;
+    const balance = (player as any)[currency.field] ?? 0;
 
     if (balance < totalCost) {
       throw createError(ErrorCode.INVALID_PARAMS, `${currency.label}不足，需要 ${totalCost}，当前 ${balance}`);
     }
 
     // 扣除货币
-    const deductMethod = currency.field === 'gold' ? 'addGold' : 'addReputation';
+    const deductMethods: Record<string, string> = { gold: 'addGold', reputation: 'addReputation', points: 'addPoints' };
+    const deductMethod = deductMethods[currency.field] || 'addGold';
     await (this.playerService as any)[deductMethod](uid, -totalCost);
 
     // 发放物品

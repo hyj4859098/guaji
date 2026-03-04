@@ -92,6 +92,7 @@ function registerGlobals() {
 
   window.hideFormModal = hideFormModal;
   window.giveGoldToPlayer = misc.giveGoldToPlayer;
+  window.givePointsToPlayer = misc.givePointsToPlayer;
   window.logout = logout;
   window.switchTab = switchTab;
 }

@@ -47,7 +47,8 @@ export class PlayerModel implements IBaseModel<Player> {
       hit_rate: data.hit_rate || 90,
       dodge_rate: data.dodge_rate || 10,
       crit_rate: data.crit_rate || 20,
-      reputation: data.reputation || 0
+      reputation: data.reputation || 0,
+      points: data.points ?? 0
     };
     return await dataStorageService.insert('player', insertData, ctx);
   }

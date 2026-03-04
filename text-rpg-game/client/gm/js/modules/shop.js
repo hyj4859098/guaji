@@ -1,7 +1,7 @@
 import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
-const SHOP_TYPE_MAP = { gold: '金币商店', reputation: '声望商店' };
+const SHOP_TYPE_MAP = { gold: '金币商店', reputation: '声望商店', points: '积分商店' };
 const CATEGORY_MAP = { consumable: '消耗品', material: '材料/道具' };
 
 let cachedItems = [];

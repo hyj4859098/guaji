@@ -12,6 +12,13 @@ function toKey(uid: Uid): string {
 // map_id -> Set<uid>
 const mapSubscribers = new Map<number, Set<string>>();
 
+type MapIdCallback = (mapId: number) => void;
+let onMapSubscribeChange: MapIdCallback | null = null;
+/** 设置订阅变化回调（用于 PVP 玩家列表广播） */
+export function setOnMapSubscribeChange(cb: MapIdCallback | null): void {
+  onMapSubscribeChange = cb;
+}
+
 export function subscribeBoss(uid: Uid, mapId: number): void {
   const key = toKey(uid);
   let set = mapSubscribers.get(mapId);
@@ -20,11 +27,23 @@ export function subscribeBoss(uid: Uid, mapId: number): void {
     mapSubscribers.set(mapId, set);
   }
   set.add(key);
+  if (onMapSubscribeChange) onMapSubscribeChange(mapId);
 }
 
 export function unsubscribeBoss(uid: Uid): void {
   const key = toKey(uid);
-  mapSubscribers.forEach((set) => set.delete(key));
+  const affectedMaps: number[] = [];
+  mapSubscribers.forEach((set, mapId) => {
+    if (set.has(key)) affectedMaps.push(mapId);
+    set.delete(key);
+  });
+  affectedMaps.forEach((mapId) => onMapSubscribeChange?.(mapId));
+}
+
+/** 获取某地图的订阅者 uid 列表（用于 PVP 玩家列表） */
+export function getMapSubscriberUids(mapId: number): string[] {
+  const set = mapSubscribers.get(mapId);
+  return set ? Array.from(set) : [];
 }
 
 export function sendBossRespawnToSubscribers(mapId: number, bossId: number, bossName: string): void {

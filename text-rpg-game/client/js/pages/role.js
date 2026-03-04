@@ -127,6 +127,10 @@ const RolePage = {
           <span>声望</span>
           <span>${State.player?.reputation || 0}</span>
         </div>
+        <div class="stat-item">
+          <span>积分</span>
+          <span>${State.player?.points ?? 0}</span>
+        </div>
       </div>
     `;
   },

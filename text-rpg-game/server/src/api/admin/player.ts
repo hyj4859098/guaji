@@ -88,6 +88,26 @@ router.post('/give-gold', async (req: any, res: Response, next: NextFunction) =>
   }
 });
 
+router.post('/give-points', async (req: any, res: Response, next: NextFunction) => {
+  try {
+    const { uid, amount } = req.body;
+    if (!uid || !amount) {
+      return fail(res, ErrorCode.INVALID_PARAMS, '缺少 uid 或 amount');
+    }
+    const players = await playerService.list(uid);
+    if (players.length === 0) {
+      return fail(res, ErrorCode.NOT_FOUND, '玩家不存在');
+    }
+    await playerService.addPoints(uid, Number(amount));
+    const updated = await playerService.list(uid);
+    logger.info('GM发放积分成功', { uid, amount, newPoints: updated[0]?.points ?? 0 });
+    success(res, { uid, amount: Number(amount), points: updated[0]?.points ?? 0 });
+  } catch (error) {
+    logger.error('GM发放积分失败:', error);
+    next(error);
+  }
+});
+
 router.post('/give-item', async (req: any, res: Response, next: NextFunction) => {
   try {
     const { uid, item_id, count } = req.body;

@@ -14,6 +14,10 @@ const State = {
   currentMapId: parseInt(localStorage.getItem('currentMapId') || '0'),
   currentEnemyId: parseInt(localStorage.getItem('currentEnemyId') || '0'),
   currentBossId: parseInt(localStorage.getItem('currentBossId') || '0'),
+  currentPvpTargetUid: null,
+  currentPvpTargetInfo: null,
+  isPvpChallenger: false,
+  currentBattleMode: 'monster',
 
   setToken(token) {
     this.token = token;
@@ -77,6 +81,32 @@ const State = {
     return (fromState != null && fromState !== 0) ? fromState : (parsed != null && !isNaN(parsed) && parsed > 0 ? parsed : null);
   },
 
+  setCurrentPvpTargetUid(uid) {
+    this.currentPvpTargetUid = uid;
+  },
+
+  setCurrentPvpTargetInfo(info) {
+    this.currentPvpTargetInfo = info || null;
+  },
+
+  getMapBanUntil(mapId) {
+    try {
+      const raw = localStorage.getItem('map_ban');
+      if (!raw) return 0;
+      const obj = JSON.parse(raw);
+      return obj[String(mapId)] || 0;
+    } catch { return 0; }
+  },
+
+  setMapBanUntil(mapId, banUntilSec) {
+    try {
+      const raw = localStorage.getItem('map_ban') || '{}';
+      const obj = JSON.parse(raw);
+      obj[String(mapId)] = banUntilSec;
+      localStorage.setItem('map_ban', JSON.stringify(obj));
+    } catch {}
+  },
+
   clear() {
     this.token = '';
     this.uid = 0;
@@ -85,6 +115,10 @@ const State = {
     this.currentMapId = 0;
     this.currentEnemyId = 0;
     this.currentBossId = 0;
+    this.currentPvpTargetUid = null;
+    this.currentPvpTargetInfo = null;
+    this.isPvpChallenger = false;
+    this.currentBattleMode = 'monster';
     localStorage.removeItem('token');
     localStorage.removeItem('uid');
     localStorage.removeItem('currentMapId');

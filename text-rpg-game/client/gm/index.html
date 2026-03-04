@@ -119,7 +119,7 @@
       
       <div id="shop-tab" class="tab-content hidden">
         <h3>商店管理</h3>
-        <p style="color:#666;">管理各类商店的商品配置（金币商店、声望商店等），物品须先在物品管理中创建。</p>
+        <p style="color:#666;">管理各类商店的商品配置（金币商店、声望商店、积分商店等），物品须先在物品管理中创建。积分通过充值获得，目前可用 GM 发放积分测试。</p>
         <button class="btn btn-primary" onclick="addShopItem()">新增商品</button>
         <div id="shop-list"></div>
       </div>
@@ -172,6 +172,20 @@
             <input type="number" id="gold-amount" value="1000000" min="1" style="width:150px;">
           </div>
           <button class="btn btn-success" onclick="giveGoldToPlayer()">发放</button>
+        </div>
+        <hr style="margin:20px 0;border-color:#ddd;">
+        <h3>发放积分</h3>
+        <p style="color:#666;font-size:12px;margin:0 0 8px;">积分用于积分商店，正式环境由充值系统发放。</p>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;">
+            <label for="points-uid">玩家UID</label>
+            <input type="number" id="points-uid" placeholder="UID" style="width:100px;">
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label for="points-amount">积分</label>
+            <input type="number" id="points-amount" value="1000" min="1" style="width:150px;">
+          </div>
+          <button class="btn btn-success" onclick="givePointsToPlayer()">发放</button>
         </div>
         <hr style="margin:20px 0;border-color:#ddd;">
         <h3>设置VIP</h3>

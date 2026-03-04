@@ -12,7 +12,6 @@ const Pages = {
   trade: TradePage,
   shop: ShopPage,
   auction: AuctionPage,
-  boss: BossPage,
   rank: RankPage
 };
 
@@ -124,9 +123,11 @@ async function navigateTo(pageKey) {
   State.setCurrentPage(pageKey);
   // 更新导航按钮状态
   const navButtons = document.querySelectorAll('.nav-btn');
+  const isBattle = pageKey === 'battle';
   navButtons.forEach(btn => {
     btn.classList.remove('active');
-    if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${pageKey}'`)) {
+    btn.disabled = isBattle;
+    if (!isBattle && btn.getAttribute('onclick') && btn.getAttribute('onclick').includes(`'${pageKey}'`)) {
       btn.classList.add('active');
     }
   });
@@ -300,13 +301,32 @@ WS.on('boss_battle', (data) => {
     } else {
       Pages.battle.handleBattleEvent(data);
     }
-  } else if (Pages.boss) {
+  }
+});
+WS.on('pvp_battle', (data) => {
+  if (State.currentPage === 'battle' && Pages.battle) {
     if (data.batch && Array.isArray(data.events)) {
-      Pages.boss.handleBattleEventBatch(data.events);
+      Pages.battle.handleBattleEventBatch(data.events);
     } else {
-      Pages.boss.handleBattleEvent(data);
+      Pages.battle.handleBattleEvent(data);
     }
   }
+});
+WS.on('pvp_challenged', (data) => {
+  State.setCurrentPvpTargetUid(data.challenger_uid);
+  State.setCurrentPvpTargetInfo({ name: data.challenger_name, level: data.challenger_level, uid: data.challenger_uid });
+  State.isPvpChallenger = false;
+  State.currentBattleMode = 'pvp';
+  State.setCurrentBossId(0);
+  State.setCurrentEnemyId(0);
+  if (data.map_id) State.setCurrentMapId(data.map_id);
+  navigateTo('battle');
+});
+WS.on('pvp_result', (data) => {
+  if (data.map_id != null && data.ban_until != null) {
+    State.setMapBanUntil(data.map_id, data.ban_until);
+  }
+  State._pvpRedirect = data.redirect || 'boss-list';
 });
 window.showLogin = function() {
   document.getElementById('authForm').innerHTML = `

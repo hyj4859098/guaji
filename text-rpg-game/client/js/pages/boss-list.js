@@ -5,7 +5,7 @@
 const BossListPage = {
   style: `
     <style>
-      .boss-list-container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+      .boss-list-container { max-width: 1200px; margin: 0 auto; padding: 24px; overflow-y: auto; height: 100%; }
       .boss-list-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; text-align: center; }
       .boss-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
       .boss-card {
@@ -29,12 +29,30 @@ const BossListPage = {
       }
       .boss-battle-btn:hover { background: #dd6b20; }
       .boss-battle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .boss-list-divider { margin: 20px 0; border-top: 1px solid #f6ad55; }
+      .boss-list-pvp-section { min-height: 80px; }
+      .pvp-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #e2e8f0; }
+      .pvp-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+      .pvp-player-card {
+        background: #2d3748; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center;
+        border-left: 4px solid #4299e1;
+      }
+      .pvp-player-avatar { width: 48px; height: 48px; border-radius: 50%; background: #4a5568; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #e2e8f0; margin-bottom: 8px; }
+      .pvp-player-name { font-size: 14px; font-weight: bold; color: #e2e8f0; margin-bottom: 4px; }
+      .pvp-player-level { font-size: 12px; color: #a0aec0; margin-bottom: 8px; }
+      .pvp-challenge-btn { padding: 6px 12px; background: #4299e1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
+      .pvp-challenge-btn:hover { background: #3182ce; }
+      .pvp-challenge-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .pvp-in-battle { font-size: 12px; color: #f56565; }
     </style>
   `,
 
   bosses: [],
+  mapPlayers: [],
   currentMap: null,
   _bossRespawnHandler: null,
+  _pvpMapPlayersHandler: null,
 
   render() {
     const visibleBosses = this.bosses.filter(b => b.can_fight && !b.respawn_remain);
@@ -43,25 +61,44 @@ const BossListPage = {
     app.innerHTML = `
       ${this.style}
       <div class="boss-list-container">
-        <h1 class="boss-list-title">Boss 列表</h1>
-        ${this.currentMap ? `<p style="text-align:center;color:#a0aec0;margin-bottom:16px;">${this.currentMap.name} · 血量全局共享，仅击杀者得奖励，死亡30秒刷新</p>` : ''}
-        <div class="boss-grid">
-          ${visibleBosses.length > 0 ? visibleBosses.map(boss => `
-            <div class="boss-card">
-              <div class="boss-header">
-                <div class="boss-info">
-                  <div class="boss-name">${boss.name}</div>
-                  <div class="boss-level">Lv.${boss.level}</div>
-                  <div class="boss-hp">HP: ${boss.current_hp || 0}/${boss.max_hp || boss.hp}</div>
-                  <span class="boss-status can-fight">可挑战</span>
+        <div class="boss-list-pve-section">
+          <h1 class="boss-list-title">Boss 列表</h1>
+          ${this.currentMap ? `<p style="text-align:center;color:#a0aec0;margin-bottom:16px;">${this.currentMap.name} · 血量全局共享，仅击杀者得奖励，死亡30秒刷新</p>` : ''}
+          <div class="boss-grid">
+            ${visibleBosses.length > 0 ? visibleBosses.map(boss => `
+              <div class="boss-card">
+                <div class="boss-header">
+                  <div class="boss-info">
+                    <div class="boss-name">${boss.name}</div>
+                    <div class="boss-level">Lv.${boss.level}</div>
+                    <div class="boss-hp">HP: ${boss.current_hp || 0}/${boss.max_hp || boss.hp}</div>
+                    <span class="boss-status can-fight">可挑战</span>
+                  </div>
+                  <div class="boss-image-placeholder"></div>
                 </div>
-                <div class="boss-image-placeholder"></div>
+                <button class="boss-battle-btn" onclick="BossListPage.startBattle(${boss.id})">战斗</button>
               </div>
-              <button class="boss-battle-btn" onclick="BossListPage.startBattle(${boss.id})">战斗</button>
-            </div>
-          `).join('') : (this.bosses.length > 0 && hasDeadBoss
-            ? '<div style="text-align:center;color:#a0aec0;grid-column:1/-1;">Boss 已死亡，30 秒后自动刷新</div>'
-            : '<div style="text-align:center;color:#a0aec0;grid-column:1/-1;">该地图暂无Boss</div>')}
+            `).join('') : (this.bosses.length > 0 && hasDeadBoss
+              ? '<div style="text-align:center;color:#a0aec0;grid-column:1/-1;">Boss 已死亡，30 秒后自动刷新</div>'
+              : '<div style="text-align:center;color:#a0aec0;grid-column:1/-1;">该地图暂无Boss</div>')}
+          </div>
+        </div>
+        <div class="boss-list-divider"></div>
+        <div class="boss-list-pvp-section">
+          <div class="pvp-title">同地图玩家（PVP）</div>
+          <div class="pvp-player-grid">
+            ${(this.mapPlayers || []).map(p => `
+              <div class="pvp-player-card">
+                <div class="pvp-player-avatar">${(p.name || '?').charAt(0)}</div>
+                <div class="pvp-player-name">${(p.name || '玩家').replace(/</g, '&lt;')}</div>
+                <div class="pvp-player-level">Lv.${p.level || 1}</div>
+                ${p.in_battle
+                  ? '<span class="pvp-in-battle">战斗中</span>'
+                  : `<button class="pvp-challenge-btn" onclick="BossListPage.challengePvp('${String(p.uid).replace(/'/g, "\\'")}')">挑战</button>`}
+              </div>
+            `).join('')}
+          </div>
+          ${(!this.mapPlayers || this.mapPlayers.length === 0) ? '<div style="color:#a0aec0;font-size:12px;">暂无其他玩家</div>' : ''}
         </div>
       </div>
     `;
@@ -81,8 +118,13 @@ const BossListPage = {
     if (bossResult.code === 0) this.bosses = bossResult.data || [];
     else this.bosses = [];
 
+    const pvpResult = await API.get(`/pvp/players?map_id=${mapId}`);
+    if (pvpResult.code === 0 && pvpResult.data?.players) this.mapPlayers = pvpResult.data.players;
+    else this.mapPlayers = [];
+
     this._unsubscribeBoss();
     this._subscribeBoss(mapId);
+    this._subscribePvpMapPlayers(mapId);
     this.render();
   },
 
@@ -107,7 +149,27 @@ const BossListPage = {
       }
       this._bossRespawnHandler = null;
     }
+    if (this._pvpMapPlayersHandler) {
+      const fns = WS.handlers['pvp_map_players'];
+      if (fns) {
+        const idx = fns.indexOf(this._pvpMapPlayersHandler);
+        if (idx >= 0) fns.splice(idx, 1);
+      }
+      this._pvpMapPlayersHandler = null;
+    }
     if (WS.isConnected()) WS.send({ type: 'unsubscribe_boss' });
+  },
+
+  _subscribePvpMapPlayers(mapId) {
+    this._pvpMapPlayersHandler = (data) => {
+      if (State.currentPage !== 'boss-list') return;
+      const curMapId = State.getCurrentMapId();
+      if (data.map_id === curMapId && data.players) {
+        this.mapPlayers = data.players;
+        this.render();
+      }
+    };
+    WS.on('pvp_map_players', this._pvpMapPlayersHandler);
   },
 
   async _refreshBossList() {
@@ -125,6 +187,26 @@ const BossListPage = {
   startBattle(bossId) {
     State.setCurrentBossId(bossId);
     State.setCurrentEnemyId(0);
+    State.setCurrentPvpTargetUid(null);
+    State.currentBattleMode = 'boss';
+    navigateTo('battle');
+  },
+
+  async challengePvp(targetUid) {
+    const mapId = State.getCurrentMapId();
+    if (!mapId) return;
+    const p = this.mapPlayers.find(m => String(m.uid) === String(targetUid));
+    State.setCurrentPvpTargetUid(targetUid);
+    State.setCurrentPvpTargetInfo(p ? { name: p.name, level: p.level, uid: p.uid } : null);
+    State.isPvpChallenger = true;
+    State.currentBattleMode = 'pvp';
+    State.setCurrentBossId(0);
+    State.setCurrentEnemyId(0);
+    const res = await API.post('/pvp/challenge', { target_uid: targetUid, map_id: mapId });
+    if (res.code !== 0) {
+      UI.showToast(res.msg || '挑战失败');
+      return;
+    }
     navigateTo('battle');
   }
 };
