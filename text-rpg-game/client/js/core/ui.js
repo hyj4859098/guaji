@@ -71,23 +71,32 @@ const UI = {
     }
   },
 
-  showModal(content) {
+  showModal(content, options = {}) {
     const modal = document.createElement('div');
     modal.id = 'modal';
+    const useAuthBg = options.type === 'auth' || options.type === 'createPlayer';
+    modal.className = useAuthBg ? 'modal-auth' : '';
     modal.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.5);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
     `;
+    if (!useAuthBg) modal.style.background = 'rgba(0, 0, 0, 0.65)';
+    const isAuth = options.type === 'auth';
+    const isCreatePlayer = options.type === 'createPlayer';
+    const useAuthPanel = isAuth || isCreatePlayer;
+    let innerClass = 'modal-inner';
+    if (isAuth) innerClass += ' auth-panel';
+    if (isCreatePlayer) innerClass += ' auth-panel create-player';
+    const innerStyle = useAuthPanel ? '' : 'background: #16213e; padding: 24px; border-radius: 8px; max-width: 500px;';
     modal.innerHTML = `
-      <div style="background: #16213e; padding: 24px; border-radius: 8px; max-width: 500px;">
+      <div class="${innerClass}" style="${innerStyle}">
         ${content}
       </div>
     `;

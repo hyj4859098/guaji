@@ -18,6 +18,7 @@ function toKey(uid: Uid): string {
 class WSManager {
   private connections = new Map<string, ConnectionInfo>();
   private maxConnections = 1000; // 最大连接数限制
+  private maxMessageQueueSize = 50; // 单连接消息队列上限，防止内存无限增长
   private heartbeatInterval = 30000; // 心跳间隔（毫秒）
   private heartbeatTimeout = 60000; // 心跳超时时间（毫秒）
 
@@ -109,11 +110,17 @@ class WSManager {
           connectionInfo.ws.send(JSON.stringify(message));
         } catch (error) {
           logger.error('发送消息失败', { uid, error: error instanceof Error ? error.message : String(error) });
-          // 将消息加入队列，稍后重试
+          // 将消息加入队列，稍后重试（队列有上限，防止内存无限增长）
+          if (connectionInfo.messageQueue.length >= this.maxMessageQueueSize) {
+            connectionInfo.messageQueue.shift();
+          }
           connectionInfo.messageQueue.push(message);
         }
       } else {
         // 连接未就绪，将消息加入队列
+        if (connectionInfo.messageQueue.length >= this.maxMessageQueueSize) {
+          connectionInfo.messageQueue.shift();
+        }
         connectionInfo.messageQueue.push(message);
       }
     } else {

@@ -223,13 +223,15 @@ function appendChatMessage(data) {
 async function init() {
   if (!State.token) {
     UI.showModal(`
-      <h2 style="margin-bottom: 16px;">欢迎来到文字回合制挂机游戏</h2>
-      <div style="margin-bottom: 16px;">
-        <button onclick="showLogin()" class="btn btn-primary" style="width: 100%; margin-bottom: 8px;">登录</button>
-        <button onclick="showRegister()" class="btn btn-success" style="width: 100%;">注册</button>
+      <h1 class="auth-title">欢迎来到文字回合制挂机游戏</h1>
+      <p class="auth-subtitle">开启你的冒险之旅</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login" onclick="showLogin()">登录</button>
+        <button class="auth-tab" data-tab="register" onclick="showRegister()">注册</button>
       </div>
       <div id="authForm"></div>
-    `);
+    `, { type: 'auth' });
+    showLogin();
     return;
   }
 
@@ -253,24 +255,27 @@ async function init() {
       await loadPage(State.currentPage);
     }
   } else if (result.code === 0 && result.data && result.data.length === 0) {
-    // 已登录但无角色：显示创建角色界面，并提供切换账号入口
     UI.showModal(`
-      <h2 style="margin-bottom: 16px;">创建角色</h2>
-      <input type="text" id="playerName" placeholder="请输入角色名称" class="input" style="width: 100%; margin-bottom: 16px;">
-      <button onclick="createPlayer()" class="btn btn-primary" style="width: 100%; margin-bottom: 8px;">创建角色</button>
-      <button onclick="logout()" class="btn btn-info" style="width: 100%;">切换账号 / 退出登录</button>
-    `);
+      <h1 class="auth-title">创建角色</h1>
+      <p class="auth-subtitle">为你的冒险取一个名字</p>
+      <div id="authForm">
+        <input type="text" id="playerName" placeholder="请输入角色名称" class="auth-input">
+        <button onclick="createPlayer()" class="auth-btn auth-btn-primary">创建角色</button>
+        <button onclick="logout()" class="auth-btn auth-btn-secondary">切换账号 / 退出登录</button>
+      </div>
+    `, { type: 'createPlayer' });
   } else {
-    // token 无效或接口异常：清除登录状态并显示登录界面
     State.clear();
     UI.showModal(`
-      <h2 style="margin-bottom: 16px;">欢迎来到文字回合制挂机游戏</h2>
-      <div style="margin-bottom: 16px;">
-        <button onclick="showLogin()" class="btn btn-primary" style="width: 100%; margin-bottom: 8px;">登录</button>
-        <button onclick="showRegister()" class="btn btn-success" style="width: 100%;">注册</button>
+      <h1 class="auth-title">欢迎来到文字回合制挂机游戏</h1>
+      <p class="auth-subtitle">开启你的冒险之旅</p>
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-tab="login" onclick="showLogin()">登录</button>
+        <button class="auth-tab" data-tab="register" onclick="showRegister()">注册</button>
       </div>
       <div id="authForm"></div>
-    `);
+    `, { type: 'auth' });
+    showLogin();
   }
 }
 
@@ -340,20 +345,56 @@ WS.on('pvp_result', (data) => {
   }
   State._pvpRedirect = data.redirect || 'boss-list';
 });
+function updateAuthSubmitBtn(mode) {
+  const btn = document.getElementById('authSubmitBtn');
+  if (!btn) return;
+  if (mode === 'register') {
+    btn.textContent = '注册';
+    btn.className = 'auth-btn auth-btn-success';
+    btn.onclick = register;
+  } else {
+    btn.textContent = '登录';
+    btn.className = 'auth-btn auth-btn-primary';
+    btn.onclick = login;
+  }
+}
+
 window.showLogin = function() {
-  document.getElementById('authForm').innerHTML = `
-    <input type="text" id="username" placeholder="用户名" class="input" style="width: 100%; margin-bottom: 8px;">
-    <input type="password" id="password" placeholder="密码" class="input" style="width: 100%; margin-bottom: 16px;">
-    <button onclick="login()" class="btn btn-primary" style="width: 100%;">登录</button>
-  `;
+  const form = document.getElementById('authForm');
+  if (!form) return;
+  if (!form.querySelector('#username')) {
+    form.innerHTML = `
+      <input type="text" id="username" placeholder="用户名" class="auth-input">
+      <input type="password" id="password" placeholder="密码" class="auth-input">
+      <button id="authSubmitBtn" class="auth-btn auth-btn-primary">登录</button>
+    `;
+    document.getElementById('authSubmitBtn').onclick = login;
+  } else {
+    updateAuthSubmitBtn('login');
+  }
+  const loginTab = document.querySelector('.auth-tab[data-tab="login"]');
+  const registerTab = document.querySelector('.auth-tab[data-tab="register"]');
+  if (loginTab) loginTab.classList.add('active');
+  if (registerTab) registerTab.classList.remove('active');
 };
 
 window.showRegister = function() {
-  document.getElementById('authForm').innerHTML = `
-    <input type="text" id="username" placeholder="用户名" class="input" style="width: 100%; margin-bottom: 8px;">
-    <input type="password" id="password" placeholder="密码" class="input" style="width: 100%; margin-bottom: 16px;">
-    <button onclick="register()" class="btn btn-success" style="width: 100%;">注册</button>
-  `;
+  const form = document.getElementById('authForm');
+  if (!form) return;
+  if (!form.querySelector('#username')) {
+    form.innerHTML = `
+      <input type="text" id="username" placeholder="用户名" class="auth-input">
+      <input type="password" id="password" placeholder="密码" class="auth-input">
+      <button id="authSubmitBtn" class="auth-btn auth-btn-success">注册</button>
+    `;
+    document.getElementById('authSubmitBtn').onclick = register;
+  } else {
+    updateAuthSubmitBtn('register');
+  }
+  const loginTab = document.querySelector('.auth-tab[data-tab="login"]');
+  const registerTab = document.querySelector('.auth-tab[data-tab="register"]');
+  if (loginTab) loginTab.classList.remove('active');
+  if (registerTab) registerTab.classList.add('active');
 };
 
 window.login = async function() {
