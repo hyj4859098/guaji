@@ -115,6 +115,19 @@ export class DataStorageService {
   }
 
   /**
+   * 按条件更新数据（用于 _id 等非 id 字段）
+   */
+  async updateByFilter(collection: string, filter: any, data: any, ctx?: any): Promise<boolean> {
+    const updateData = {
+      ...data,
+      update_time: Math.floor(Date.now() / 1000)
+    };
+    const collectionObj = getCollection(collection);
+    const result = await collectionObj.updateOne(filter, { $set: updateData });
+    return (result.modifiedCount ?? 0) > 0;
+  }
+
+  /**
    * 根据条件获取数据
    * @param collection 集合名
    * @param condition 条件对象

@@ -62,9 +62,13 @@ const BattlePage = {
       .skills, .monster-skills { }
       .bonus-info.drop-panel { }
       .battle-log {
-        background: #16213e; flex: 1;
+        background: #16213e; flex: 1; min-height: 600px; max-height: 750px;
         border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
-        padding: 10px; overflow-y: auto;
+        padding: 10px; display: flex; flex-direction: column;
+      }
+      .battle-log-content {
+        flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+        font-size: 12px; line-height: 1.4;
       }
 
       .status-bar { margin-bottom: 5px; }
@@ -80,7 +84,7 @@ const BattlePage = {
         padding: 0; background: none; border: none; margin: 0;
       }
 
-      .battle-log-item { padding: 1px 2px; font-size: 12px; color: #e2e8f0; }
+      .battle-log-item { padding: 2px 4px; font-size: 12px; color: #e2e8f0; white-space: pre-wrap; word-break: break-word; }
       .battle-log-round { color: #3b82f6; font-weight: bold; text-align: center; }
       .battle-log-player { color: #fbbf24; }
       .battle-log-monster { color: #f43f5e; }
@@ -325,7 +329,13 @@ const BattlePage = {
     const log = document.getElementById('battleLogContent');
     if (!log) return;
     log.innerHTML = this.getLogHTML(this.battleLogs || []);
-    log.scrollTop = log.scrollHeight;
+    this.scrollLogToBottom();
+  },
+
+  /** 滚动战斗日志到底部（内容更新后调用，保持最新信息在底部） */
+  scrollLogToBottom() {
+    const log = document.getElementById('battleLogContent');
+    if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
   },
 
   /** 奖励结算：与战斗日志同风格，单行描述句 */
@@ -435,7 +445,7 @@ const BattlePage = {
     return `
       <div class="battle-log">
         <h3 style="margin:0 0 8px 0;color:#4299e1;font-size:13px;border-bottom:1px solid rgba(66,153,225,0.2);padding-bottom:5px;">战斗日志</h3>
-        <div id="battleLogContent">${this.getLogHTML(this.battleLogs || [])}</div>
+        <div id="battleLogContent" class="battle-log-content">${this.getLogHTML(this.battleLogs || [])}</div>
       </div>
     `;
   },
@@ -606,7 +616,7 @@ const BattlePage = {
     this.battleLogs = [];
     this.setBattleButtonsEnabled(false);
     const log = document.getElementById('battleLogContent');
-    if (log) log.innerHTML = '<div class="empty-hint">战斗开始...</div>';
+    if (log) { log.innerHTML = '<div class="empty-hint">战斗开始...</div>'; this.scrollLogToBottom(); }
 
     const autoHeal = this.getAutoHealConfig();
     const result = await API.post('/battle/start', { enemy_id: enemyId, auto_heal: autoHeal });
@@ -625,7 +635,7 @@ const BattlePage = {
     this.battleLogs = [];
     this.setBattleButtonsEnabled(false);
     const log = document.getElementById('battleLogContent');
-    if (log) log.innerHTML = '<div class="empty-hint">Boss 战斗开始...</div>';
+    if (log) { log.innerHTML = '<div class="empty-hint">Boss 战斗开始...</div>'; this.scrollLogToBottom(); }
 
     const autoHeal = this.getAutoHealConfig();
     const result = await API.post('/boss/challenge', { boss_id: bossId, auto_heal: autoHeal });
@@ -646,7 +656,7 @@ const BattlePage = {
     this.battleLogs = [];
     this.setBattleButtonsEnabled(false);
     const log = document.getElementById('battleLogContent');
-    if (log) log.innerHTML = '<div class="empty-hint">自动战斗开始...</div>';
+    if (log) { log.innerHTML = '<div class="empty-hint">自动战斗开始...</div>'; this.scrollLogToBottom(); }
 
     const autoHeal = this.getAutoHealConfig();
     const result = await API.post('/battle/auto', { enemy_id: enemyId, auto_heal: autoHeal });
@@ -722,7 +732,7 @@ const BattlePage = {
         this.currentBattleEnemyId = config.enemy_id;
         this.setBattleButtonsEnabled(false);
         const log = document.getElementById('battleLogContent');
-        if (log) log.innerHTML = '<div class="empty-hint">正在恢复离线战斗...</div>';
+        if (log) { log.innerHTML = '<div class="empty-hint">正在恢复离线战斗...</div>'; this.scrollLogToBottom(); }
 
         if (config.enemy_id) {
           State.setCurrentEnemyId(config.enemy_id);

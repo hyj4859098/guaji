@@ -33,6 +33,8 @@ import pvpRouter from './api/pvp';
 import { setOnMapSubscribeChange } from './event/boss-subscription';
 import { pvpService } from './service/pvp.service';
 const app = express();
+// 生产环境在 Nginx 后，需信任代理以正确获取 X-Forwarded-For
+app.set('trust proxy', 1);
 const server = createServer(app);
 const wss = new WebSocketServer({ port: config.ws_port });
 

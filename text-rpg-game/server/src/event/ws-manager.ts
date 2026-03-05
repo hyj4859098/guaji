@@ -3,6 +3,7 @@ import { Uid } from '../types/index';
 import { logger } from '../utils/logger';
 import { tradeService } from '../service/trade.service';
 import { subscribeBoss, unsubscribeBoss } from './boss-subscription';
+import { recordKicked } from '../utils/kick-cooldown';
 
 interface ConnectionInfo {
   ws: WebSocket;
@@ -35,13 +36,32 @@ class WSManager {
       return;
     }
 
+    const key = toKey(uid);
+    const existing = this.connections.get(key);
+    // 重复登录：踢掉旧连接，记录冷却防止恶意刷登录
+    if (existing) {
+      recordKicked(uid);
+      const oldWs = existing.ws;
+      try {
+        oldWs.send(JSON.stringify({ type: 'kick', data: { reason: '账号在其他地方登录，30秒内无法再次登录' } }));
+        // 延迟关闭，确保客户端收到并处理 kick 消息后再断开
+        setTimeout(() => {
+          try { oldWs.close(4000, 'Duplicate login'); } catch (e) { /* ignore */ }
+        }, 200);
+      } catch (e) {
+        /* ignore */
+      }
+      this.connections.delete(key);
+      tradeService.handleDisconnect(uid);
+      logger.info('踢掉旧连接（重复登录）', { uid });
+    }
+
     const connectionInfo: ConnectionInfo = {
       ws,
       lastHeartbeat: Date.now(),
       messageQueue: []
     };
 
-    const key = toKey(uid);
     this.connections.set(key, connectionInfo);
     logger.info('新的WebSocket连接', { uid, connections: this.connections.size });
 

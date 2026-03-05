@@ -106,7 +106,7 @@
       
       <div id="drop-tab" class="tab-content hidden">
         <h3>掉落管理</h3>
-        <p style="color:#666;">管理怪物掉落（monster_drop）和 Boss 掉落（boss_drop）。上方下拉切换类型，填入怪物ID或BossID、物品ID、数量、概率(0-100)。Boss 优先使用 boss_drop，无则用 monster_drop。</p>
+        <p style="color:#666;">管理怪物掉落（monster_drop）和 Boss 掉落（boss_drop）。上方下拉切换类型，填入怪物ID或BossID、物品ID、数量、概率(0-100，支持小数如 0.1、0.01)。Boss 优先使用 boss_drop，无则用 monster_drop。</p>
         <button class="btn btn-primary" onclick="addDrop()">新增掉落</button>
         <div id="drop-list"></div>
       </div>
@@ -186,6 +186,16 @@
             <input type="number" id="points-amount" value="1000" min="1" style="width:150px;">
           </div>
           <button class="btn btn-success" onclick="givePointsToPlayer()">发放</button>
+        </div>
+        <hr style="margin:20px 0;border-color:#ddd;">
+        <h3>解绑IP</h3>
+        <p style="color:#666;font-size:12px;margin:0 0 8px;">一账号一IP防作弊。用户换网络后无法登录时，可在此解绑，下次登录将绑定新IP。</p>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="margin:0;">
+            <label for="unbind-username">用户名</label>
+            <input type="text" id="unbind-username" placeholder="用户名" style="width:150px;">
+          </div>
+          <button class="btn btn-info" onclick="unbindUserIp()">解绑IP</button>
         </div>
         <hr style="margin:20px 0;border-color:#ddd;">
         <h3>设置VIP</h3>

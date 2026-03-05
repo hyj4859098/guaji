@@ -11,6 +11,7 @@ import equipBaseRouter from './equip_base';
 import levelRouter from './level';
 import playerRouter from './player';
 import shopRouter from './shop';
+import userRouter from './user';
 import { adminAuth } from '../../middleware/auth';
 
 const router = Router();
@@ -22,6 +23,7 @@ router.use('/', authRouter);
 router.use(adminAuth);
 
 // 管理路由（统一单数路径：/admin/monster、/admin/skill 等）
+router.use('/user', userRouter);
 router.use('/monster', monsterRouter);
 router.use('/boss', bossRouter);
 router.use('/monster_drop', monsterDropRouter);

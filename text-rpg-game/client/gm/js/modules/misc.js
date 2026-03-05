@@ -101,6 +101,21 @@ export async function setPlayerVip() {
   } catch (e) { showToast('网络错误', 'error'); }
 }
 
+export async function unbindUserIp() {
+  const username = document.getElementById('unbind-username')?.value?.trim();
+  if (!username) { showToast('请输入用户名', 'error'); return; }
+  try {
+    const r = await fetch(`${API_BASE_URL}/admin/user/unbind-ip`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
+      body: JSON.stringify({ username })
+    });
+    const result = await r.json();
+    if (result.code === 0) showToast(result.data?.message || '解绑成功');
+    else showToast(result.msg || '解绑失败', 'error');
+  } catch (e) { showToast('网络错误', 'error'); }
+}
+
 export async function getPlayerInfo() {
   const uid = document.getElementById('player-uid')?.value;
   if (!uid) {

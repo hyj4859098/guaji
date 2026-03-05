@@ -279,6 +279,19 @@ async function init() {
   }
 }
 
+WS.on('kick', (data) => {
+  const reason = data?.reason || '账号在其他地方登录，30秒内无法再次登录';
+  State.clear();
+  if (WS.ws) {
+    WS.ws.onclose = null;
+    WS.ws.onerror = null;
+    try { WS.ws.close(); } catch (e) {}
+    WS.ws = null;
+  }
+  // 使用原生 alert 提示框，确保在所有设备上都能明显显示
+  alert(reason);
+  window.location.reload();
+});
 WS.on('player', (data) => RefreshBus.emit('player', data));
 WS.on('bag', (data) => RefreshBus.emit('bag', data));
 WS.on('equip', (data) => RefreshBus.emit('equip', data));

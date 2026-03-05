@@ -19,17 +19,18 @@ function formHtml(d, type) {
       <label>${idLabel}: <input type="number" id="drop-entity-id" value="${v(idKey)}" min="1"></label>
       <label>物品ID: <input type="number" id="drop-item-id" value="${v('item_id')}" min="1"></label>
       <label>数量: <input type="number" id="drop-quantity" value="${v('quantity', 1)}" min="1"></label>
-      <label>概率(0-100): <input type="number" id="drop-probability" value="${v('probability', 0)}" min="0" max="100"></label>
+      <label>概率(0-100，支持小数如0.1、0.01): <input type="number" id="drop-probability" value="${v('probability', 0)}" min="0" max="100" step="0.01"></label>
     </div>`;
 }
 
 function readForm() {
   const int = id => parseInt(document.getElementById(id)?.value) || 0;
+  const float = id => parseFloat(document.getElementById(id)?.value) || 0;
   const entityId = int('drop-entity-id');
   const data = {
     item_id: int('drop-item-id'),
     quantity: int('drop-quantity') || 1,
-    probability: int('drop-probability'),
+    probability: float('drop-probability'),
   };
   if (dropType === 'boss') data.boss_id = entityId;
   else data.monster_id = entityId;

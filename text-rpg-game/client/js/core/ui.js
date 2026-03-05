@@ -108,5 +108,28 @@ const UI = {
     if (modal) {
       modal.remove();
     }
+  },
+
+  /** 被踢下线时显示弹窗，用户点击确定后刷新 */
+  showKickAlert(message, onConfirm) {
+    const modal = document.createElement('div');
+    modal.id = 'kick-alert';
+    modal.style.cssText = `
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    `;
+    const escaped = String(message || '账号在其他地方登录').replace(/</g, '&lt;');
+    modal.innerHTML = `
+      <div style="background: #1e293b; padding: 24px; border-radius: 8px; max-width: 360px; text-align: center;">
+        <p style="color: #f87171; font-size: 18px; margin: 0 0 20px;">${escaped}</p>
+        <button class="auth-btn auth-btn-primary" id="kick-alert-ok" style="padding: 10px 24px;">确定</button>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.querySelector('#kick-alert-ok').onclick = () => {
+      modal.remove();
+      if (typeof onConfirm === 'function') onConfirm();
+    };
   }
 };
