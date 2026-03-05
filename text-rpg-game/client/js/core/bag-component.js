@@ -4,13 +4,7 @@ const BagComponent = {
   // 存储各个栏的配置
   bags: {},
 
-  // 物品类型映射（与数据库、GM 一致：3=材料 4=道具）
-  itemTypes: [
-    { key: 'equipment', label: '装备', type: 2 },
-    { key: 'consumable', label: '消耗品', type: 1 },
-    { key: 'tool', label: '道具', type: 4 },
-    { key: 'material', label: '材料', type: 3 }
-  ],
+  get itemTypes() { return Helper.BAG_TABS; },
 
   // 初始化一个背包栏
   initBag(bagId, containerId, options = {}) {

@@ -7,12 +7,7 @@ const BagPage = {
   currentPage: 1,
   pageSize: 15,
 
-  itemTypes: [
-    { key: 'equipment', label: '装备' },
-    { key: 'consumable', label: '消耗品' },
-    { key: 'tool', label: '道具' },
-    { key: 'material', label: '材料' }
-  ],
+  get itemTypes() { return Helper.BAG_TABS; },
 
   get totalPages() {
     return Math.max(1, Math.ceil(this.filteredItems.length / this.pageSize));

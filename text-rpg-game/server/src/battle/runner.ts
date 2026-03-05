@@ -84,7 +84,6 @@ export async function runBattle(
   let attackerHp = attacker.hp;
   let defenderHp = defender.hp;
   const maxAttackerHp = attacker.max_hp ?? attacker.hp;
-  const maxAttackerMp = attacker.max_mp ?? attacker.mp ?? 0;
   const maxDefenderHp = defender.max_hp ?? defender.hp;
   const defenderName = defender.name ?? '对手';
 

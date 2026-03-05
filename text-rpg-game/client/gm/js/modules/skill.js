@@ -5,7 +5,6 @@ const TYPE_MAP = { 0: '物理攻击', 1: '魔法攻击' };
 
 function buildFormHtml(s) {
   const v = (key, def = '') => s ? (s[key] ?? def) : def;
-  const isEdit = !!s;
   const row = (...cells) => `<div class="gm-form-row">${cells.join('')}</div>`;
   const inp = (label, id, val, type = 'number', extra = '') =>
     `<label>${label}: <input type="${type}" id="${id}" value="${val}" ${type === 'number' ? 'min="0"' : ''} ${extra}></label>`;
@@ -17,7 +16,6 @@ function buildFormHtml(s) {
 
   return [
     row(
-      isEdit ? '' : inp('ID(可选)', 'skill-id-input', '', 'number', 'placeholder="自动" min="1"'),
       inp('名称', 'skill-name', v('name', ''), 'text', 'placeholder="技能名称"'),
       typeSelect
     ),
@@ -87,33 +85,6 @@ export async function loadSkillList() {
   }
 }
 
-export function addSkill() {
-  showFormModal('新增技能', buildFormHtml(null), saveSkill);
-}
-
-export async function saveSkill() {
-  const data = collectFormData();
-  if (!data.name) { showToast('请填写名称', 'error'); return; }
-
-  const idInput = document.getElementById('skill-id-input');
-  const id = idInput?.value?.trim() ? parseInt(idInput.value) : undefined;
-  if (id !== undefined && (isNaN(id) || id < 1)) { showToast('ID 须为正整数', 'error'); return; }
-  if (id !== undefined) data.id = id;
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/admin/skill`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getToken()}` },
-      body: JSON.stringify(data)
-    });
-    const result = await res.json();
-    if (result.code === 0) { showToast('技能新增成功'); hideFormModal(); loadSkillList(); }
-    else showToast(result.msg || '新增失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
-}
-
-export function cancelAddSkill() { hideFormModal(); }
-
 export async function editSkill(id) {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/skill/${id}`, {
@@ -159,6 +130,6 @@ export async function deleteSkill(id) {
 }
 
 export default {
-  loadSkillList, addSkill, saveSkill, cancelAddSkill,
+  loadSkillList,
   editSkill, cancelEditSkill, updateSkill, deleteSkill
 };

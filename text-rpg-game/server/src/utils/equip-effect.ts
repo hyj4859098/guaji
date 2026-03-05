@@ -1,5 +1,4 @@
 import { Uid } from '../types';
-import { query } from '../config/db';
 import { logger } from './logger';
 import { TransactionContext } from './transaction';
 
@@ -28,7 +27,7 @@ export class EquipEffectUtil {
     logger.info('从数据库获取玩家信息', { uid, player });
 
     // 记录应用前的属性
-    const beforeAttrs = { ...player };
+    const _beforeAttrs = { ...player };
 
     // 准备更新的属性
     const updateData: any = {};
@@ -93,7 +92,7 @@ export class EquipEffectUtil {
     logger.info('从数据库获取玩家信息', { uid, player });
 
     // 记录移除前的属性
-    const beforeAttrs = { ...player };
+    const _beforeAttrs = { ...player };
 
     // 准备更新的属性
     const updateData: any = {};

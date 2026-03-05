@@ -12,7 +12,7 @@ export class LevelExpModel implements IBaseModel<LevelExp> {
     return await dataStorageService.getByCondition('level_exp', { level }, ctx);
   }
 
-  async list(ctx?: any): Promise<LevelExp[]> {
+  async list(_ctx?: any): Promise<LevelExp[]> {
     // MongoDB查询，按level字段升序排序
     const collection = getCollection('level_exp');
     const result = await collection.find().sort({ level: 1 }).toArray();

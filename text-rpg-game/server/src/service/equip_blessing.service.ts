@@ -1,18 +1,16 @@
 /**
  * 装备祝福服务
- * 材料：祝福油(9)，金币 1,000,000
- * 成功率：固定 50%
- * 成功：blessing_level +1；失败：无变化
+ * 材料 ID 从 config.enhance_materials 读取
+ * 金币 1,000,000，成功率 50%，成功 blessing_level +1
  */
 import { EquipInstanceService } from './equip_instance.service';
 import { EquipInstanceModel } from '../model/equip_instance.model';
 import { dataStorageService } from './data-storage.service';
+import { getEnhanceMaterialIds } from './enhance-config.service';
 import { Uid } from '../types';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { wsManager } from '../event/ws-manager';
-
-const ITEM_BLESSING_OIL = 10;
 const BLESSING_GOLD_COST = 1000000;
 const BLESSING_SUCCESS_RATE = 50;
 const MAX_BLESSING_LEVEL = 30;
@@ -85,7 +83,8 @@ export class EquipBlessingService {
       throw createError(ErrorCode.INVALID_PARAMS, `祝福已达上限 ${MAX_BLESSING_LEVEL}`);
     }
 
-    const oilCount = await this.getMaterialCount(uid, ITEM_BLESSING_OIL);
+    const matIds = await getEnhanceMaterialIds();
+    const oilCount = await this.getMaterialCount(uid, matIds.blessing_oil);
     if (oilCount < 1) {
       throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '祝福油不足');
     }
@@ -99,7 +98,7 @@ export class EquipBlessingService {
       throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, `金币不足，需要 ${BLESSING_GOLD_COST}`);
     }
 
-    await this.consumeMaterial(uid, ITEM_BLESSING_OIL, 1);
+    await this.consumeMaterial(uid, matIds.blessing_oil, 1);
     await playerService.addGold(uid, -BLESSING_GOLD_COST);
 
     const roll = Math.random() * 100;

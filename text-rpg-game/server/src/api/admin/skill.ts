@@ -1,53 +1,17 @@
-import { Router, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { SkillService } from '../../service/skill.service';
 import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
-import { logger } from '../../utils/logger';
+import { adminHandler, adminList, adminGetById, adminDelete, parseIdParam } from './admin-utils';
 
 const router = Router();
 const skillService = new SkillService();
 
-/**
- * 获取技能列表
- */
-router.get('/', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const skills = await skillService.list();
-    success(res, skills);
-  } catch (error) {
-    logger.error('获取技能列表失败:', error);
-    next(error);
-  }
-});
+router.get('/', adminList(skillService, '获取技能列表失败'));
+router.get('/:id', adminGetById(skillService, '技能', '获取技能信息失败'));
 
-/**
- * 获取单个技能信息
- */
-router.get('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '无效的技能ID');
-    }
-    
-    const skill = await skillService.get(id);
-    if (!skill) {
-      return fail(res, ErrorCode.NOT_FOUND, '技能不存在');
-    }
-    
-    success(res, skill);
-  } catch (error) {
-    logger.error('获取技能信息失败:', error);
-    next(error);
-  }
-});
-
-/**
- * 新增技能
- */
-router.post('/', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const { id: bodyId, name, type, damage, mp_cost, cooldown, description, cost, probability, book_id, is_equipped } = req.body;
+router.post('/', adminHandler(async (req, res) => {
+    const { id: bodyId, name, type, damage, mp_cost, cost, probability, book_id, is_equipped } = req.body;
     
     if (!name || type == null) {
       return fail(res, ErrorCode.INVALID_PARAMS, '缺少必要参数');
@@ -72,23 +36,12 @@ router.post('/', async (req: any, res: Response, next: NextFunction) => {
     
     const id = await skillService.add(skillData);
     success(res, { id });
-  } catch (error) {
-    logger.error('新增技能失败:', error);
-    next(error);
-  }
-});
+}, '新增技能失败'));
 
-/**
- * 更新技能
- */
-router.put('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '无效的技能ID');
-    }
-    
-    const { name, type, damage, mp_cost, cooldown, description, cost, probability, book_id, is_equipped } = req.body;
+router.put('/:id', adminHandler(async (req, res) => {
+    const id = parseIdParam(req, res, '技能ID');
+    if (id == null) return;
+    const { name, type, damage, mp_cost, description, cost, probability, book_id, is_equipped } = req.body;
     
     if (!name || type == null) {
       return fail(res, ErrorCode.INVALID_PARAMS, '缺少必要参数');
@@ -107,37 +60,10 @@ router.put('/:id', async (req: any, res: Response, next: NextFunction) => {
     };
     
     const successFlag = await skillService.update(id, skillData);
-    if (successFlag) {
-      success(res, { message: '更新成功' });
-    } else {
-      fail(res, ErrorCode.NOT_FOUND, '技能不存在');
-    }
-  } catch (error) {
-    logger.error('更新技能失败:', error);
-    next(error);
-  }
-});
+    if (successFlag) success(res, { message: '更新成功' });
+    else fail(res, ErrorCode.NOT_FOUND, '技能不存在');
+}, '更新技能失败'));
 
-/**
- * 删除技能
- */
-router.delete('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '无效的技能ID');
-    }
-    
-    const successFlag = await skillService.delete(id);
-    if (successFlag) {
-      success(res, { message: '删除成功' });
-    } else {
-      fail(res, ErrorCode.NOT_FOUND, '技能不存在');
-    }
-  } catch (error) {
-    logger.error('删除技能失败:', error);
-    next(error);
-  }
-});
+router.delete('/:id', adminDelete(skillService, '技能', '删除技能失败'));
 
 export default router;

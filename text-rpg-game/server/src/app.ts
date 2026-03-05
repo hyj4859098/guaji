@@ -6,9 +6,6 @@ import { config } from './config';
 import { errorHandler } from './middleware/error';
 import { cors } from './middleware/cors';
 import { connect } from './config/db';
-import { generateToken } from './utils/helper';
-import { success, fail } from './utils/response';
-import { ErrorCode } from './utils/error';
 import { logger } from './utils/logger';
 import { wsManager } from './event/ws-manager';
 import { wealthTitleService } from './service/wealth-title.service';
@@ -30,9 +27,17 @@ import auctionRouter from './api/auction';
 import bossRouter from './api/boss';
 import rankRouter from './api/rank';
 import pvpRouter from './api/pvp';
-import { setOnMapSubscribeChange } from './event/boss-subscription';
+import configRouter from './api/config';
+import { setOnMapSubscribeChange, setSendToUser } from './event/boss-subscription';
 import { pvpService } from './service/pvp.service';
+import { tradeService } from './service/trade.service';
+
 const app = express();
+
+// 注入回调，打破 ws-manager 与 trade/boss-subscription 的循环依赖
+wsManager.registerDisconnectHandler((uid) => tradeService.handleDisconnect(uid));
+wsManager.registerMessageHandler('trade', (uid, data) => tradeService.handleMessage(uid, data));
+setSendToUser(wsManager.sendToUser.bind(wsManager));
 // 生产环境在 Nginx 后，需信任代理以正确获取 X-Forwarded-For
 app.set('trust proxy', 1);
 const server = createServer(app);
@@ -133,11 +138,11 @@ app.use('/api/auction', auctionRouter);
 app.use('/api/boss', bossRouter);
 app.use('/api/rank', rankRouter);
 app.use('/api/pvp', pvpRouter);
+app.use('/api/config', configRouter);
 
 setOnMapSubscribeChange((mapId) => pvpService.notifyMapPlayersChanged(mapId));
 
 // 管理接口路由配置
-const { adminAuth } = require('./middleware/auth');
 const adminRouter = require('./api/admin/index').default;
 
 // 其他管理接口（需要认证）

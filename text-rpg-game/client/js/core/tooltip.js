@@ -6,7 +6,7 @@ const Tooltip = {
    */
   showForItem(event, item) {
     if (!item) return;
-    const type = (item.type === 2 || item.equipment_uid) ? 'equipment' : 'item';
+    const type = Helper.isEquipment(item) ? 'equipment' : 'item';
 
     const tooltip = document.createElement('div');
     tooltip.id = 'common-tooltip';
@@ -121,7 +121,8 @@ const Tooltip = {
     }
 
     if (!hasAttributes) {
-      const isMaterialOrTool = (item.type === 3 || item.type === 4 || item.type === 5 || item.type === 6);
+      const t = Helper.getItemType(item);
+      const isMaterialOrTool = (t === 'material' || t === 'tool');
       if (isMaterialOrTool && item.description) {
         const desc = String(item.description).replace(/</g, '&lt;').replace(/>/g, '&gt;');
         content += `<div class="tooltip-effect"><span class="tooltip-attr-value">${desc}</span></div>`;

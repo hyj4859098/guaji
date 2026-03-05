@@ -244,7 +244,7 @@ export class PvpService {
       const challengerRedirect = runResult.winner === 'attacker' ? 'boss-list' : 'map';
       const targetRedirect = runResult.winner === 'defender' ? 'boss-list' : 'map';
 
-      const getBanUntil = (uid: Uid) => {
+      const getBanUntil = (_uid: Uid) => {
         const until = Math.floor(Date.now() / 1000) + 30;
         return { map_id: mapId, ban_until: until };
       };

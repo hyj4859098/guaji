@@ -20,15 +20,23 @@ Write-Host "[2/4] npm run build..."
 npm run build
 if ($LASTEXITCODE -ne 0) { Write-Host "FAILED"; exit 1 }
 
+Write-Host "移除开发依赖（生产环境仅保留运行时依赖）..."
+npm prune --production
+
 Write-Host "[3/4] 打包并上传..."
 Set-Location $root
 tar -czf server-deploy.tar.gz -C text-rpg-game server/dist server/node_modules server/package.json server/init-mongodb.js client
+# 恢复本地开发依赖（prune 已修改了 node_modules）
+Set-Location "text-rpg-game\server"
+npm install --no-audit --no-fund | Out-Null
+Set-Location $root
 if (-not (Test-Path server-deploy.tar.gz)) { Write-Host "FAILED: tar"; exit 1 }
 
 Write-Host "上传中（需输入服务器密码）..."
 scp server-deploy.tar.gz "${SERVER}:/opt/guaji/"
-Write-Host "解压并启动（需再次输入密码）..."
-ssh $SERVER "cd /opt/guaji && mkdir -p text-rpg-game && cd text-rpg-game && tar -xzf ../server-deploy.tar.gz && cd server && node init-mongodb.js && pkill -f 'node dist/app.js' 2>/dev/null; nohup node dist/app.js > /var/log/text-rpg-game.log 2>&1 &"
+Write-Host "服务器端：备份、解压、启动（需再次输入密码）..."
+$deployScript = Get-Content "$PSScriptRoot\deploy-remote.sh" -Raw -Encoding UTF8
+$deployScript | ssh $SERVER "bash -s"
 Remove-Item server-deploy.tar.gz -ErrorAction SilentlyContinue
 
 Write-Host ""

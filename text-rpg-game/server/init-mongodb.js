@@ -1,17 +1,27 @@
+/**
+ * 数据库初始化：创建集合 + 插入功能性道具
+ * 所有功能性道具 ID 从 config 读取，无硬编码。修改 config 表即可调整 ID。
+ * 装备、药水、技能书、怪物、地图、等级经验、商店等由 GM 工具创建。
+ */
 const { MongoClient } = require('mongodb');
+
+const DEFAULT_FUNCTIONAL_ITEMS = {
+  enhance_materials: { stone: 6, lucky: 8, anti_explode: 7, blessing_oil: 10 },
+  expand_bag: 11,
+  vip_card: 201,
+  boost_ids: [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112],
+  stat_fruit_ids: [120, 121, 122, 123, 124, 125],
+};
 
 async function initMongoDB() {
   const client = new MongoClient('mongodb://localhost:27017');
-  
+
   try {
-    // 连接到MongoDB
     await client.connect();
     console.log('MongoDB connected successfully');
-    
-    // 选择数据库
+
     const db = client.db('turn-based-game');
-    
-    // 创建必要的集合
+
     const collections = [
       'user',
       'player',
@@ -22,382 +32,219 @@ async function initMongoDB() {
       'player_skill',
       'monster',
       'monster_drop',
+      'boss',
+      'boss_state',
+      'boss_drop',
       'map',
       'level_exp',
       'item',
       'equip_base',
+      'item_effect',
+      'shop',
+      'config',
       'auction',
-      'auction_record'
+      'auction_record',
+      'counter'
     ];
-    
-    for (const collectionName of collections) {
-      const exists = await db.listCollections({ name: collectionName }).hasNext();
+
+    for (const name of collections) {
+      const exists = await db.listCollections({ name }).hasNext();
       if (!exists) {
-        await db.createCollection(collectionName);
-        console.log(`Created collection: ${collectionName}`);
-      } else {
-        console.log(`Collection ${collectionName} already exists`);
+        await db.createCollection(name);
+        console.log(`Created collection: ${name}`);
       }
     }
 
-    // 删除已废弃的 equip 表（已统一使用 equip_instance）
     const equipExists = await db.listCollections({ name: 'equip' }).hasNext();
     if (equipExists) {
       await db.collection('equip').drop();
       console.log('Dropped deprecated collection: equip');
     }
 
-    // 插入初始物品数据
-    const itemCollection = db.collection('item');
-    const itemCount = await itemCollection.countDocuments();
-    if (itemCount === 0) {
-      const items = [
-        { id: 1, name: '铁剑', type: 2, pos: 1, description: '一把普通的铁剑' },
-        { id: 2, name: '铁盾', type: 2, pos: 2, description: '一把普通的铁盾' },
-        { id: 3, name: '小血瓶', type: 1, pos: 0, hp_restore: 50, mp_restore: 0, description: '恢复50点生命值' },
-        { id: 4, name: '小蓝瓶', type: 3, pos: 0, hp_restore: 0, mp_restore: 30, description: '恢复30点魔法值' },
-        { id: 5, name: '技能书-火球术', type: 4, pos: 0, description: '学习火球术技能' },
-        { id: 6, name: '强化石', type: 3, pos: 0, description: '装备强化材料' },
-        { id: 7, name: '装备防爆符', type: 3, pos: 0, description: '强化失败时防止装备损坏' },
-        { id: 8, name: '装备幸运符', type: 3, pos: 0, description: '强化时提高20%成功率' },
-        { id: 10, name: '祝福油', type: 3, pos: 0, description: '装备祝福材料，50%成功率' }
-      ];
-      await itemCollection.insertMany(items);
-      console.log('Inserted initial item data (including materials)');
-    } else {
-      // 迁移：为旧的血药蓝药补充 hp_restore/mp_restore（缺省时用 effect_value 或默认值）
-      const bloodPotion = await itemCollection.findOne({ type: 1 });
-      if (bloodPotion && bloodPotion.hp_restore == null) {
-        const val = bloodPotion.effect_value ?? 50;
-        await itemCollection.updateMany({ type: 1 }, { $set: { hp_restore: val, mp_restore: 0 } });
-        console.log('Migrated blood potions: hp_restore/mp_restore');
-      }
-      const manaPotion = await itemCollection.findOne({ type: 3 });
-      if (manaPotion && manaPotion.mp_restore == null) {
-        const val = manaPotion.effect_value ?? 30;
-        await itemCollection.updateMany({ type: 3 }, { $set: { hp_restore: 0, mp_restore: val } });
-        console.log('Migrated mana potions: hp_restore/mp_restore');
-      }
+    const itemColl = db.collection('item');
+    const effectColl = db.collection('item_effect');
+    const configColl = db.collection('config');
+    const counterColl = db.collection('counter');
+    const now = Math.floor(Date.now() / 1000);
 
-      // 自动补充材料物品
-      const materialItems = [
-        { id: 6, name: '强化石', type: 3, pos: 0, description: '装备强化材料' },
-        { id: 7, name: '装备防爆符', type: 3, pos: 0, description: '强化失败时防止装备损坏' },
-        { id: 8, name: '装备幸运符', type: 3, pos: 0, description: '强化时提高20%成功率' },
-        { id: 10, name: '祝福油', type: 3, pos: 0, description: '装备祝福材料，50%成功率' },
-      ];
-      for (const mat of materialItems) {
-        const exists = await itemCollection.findOne({ id: mat.id });
-        if (!exists) {
-          await itemCollection.insertOne(mat);
-          console.log(`Inserted material item: ${mat.name} (id=${mat.id})`);
-        }
-      }
-    }
-    
-    // 插入初始装备基础数据
-    const equipBaseCollection = db.collection('equip_base');
-    const equipBaseCount = await equipBaseCollection.countDocuments();
-    if (equipBaseCount === 0) {
-      const equipBases = [
-        {
-          item_id: 1,
-          pos: 1,
-          base_level: 1,
-          base_hp: 0,
-          base_phy_atk: 10,
-          base_phy_def: 0,
-          base_mp: 0,
-          base_mag_def: 0,
-          base_mag_atk: 0,
-          base_hit_rate: 5,
-          base_dodge_rate: 0,
-          base_crit_rate: 5
-        },
-        {
-          item_id: 2,
-          pos: 2,
-          base_level: 1,
-          base_hp: 0,
-          base_phy_atk: 0,
-          base_phy_def: 5,
-          base_mp: 0,
-          base_mag_def: 5,
-          base_mag_atk: 0,
-          base_hit_rate: 0,
-          base_dodge_rate: 5,
-          base_crit_rate: 0
-        }
-      ];
-      await equipBaseCollection.insertMany(equipBases);
-      console.log('Inserted initial equip_base data');
-    }
-    
-    // 插入初始技能数据（统一只使用 id，不再使用 skill_id）
-    const skillCollection = db.collection('skill');
-    const skillCount = await skillCollection.countDocuments();
-    if (skillCount === 0) {
-      const now = Math.floor(Date.now() / 1000);
-      const skills = [
-        {
-          id: 1,
-          uid: 0,
-          name: '火球术',
-          type: 1,  // 0=物理 1=魔法，火球术为魔法
-          cost: 10,
-          damage: 20,
-          probability: 90,
-          book_id: 5,
-          description: '释放一个火球，造成20点魔法伤害',
-          create_time: now,
-          update_time: now
-        }
-      ];
-      await skillCollection.insertMany(skills);
-      const counterCollection = db.collection('counter');
-      await counterCollection.updateOne(
-        { name: 'skill' },
-        { $set: { seq: 1 } },
-        { upsert: true }
-      );
-      console.log('Inserted initial skill data');
+    // 读取/写入 functional_items 配置（统一管理所有功能性道具 ID）
+    let funcCfg = DEFAULT_FUNCTIONAL_ITEMS;
+    const existingFunc = await configColl.findOne({ name: 'functional_items' });
+    if (!existingFunc) {
+      const cfgId = await nextId(counterColl, 'config');
+      await configColl.insertOne({
+        id: cfgId,
+        name: 'functional_items',
+        value: JSON.stringify(funcCfg),
+        create_time: now,
+        update_time: now
+      });
+      console.log('Inserted config: functional_items');
     } else {
-      // 迁移：若存在 skill_id 字段，统一为 id 并删除 skill_id
-      const skillsWithLegacyId = await skillCollection.find({ skill_id: { $exists: true } }).toArray();
-      if (skillsWithLegacyId.length > 0) {
-        for (const doc of skillsWithLegacyId) {
-          const newId = doc.id != null ? doc.id : doc.skill_id;
-          await skillCollection.updateOne(
-            { _id: doc._id },
-            { $set: { id: newId }, $unset: { skill_id: '' } }
-          );
-        }
-        const counterCollection = db.collection('counter');
-        const allSkills = await skillCollection.find({}, { projection: { id: 1 } }).toArray();
-        const maxId = Math.max(0, ...allSkills.map(d => d.id).filter(n => typeof n === 'number'));
-        if (maxId > 0) {
-          await counterCollection.updateOne(
-            { name: 'skill' },
-            { $max: { seq: maxId } },
-            { upsert: true }
-          );
-        }
-        console.log('Migrated skill collection: removed skill_id, unified to id');
+      try {
+        funcCfg = { ...DEFAULT_FUNCTIONAL_ITEMS, ...JSON.parse(existingFunc.value || '{}') };
+        if (!Array.isArray(funcCfg.boost_ids)) funcCfg.boost_ids = DEFAULT_FUNCTIONAL_ITEMS.boost_ids;
+        if (!Array.isArray(funcCfg.stat_fruit_ids)) funcCfg.stat_fruit_ids = DEFAULT_FUNCTIONAL_ITEMS.stat_fruit_ids;
+      } catch (e) {
+        funcCfg = DEFAULT_FUNCTIONAL_ITEMS;
       }
+      await configColl.updateOne({ name: 'functional_items' }, { $set: { value: JSON.stringify(funcCfg), update_time: now } });
     }
-    
-    // 插入/增量更新怪物数据（在此数组添加新怪物，更新时会自动同步到服务器）
-    const monsterCollection = db.collection('monster');
-    const monsterCount = await monsterCollection.countDocuments();
-    const allMonsters = [
-      {
-        id: 1,
-        name: '哥布林',
-        level: 1,
-        hp: 50,
-        mp: 0,
-        phy_atk: 5,
-        phy_def: 2,
-        mag_atk: 0,
-        mag_def: 0,
-        hit_rate: 80,
-        dodge_rate: 10,
-        crit_rate: 5,
-        exp: 10,
-        gold: 5,
-        reputation: 1,
-        map_id: 1,
-        description: '低级怪物，攻击力较低',
-        drop_items: [{ item_id: 1, prob: 25 }, { item_id: 2, prob: 20 }],
-        create_time: Math.floor(Date.now() / 1000),
-        update_time: Math.floor(Date.now() / 1000)
-      },
-      {
-        id: 2,
-        name: '骷髅兵',
-        level: 2,
-        hp: 80,
-        mp: 0,
-        phy_atk: 8,
-        phy_def: 3,
-        mag_atk: 0,
-        mag_def: 0,
-        hit_rate: 85,
-        dodge_rate: 15,
-        crit_rate: 8,
-        exp: 20,
-        gold: 10,
-        reputation: 2,
-        map_id: 1,
-        description: '中级怪物，防御力较高',
-        drop_items: [{ item_id: 1, prob: 30 }, { item_id: 2, prob: 25 }],
-        create_time: Math.floor(Date.now() / 1000),
-        update_time: Math.floor(Date.now() / 1000)
-      }
-      // 在此添加新怪物，格式同上，id 递增
+
+    const em = funcCfg.enhance_materials || DEFAULT_FUNCTIONAL_ITEMS.enhance_materials;
+    await upsertConfig(configColl, counterColl, 'enhance_materials', em, now);
+
+    // 1. 强化材料
+    const MATERIAL_ITEMS = [
+      { id: em.stone, name: '强化石', type: 3, pos: 0, description: '强化消耗材料' },
+      { id: em.anti_explode, name: '防爆符', type: 3, pos: 0, description: '强化失败时装备不损坏' },
+      { id: em.lucky, name: '幸运符', type: 3, pos: 0, description: '强化时提高20%成功率' },
+      { id: em.blessing_oil, name: '祝福油', type: 3, pos: 0, description: '装备祝福，50%成功率，每次消耗100万金币' }
     ];
-    if (monsterCount === 0) {
-      await monsterCollection.insertMany(allMonsters);
-      console.log('Inserted initial monster data');
-    } else {
-      // 增量：只插入不存在的怪物（按 id 判断）
-      let added = 0;
-      for (const m of allMonsters) {
-        const exists = await monsterCollection.findOne({ id: m.id });
-        if (!exists) {
-          await monsterCollection.insertOne(m);
-          added++;
-          console.log(`Inserted new monster: ${m.name} (id=${m.id})`);
-        }
-      }
-      if (added > 0) console.log(`Added ${added} new monster(s)`);
-    }
-
-    // 迁移：将怪物内嵌的 drop_items 迁移到 monster_drop 表，并移除怪物中的 drop_items
-    const monsterDropCollection = db.collection('monster_drop');
-    const monsterDropCount = await monsterDropCollection.countDocuments();
-    if (monsterDropCount === 0) {
-      const monstersWithDrops = await monsterCollection.find({ drop_items: { $exists: true, $ne: [] } }).toArray();
-      let dropId = 1;
-      const dropDocs = [];
-      for (const m of monstersWithDrops) {
-        for (const d of m.drop_items || []) {
-          dropDocs.push({
-            id: dropId++,
-            monster_id: m.id,
-            item_id: d.item_id,
-            quantity: 1,
-            probability: d.prob || 0,
-            create_time: Math.floor(Date.now() / 1000),
-            update_time: Math.floor(Date.now() / 1000)
-          });
-        }
-      }
-      if (dropDocs.length > 0) {
-        await monsterDropCollection.insertMany(dropDocs);
-        const maxId = Math.max(...dropDocs.map(d => d.id));
-        await db.collection('counter').updateOne({ name: 'monster_drop' }, { $max: { seq: maxId } }, { upsert: true });
-        console.log('Migrated drop_items to monster_drop:', dropDocs.length);
-      }
-      // 移除怪物中的 drop_items 字段
-      await monsterCollection.updateMany({ drop_items: { $exists: true } }, { $unset: { drop_items: '' } });
-      console.log('Removed drop_items from monster collection');
-    }
-
-    // 插入初始 monster_drop 数据（若迁移后仍为空，则用默认数据）
-    const finalDropCount = await monsterDropCollection.countDocuments();
-    if (finalDropCount === 0) {
-      const now = Math.floor(Date.now() / 1000);
-      const defaultDrops = [
-        { id: 1, monster_id: 1, item_id: 1, quantity: 1, probability: 25, create_time: now, update_time: now },
-        { id: 2, monster_id: 1, item_id: 2, quantity: 1, probability: 20, create_time: now, update_time: now },
-        { id: 3, monster_id: 2, item_id: 1, quantity: 1, probability: 30, create_time: now, update_time: now },
-        { id: 4, monster_id: 2, item_id: 2, quantity: 1, probability: 25, create_time: now, update_time: now }
-      ];
-      await monsterDropCollection.insertMany(defaultDrops);
-      await db.collection('counter').updateOne({ name: 'monster_drop' }, { $set: { seq: 4 } }, { upsert: true });
-      console.log('Inserted initial monster_drop data');
-    }
-    
-    // 插入初始地图数据
-    const mapCollection = db.collection('map');
-    const mapCount = await mapCollection.countDocuments();
-    if (mapCount === 0) {
-      const maps = [
-        {
-          id: 1,
-          name: '新手村',
-          level_min: 1,
-          level_max: 5,
-          description: '新手玩家的起始地图'
-        }
-      ];
-      await mapCollection.insertMany(maps);
-      console.log('Inserted initial map data');
-    }
-    
-    // 插入初始等级经验数据
-    const levelExpCollection = db.collection('level_exp');
-    const levelExpCount = await levelExpCollection.countDocuments();
-    if (levelExpCount === 0) {
-      const now = Math.floor(Date.now() / 1000);
-      const levelExps = [];
-      for (let i = 1; i <= 10; i++) {
-        levelExps.push({
-          id: i,
-          level: i,
-          exp: 100 * i,
-          create_time: now,
-          update_time: now
-        });
-      }
-      await levelExpCollection.insertMany(levelExps);
-      const counterCollection = db.collection('counter');
-      await counterCollection.updateOne({ name: 'level_exp' }, { $set: { seq: 10 } }, { upsert: true });
-      console.log('Inserted initial level_exp data');
-    } else {
-      // 为没有 id 的 level_exp 文档补全 id（兼容旧数据）
-      const withoutId = await levelExpCollection.find({ id: { $exists: false } }).sort({ level: 1 }).toArray();
-      if (withoutId.length > 0) {
-        const counterCollection = db.collection('counter');
-        let seq = await counterCollection.findOne({ name: 'level_exp' }).then(c => (c && c.seq) || 0);
-        for (const doc of withoutId) {
-          seq += 1;
-          await levelExpCollection.updateOne({ _id: doc._id }, { $set: { id: seq } });
-        }
-        await counterCollection.updateOne({ name: 'level_exp' }, { $set: { seq } }, { upsert: true });
-        console.log('Migrated level_exp: added id to', withoutId.length, 'documents');
-      }
-    }
-
-    // 插入/更新加成卡道具（双倍/四倍/八倍 经验/金币/掉落/声望）
-    const BOOST_ITEMS = [
-      { id: 101, name: '双倍经验卡', type: 5, boost_category: 'exp', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍经验' },
-      { id: 102, name: '四倍经验卡', type: 5, boost_category: 'exp', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍经验' },
-      { id: 103, name: '八倍经验卡', type: 5, boost_category: 'exp', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍经验' },
-      { id: 104, name: '双倍金币卡', type: 5, boost_category: 'gold', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍金币' },
-      { id: 105, name: '四倍金币卡', type: 5, boost_category: 'gold', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍金币' },
-      { id: 106, name: '八倍金币卡', type: 5, boost_category: 'gold', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍金币' },
-      { id: 107, name: '双倍掉落卡', type: 5, boost_category: 'drop', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍掉落' },
-      { id: 108, name: '四倍掉落卡', type: 5, boost_category: 'drop', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍掉落' },
-      { id: 109, name: '八倍掉落卡', type: 5, boost_category: 'drop', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍掉落' },
-      { id: 110, name: '双倍声望卡', type: 5, boost_category: 'reputation', boost_multiplier: 2, boost_charges: 100, description: '使用后增加100次双倍声望' },
-      { id: 111, name: '四倍声望卡', type: 5, boost_category: 'reputation', boost_multiplier: 4, boost_charges: 100, description: '使用后增加100次四倍声望' },
-      { id: 112, name: '八倍声望卡', type: 5, boost_category: 'reputation', boost_multiplier: 8, boost_charges: 100, description: '使用后增加100次八倍声望' }
-    ];
-    for (const item of BOOST_ITEMS) {
-      const exists = await itemCollection.findOne({ id: item.id });
-      if (exists) {
-        await itemCollection.updateOne({ id: item.id }, { $set: item });
+    for (const it of MATERIAL_ITEMS) {
+      const ex = await itemColl.findOne({ id: it.id });
+      if (!ex) {
+        await itemColl.insertOne({ ...it, create_time: now, update_time: now });
+        console.log(`Inserted material: ${it.name} (id=${it.id})`);
       } else {
-        await itemCollection.insertOne(item);
-        console.log(`Inserted boost item: ${item.name} (id=${item.id})`);
+        await itemColl.updateOne({ id: it.id }, { $set: { ...it, update_time: now } });
       }
     }
-    console.log('Boost items (12) initialized.');
 
-    // 插入/更新 VIP 卡（type 6，背包使用后增加 vip_expire_time）
-    const VIP_ITEMS = [
-      { id: 201, name: 'VIP卡（月卡）', type: 6, pos: 0, vip_days: 30, description: '使用后增加30天VIP时间，享受双倍经验/金币/掉落/声望' }
+    // 2. 扩容袋
+    const expandBagId = funcCfg.expand_bag ?? 11;
+    const expandBag = { id: expandBagId, name: '扩容袋', type: 4, pos: 0, description: '使用后增加背包装备容量' };
+    if (!(await itemColl.findOne({ id: expandBagId }))) {
+      await itemColl.insertOne({ ...expandBag, create_time: now, update_time: now });
+      console.log(`Inserted expand bag (id=${expandBagId})`);
+    }
+    if (!(await effectColl.findOne({ item_id: expandBagId }))) {
+      const effId = await nextId(counterColl, 'item_effect');
+      await effectColl.insertOne({ id: effId, item_id: expandBagId, effect_type: 'expand_bag', value: 50, max: 500, create_time: now, update_time: now });
+      console.log('Inserted item_effect: expand_bag');
+    }
+
+    // 3. 多倍卡
+    const boostIds = funcCfg.boost_ids || DEFAULT_FUNCTIONAL_ITEMS.boost_ids;
+    const BOOST_DEFS = [
+      { name: '双倍经验卡', boost_category: 'exp', boost_multiplier: 2 },
+      { name: '四倍经验卡', boost_category: 'exp', boost_multiplier: 4 },
+      { name: '八倍经验卡', boost_category: 'exp', boost_multiplier: 8 },
+      { name: '双倍金币卡', boost_category: 'gold', boost_multiplier: 2 },
+      { name: '四倍金币卡', boost_category: 'gold', boost_multiplier: 4 },
+      { name: '八倍金币卡', boost_category: 'gold', boost_multiplier: 8 },
+      { name: '双倍掉落卡', boost_category: 'drop', boost_multiplier: 2 },
+      { name: '四倍掉落卡', boost_category: 'drop', boost_multiplier: 4 },
+      { name: '八倍掉落卡', boost_category: 'drop', boost_multiplier: 8 },
+      { name: '双倍声望卡', boost_category: 'reputation', boost_multiplier: 2 },
+      { name: '四倍声望卡', boost_category: 'reputation', boost_multiplier: 4 },
+      { name: '八倍声望卡', boost_category: 'reputation', boost_multiplier: 8 },
     ];
-    for (const item of VIP_ITEMS) {
-      const exists = await itemCollection.findOne({ id: item.id });
-      if (exists) {
-        await itemCollection.updateOne({ id: item.id }, { $set: item });
+    for (let i = 0; i < BOOST_DEFS.length && i < boostIds.length; i++) {
+      const id = boostIds[i];
+      const def = BOOST_DEFS[i];
+      const it = { id, name: def.name, type: 5, boost_category: def.boost_category, boost_multiplier: def.boost_multiplier, boost_charges: 100, description: `使用后增加100次${def.name.replace('卡', '')}` };
+      const ex = await itemColl.findOne({ id });
+      if (!ex) {
+        await itemColl.insertOne({ ...it, create_time: now, update_time: now });
+        console.log(`Inserted boost: ${it.name} (id=${id})`);
       } else {
-        await itemCollection.insertOne(item);
-        console.log(`Inserted VIP item: ${item.name} (id=${item.id})`);
+        await itemColl.updateOne({ id }, { $set: { ...it, update_time: now } });
+      }
+      if (!(await effectColl.findOne({ item_id: id }))) {
+        const effId = await nextId(counterColl, 'item_effect');
+        await effectColl.insertOne({ id: effId, item_id: id, effect_type: 'boost', create_time: now, update_time: now });
       }
     }
-    console.log('VIP items initialized.');
-    
-    console.log('MongoDB initialization completed successfully!');
-    
+    console.log('Boost items initialized.');
+
+    // 4. 永久属性果实
+    const statIds = funcCfg.stat_fruit_ids || DEFAULT_FUNCTIONAL_ITEMS.stat_fruit_ids;
+    const STAT_DEFS = [
+      { name: '血菩提', attr: 'max_hp', value: 10, also_add_current: true, desc: '永久增加10点生命上限' },
+      { name: '魔法果', attr: 'max_mp', value: 5, also_add_current: true, desc: '永久增加5点魔法上限' },
+      { name: '武力之果', attr: 'phy_atk', value: 1, also_add_current: false, desc: '永久增加1点物理攻击' },
+      { name: '法术之果', attr: 'mag_atk', value: 1, also_add_current: false, desc: '永久增加1点魔法攻击' },
+      { name: '物防之果', attr: 'phy_def', value: 1, also_add_current: false, desc: '永久增加1点物理防御' },
+      { name: '法防之果', attr: 'mag_def', value: 1, also_add_current: false, desc: '永久增加1点魔法防御' },
+    ];
+    for (let i = 0; i < STAT_DEFS.length && i < statIds.length; i++) {
+      const id = statIds[i];
+      const def = STAT_DEFS[i];
+      const { attr, value, also_add_current, desc, name } = def;
+      const itemData = { id, name, type: 4, pos: 0, description: desc };
+      const ex = await itemColl.findOne({ id });
+      if (!ex) {
+        await itemColl.insertOne({ ...itemData, create_time: now, update_time: now });
+        console.log(`Inserted stat fruit: ${name} (id=${id})`);
+      } else {
+        await itemColl.updateOne({ id }, { $set: { ...itemData, update_time: now } });
+      }
+      const eff = await effectColl.findOne({ item_id: id });
+      const effPayload = { effect_type: 'add_stat', attr, value, also_add_current: !!also_add_current, update_time: now };
+      if (!eff) {
+        const effId = await nextId(counterColl, 'item_effect');
+        await effectColl.insertOne({ id: effId, item_id: id, ...effPayload, create_time: now });
+      } else {
+        await effectColl.updateOne({ item_id: id }, { $set: effPayload });
+      }
+    }
+    console.log('Stat fruits initialized.');
+
+    // 5. VIP 卡
+    const vipId = funcCfg.vip_card ?? 201;
+    const vipItem = { id: vipId, name: 'VIP卡（月卡）', type: 6, pos: 0, vip_days: 30, description: '使用后增加30天VIP时间' };
+    if (!(await itemColl.findOne({ id: vipId }))) {
+      await itemColl.insertOne({ ...vipItem, create_time: now, update_time: now });
+      console.log(`Inserted VIP card (id=${vipId})`);
+    } else {
+      await itemColl.updateOne({ id: vipId }, { $set: { ...vipItem, update_time: now } });
+    }
+    if (!(await effectColl.findOne({ item_id: vipId }))) {
+      const effId = await nextId(counterColl, 'item_effect');
+      await effectColl.insertOne({ id: effId, item_id: vipId, effect_type: 'vip', create_time: now, update_time: now });
+      console.log('Inserted item_effect: vip');
+    }
+
+    // 更新 item counter，确保 GM 不填 ID 时自增不会与功能性道具冲突
+    const maxItemId = Math.max(
+      em.stone, em.anti_explode, em.lucky, em.blessing_oil,
+      expandBagId, vipId,
+      ...(boostIds || []),
+      ...(statIds || [])
+    );
+    await counterColl.updateOne(
+      { name: 'item' },
+      { $max: { seq: maxItemId } },
+      { upsert: true }
+    );
+    console.log(`Updated item counter: seq >= ${maxItemId}`);
+
+    console.log('MongoDB initialization completed.');
   } catch (error) {
     console.error('Error initializing MongoDB:', error);
   } finally {
-    // 关闭连接
     await client.close();
+  }
+}
+
+async function nextId(counterColl, name) {
+  const r = await counterColl.findOneAndUpdate(
+    { name },
+    { $inc: { seq: 1 } },
+    { upsert: true, returnDocument: 'after' }
+  );
+  return (r && typeof r.seq === 'number') ? r.seq : 1;
+}
+
+async function upsertConfig(configColl, counterColl, name, value, now) {
+  const existing = await configColl.findOne({ name });
+  const strVal = JSON.stringify(value);
+  if (!existing) {
+    const cfgId = await nextId(counterColl, 'config');
+    await configColl.insertOne({ id: cfgId, name, value: strVal, create_time: now, update_time: now });
+  } else {
+    await configColl.updateOne({ name }, { $set: { value: strVal, update_time: now } });
   }
 }
 

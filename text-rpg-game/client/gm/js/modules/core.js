@@ -1,6 +1,15 @@
 /**
  * GM 工具核心模块：API 配置、Token、提示、登出、Token 验证
  */
+
+/** 装备部位（唯一数据源，与 item.pos / equip_base.pos 一致） */
+export const EQUIP_POS_NAMES = { 1: '武器', 2: '衣服', 3: '腰带', 4: '裤子', 5: '鞋子', 6: '戒指', 7: '项链', 8: '坐骑' };
+
+export function posOptions(selected) {
+  return Object.entries(EQUIP_POS_NAMES)
+    .map(([v, n]) => `<option value="${v}" ${String(selected) === String(v) ? 'selected' : ''}>${n}</option>`)
+    .join('');
+}
 // 使用相对路径，本地和服务器均可访问
 export const API_BASE_URL = (typeof window !== 'undefined' && window.location?.origin) ? `${window.location.origin}/api` : '/api';
 

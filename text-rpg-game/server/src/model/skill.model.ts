@@ -98,7 +98,7 @@ export class PlayerSkillModel implements IBaseModel<PlayerSkill> {
     return await dataStorageService.update('player_skill', id, data, ctx);
   }
 
-  async updateByUidAndSkillId(uid: Uid, skillId: number, data: Partial<PlayerSkill>, ctx?: any): Promise<boolean> {
+  async updateByUidAndSkillId(uid: Uid, skillId: number, data: Partial<PlayerSkill>, _ctx?: any): Promise<boolean> {
     const updateData = {
       ...data,
       update_time: Math.floor(Date.now() / 1000)
@@ -125,7 +125,7 @@ export class PlayerSkillModel implements IBaseModel<PlayerSkill> {
     return await dataStorageService.delete('player_skill', id, ctx);
   }
 
-  async deleteByUidAndSkillId(uid: Uid, skillId: number, ctx?: any): Promise<boolean> {
+  async deleteByUidAndSkillId(uid: Uid, skillId: number, _ctx?: any): Promise<boolean> {
     const collection = getCollection('player_skill');
     let result = await collection.deleteOne({ uid, skill_id: skillId });
     if (result.deletedCount === 0 && uid != null) {

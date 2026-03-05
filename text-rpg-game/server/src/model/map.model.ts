@@ -8,7 +8,7 @@ export class MapModel implements IBaseModel<Map> {
     return await dataStorageService.getById('map', id, ctx);
   }
 
-  async list(ctx?: any): Promise<Map[]> {
+  async list(_ctx?: any): Promise<Map[]> {
     // MongoDB查询，按id字段升序排序
     const collection = getCollection('map');
     const result = await collection.find().sort({ id: 1 }).toArray();

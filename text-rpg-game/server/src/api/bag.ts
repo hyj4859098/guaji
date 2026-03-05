@@ -1,5 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { BagService } from '../service/bag.service';
+import { EquipService } from '../service/equip.service';
 import { auth, AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { success, fail } from '../utils/response';
@@ -8,6 +9,7 @@ import { wsManager } from '../event/ws-manager';
 
 const router = Router();
 const bagService = new BagService();
+const equipService = new EquipService();
 
 router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -121,13 +123,11 @@ router.post('/wear', auth, async (req: AuthRequest, res: Response, next: NextFun
       return fail(res, ErrorCode.INVALID_PARAMS, '缺少物品ID');
     }
     logger.info(`穿戴装备 - uid: ${req.uid}, 物品ID: ${id}`);
-    await bagService.wearItem(req.uid!, id);
+    await bagService.wearItem(req.uid!, id, equipService);
 
     logger.info(`装备穿戴成功 - uid: ${req.uid}, 物品ID: ${id}`);
     success(res, null, '穿戴成功');
-    const { EquipService } = require('../service/equip.service');
-    const es = new EquipService();
-    es.pushFullUpdate(req.uid!).catch(() => {});
+    equipService.pushFullUpdate(req.uid!).catch(() => {});
   } catch (error) {
     const { id } = req.body;
     logger.error(`装备穿戴失败 - uid: ${req.uid}, 物品ID: ${id || '未知'}, 错误: ${error}`);

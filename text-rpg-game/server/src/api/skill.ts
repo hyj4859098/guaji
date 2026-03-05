@@ -1,5 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { SkillService } from '../service/skill.service';
+import { BagService } from '../service/bag.service';
 import { auth, AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { success, fail } from '../utils/response';
@@ -7,6 +8,7 @@ import { ErrorCode } from '../utils/error';
 
 const router = Router();
 const skillService = new SkillService();
+const bagService = new BagService();
 
 router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -30,7 +32,7 @@ router.post('/learn', auth, async (req: AuthRequest, res: Response, next: NextFu
     }
     
     logger.info(`学习技能 - uid: ${req.uid}, 技能书ID: ${book_id}`);
-    const successResult = await skillService.learnSkill(req.uid!, book_id);
+    const successResult = await skillService.learnSkill(req.uid!, book_id, bagService);
 
     logger.info(`技能学习${successResult ? '成功' : '失败'} - uid: ${req.uid}, 技能书ID: ${book_id}`);
     if (successResult) {

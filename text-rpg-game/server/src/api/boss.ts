@@ -32,7 +32,7 @@ router.get('/get', auth, async (req: AuthRequest, res: Response, next: NextFunct
   }
 });
 
-router.post('/challenge', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/challenge', auth, async (req: AuthRequest, res: Response, _next: NextFunction) => {
   try {
     const { boss_id, auto_heal } = req.body;
     if (!boss_id) return fail(res, ErrorCode.INVALID_PARAMS, '缺少 Boss ID');

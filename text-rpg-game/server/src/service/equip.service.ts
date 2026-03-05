@@ -186,7 +186,7 @@ export class EquipService {
       if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
       wsManager.sendToUser(uid, { type: 'equip', data: equips });
       wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-    } catch (e) {
+    } catch {
       logger.warn('装备变更推送失败', { uid });
     }
   }

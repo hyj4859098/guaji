@@ -1,9 +1,9 @@
-import { Router, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { dataStorageService } from '../../service/data-storage.service';
 import { getCollection } from '../../config/db';
 import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
-import { logger } from '../../utils/logger';
+import { adminHandler, parseIdParam } from './admin-utils';
 
 const router = Router();
 
@@ -12,9 +12,7 @@ function getEquipBaseFilter(eb: any, id: number) {
   return { item_id: id };
 }
 
-/** 获取装备基础列表（含物品名称） */
-router.get('/', async (req: any, res: Response, next: NextFunction) => {
-  try {
+router.get('/', adminHandler(async (req, res) => {
     const list = await dataStorageService.list('equip_base', undefined);
     const items = await dataStorageService.list('item', undefined);
     const itemMap = new Map(items.map((i: any) => [i.id, i]));
@@ -23,33 +21,21 @@ router.get('/', async (req: any, res: Response, next: NextFunction) => {
       item_name: itemMap.get(eb.item_id)?.name || `物品${eb.item_id}`
     }));
     success(res, result);
-  } catch (error) {
-    logger.error('获取装备基础列表失败:', error);
-    next(error);
-  }
-});
+}, '获取装备基础列表失败'));
 
-/** 获取单个装备基础（优先按 item_id 查） */
-router.get('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return fail(res, ErrorCode.INVALID_PARAMS, '无效的ID');
+router.get('/:id', adminHandler(async (req, res) => {
+    const id = parseIdParam(req, res, 'ID');
+    if (id == null) return;
     let eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
     if (!eb) eb = await dataStorageService.getByCondition('equip_base', { id });
     if (!eb) return fail(res, ErrorCode.NOT_FOUND, '装备基础不存在');
     const item = await dataStorageService.getByCondition('item', { id: eb.item_id });
     success(res, { ...eb, item_name: item?.name });
-  } catch (error) {
-    logger.error('获取装备基础失败:', error);
-    next(error);
-  }
-});
+}, '获取装备基础失败'));
 
-/** 新增装备基础 */
-router.post('/', async (req: any, res: Response, next: NextFunction) => {
-  try {
+router.post('/', adminHandler(async (req, res) => {
     const {
-      item_id, pos, base_level,
+      item_id, base_level,
       base_hp, base_phy_atk, base_phy_def, base_mp, base_mag_def, base_mag_atk,
       base_hit_rate, base_dodge_rate, base_crit_rate
     } = req.body;
@@ -58,9 +44,10 @@ router.post('/', async (req: any, res: Response, next: NextFunction) => {
     if (existing) return fail(res, ErrorCode.INVALID_PARAMS, '该物品已有装备基础配置');
     const item = await dataStorageService.getByCondition('item', { id: Number(item_id) });
     if (!item) return fail(res, ErrorCode.NOT_FOUND, '物品不存在');
+    const pos = (item as any).pos != null && (item as any).pos > 0 ? Number((item as any).pos) : 1;
     const data = {
       item_id: Number(item_id),
-      pos: pos != null ? Number(pos) : 1,
+      pos,
       base_level: base_level != null ? Number(base_level) : 1,
       base_hp: base_hp != null ? Number(base_hp) : 0,
       base_phy_atk: base_phy_atk != null ? Number(base_phy_atk) : 0,
@@ -74,28 +61,22 @@ router.post('/', async (req: any, res: Response, next: NextFunction) => {
     };
     const insertId = await dataStorageService.insert('equip_base', data);
     success(res, { id: insertId });
-  } catch (error) {
-    logger.error('新增装备基础失败:', error);
-    next(error);
-  }
-});
+}, '新增装备基础失败'));
 
-/** 更新装备基础 */
-router.put('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return fail(res, ErrorCode.INVALID_PARAMS, '无效的ID');
+router.put('/:id', adminHandler(async (req, res) => {
+    const id = parseIdParam(req, res, 'ID');
+    if (id == null) return;
     let eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
     if (!eb) eb = await dataStorageService.getByCondition('equip_base', { id });
     if (!eb) return fail(res, ErrorCode.NOT_FOUND, '装备基础不存在');
     const filter = getEquipBaseFilter(eb, id);
     const {
-      pos, base_level,
+      base_level,
       base_hp, base_phy_atk, base_phy_def, base_mp, base_mag_def, base_mag_atk,
       base_hit_rate, base_dodge_rate, base_crit_rate
     } = req.body;
     const updateData: any = { update_time: Math.floor(Date.now() / 1000) };
-    if (pos != null) updateData.pos = Number(pos);
+    // pos 不从 body 取，由 item 更新时同步
     if (base_level != null) updateData.base_level = Number(base_level);
     if (base_hp != null) updateData.base_hp = Number(base_hp);
     if (base_phy_atk != null) updateData.base_phy_atk = Number(base_phy_atk);
@@ -110,17 +91,11 @@ router.put('/:id', async (req: any, res: Response, next: NextFunction) => {
     const coll = getCollection('equip_base');
     await coll.updateOne(filter, { $set: updateData });
     success(res, { message: '更新成功' });
-  } catch (error) {
-    logger.error('更新装备基础失败:', error);
-    next(error);
-  }
-});
+}, '更新装备基础失败'));
 
-/** 删除装备基础 */
-router.delete('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return fail(res, ErrorCode.INVALID_PARAMS, '无效的ID');
+router.delete('/:id', adminHandler(async (req, res) => {
+    const id = parseIdParam(req, res, 'ID');
+    if (id == null) return;
     let eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
     if (!eb) eb = await dataStorageService.getByCondition('equip_base', { id });
     if (!eb) return fail(res, ErrorCode.NOT_FOUND, '装备基础不存在');
@@ -129,10 +104,6 @@ router.delete('/:id', async (req: any, res: Response, next: NextFunction) => {
     const result = await coll.deleteOne(filter);
     if (result.deletedCount > 0) success(res, { message: '删除成功' });
     else fail(res, ErrorCode.NOT_FOUND, '删除失败');
-  } catch (error) {
-    logger.error('删除装备基础失败:', error);
-    next(error);
-  }
-});
+}, '删除装备基础失败'));
 
 export default router;

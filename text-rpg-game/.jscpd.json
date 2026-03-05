@@ -1,0 +1,15 @@
+{
+  "threshold": 50,
+  "reporters": ["html", "console"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/*.min.js",
+    "**/init-mongodb.js"
+  ],
+  "format": ["javascript", "typescript"],
+  "mode": "strict",
+  "minLines": 5,
+  "minTokens": 50,
+  "output": "report/jscpd"
+}

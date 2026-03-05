@@ -8,7 +8,7 @@ export class BossModel implements IBaseModel<Boss> {
     return await dataStorageService.getById('boss', id, ctx);
   }
 
-  async list(ctx?: any): Promise<Boss[]> {
+  async list(_ctx?: any): Promise<Boss[]> {
     const collection = getCollection('boss');
     const result = await collection.find().sort({ level: 1 }).toArray();
     return result as unknown as Boss[];

@@ -1,7 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { MapService } from '../service/map.service';
 import { auth, AuthRequest } from '../middleware/auth';
-import { ApiRes } from '../types';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';

@@ -1,6 +1,7 @@
 const EnhancePage = {
   equipItems: [],
   materials: [],
+  materialIds: null,
   useLuckyCharm: false,
   useAntiExplode: false,
   currentPage: 1,
@@ -24,13 +25,21 @@ const EnhancePage = {
   },
 
   async load(bagPayload) {
+    if (!this.materialIds) {
+      const cfgRes = await API.get('/config/enhance_materials');
+      this.materialIds = (cfgRes.code === 0 && cfgRes.data)
+        ? cfgRes.data
+        : { stone: 6, lucky: 8, anti_explode: 7, blessing_oil: 10 };
+    }
     if (!bagPayload) {
       const bagResult = await BagService.fetchList();
       bagPayload = (bagResult.code === 0 && bagResult.data) ? bagResult.data : null;
     }
     const payload = BagService.parseBagPayload(bagPayload);
-    this.equipItems = payload.items.filter(i => i.type === 2 && (i.equipment_uid || i.equip_attributes));
-    this.materials = payload.items.filter(i => [6, 7, 8, 10].includes(Number(i.item_id)));
+    this.equipItems = payload.items.filter(i => Helper.isEquipment(i) && (i.equipment_uid || i.equip_attributes));
+    const ids = this.materialIds;
+    const matIdList = [ids.stone, ids.anti_explode, ids.lucky, ids.blessing_oil];
+    this.materials = payload.items.filter(i => matIdList.includes(Number(i.item_id)));
     if (this.currentPage > this.totalPages) this.currentPage = this.totalPages;
     this._enhancing = false;
     this._blessing = false;
@@ -75,10 +84,11 @@ const EnhancePage = {
   render() {
     const app = document.getElementById('app');
     if (!app) return;
-    const stoneCount = this.getMaterialCount(6);
-    const antiCount = this.getMaterialCount(7);
-    const luckyCount = this.getMaterialCount(8);
-    const oilCount = this.getMaterialCount(10);
+    const ids = this.materialIds || { stone: 6, lucky: 8, anti_explode: 7, blessing_oil: 10 };
+    const stoneCount = this.getMaterialCount(ids.stone);
+    const antiCount = this.getMaterialCount(ids.anti_explode);
+    const luckyCount = this.getMaterialCount(ids.lucky);
+    const oilCount = this.getMaterialCount(ids.blessing_oil);
     const maxLevel = 20;
 
     app.innerHTML = `
@@ -225,16 +235,17 @@ const EnhancePage = {
       UI.showToast('装备已达最大强化等级');
       return;
     }
+    const ids = this.materialIds || { stone: 6, lucky: 8, anti_explode: 7, blessing_oil: 10 };
     const stoneCost = this.getStoneCost(lv + 1);
-    if (this.getMaterialCount(6) < stoneCost) {
+    if (this.getMaterialCount(ids.stone) < stoneCost) {
       UI.showToast(`强化石不足，需要 ${stoneCost}`);
       return;
     }
-    if (this.useLuckyCharm && this.getMaterialCount(8) < 1) {
+    if (this.useLuckyCharm && this.getMaterialCount(ids.lucky) < 1) {
       UI.showToast('幸运符不足');
       return;
     }
-    if (this.useAntiExplode && this.getMaterialCount(7) < 1) {
+    if (this.useAntiExplode && this.getMaterialCount(ids.anti_explode) < 1) {
       UI.showToast('防爆符不足');
       return;
     }
@@ -273,7 +284,8 @@ const EnhancePage = {
     if (this._blessing) return;
     const instanceId = parseInt(String(equip.equipment_uid), 10);
     if (!instanceId) { UI.showToast('装备数据异常'); return; }
-    if (this.getMaterialCount(10) < 1) { UI.showToast('祝福油不足'); return; }
+    const ids = this.materialIds || { blessing_oil: 10 };
+    if (this.getMaterialCount(ids.blessing_oil) < 1) { UI.showToast('祝福油不足'); return; }
 
     this._blessing = true;
     const allBtns = document.querySelectorAll('.bless-bag-item-btn');

@@ -1,5 +1,7 @@
 node_modules/
 dist/
+report/
+coverage/
 logs/
 *.log
 npm-debug.log*

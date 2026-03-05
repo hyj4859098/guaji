@@ -17,12 +17,7 @@ const TradePage = {
   partnerTab: 'equipment',
   partnerPage: 1,
 
-  tabs: [
-    { key: 'equipment', label: '装备' },
-    { key: 'consumable', label: '消耗品' },
-    { key: 'tool', label: '道具' },
-    { key: 'material', label: '材料' },
-  ],
+  get tabs() { return Helper.BAG_TABS; },
 
   style: `<style>
     body { background: #0a1929; }
@@ -480,7 +475,7 @@ const TradePage = {
     const item = this.bagItems.find(b => (b.original_id || b.id) === bagId);
     if (!item) return;
     if (this.myOffer.items.some(i => i.bag_id === bagId)) return;
-    const isEquip = item.type === 2 || !!item.equipment_uid;
+    const isEquip = Helper.isEquipment(item);
     const maxCount = item.count || 1;
     if (isEquip || maxCount === 1) this._doAddItem(item, bagId, 1);
     else this.showQtyPopup(item, bagId, maxCount);

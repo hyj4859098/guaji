@@ -1,7 +1,6 @@
 import { WebSocket } from 'ws';
 import { Uid } from '../types/index';
 import { logger } from '../utils/logger';
-import { tradeService } from '../service/trade.service';
 import { subscribeBoss, unsubscribeBoss } from './boss-subscription';
 import { recordKicked } from '../utils/kick-cooldown';
 
@@ -16,16 +15,34 @@ function toKey(uid: Uid): string {
   return String(uid);
 }
 
+type DisconnectHandler = (uid: Uid) => void;
+type MessageHandler = (uid: Uid, data: any) => void;
+
 class WSManager {
   private connections = new Map<string, ConnectionInfo>();
   private maxConnections = 1000; // 最大连接数限制
   private maxMessageQueueSize = 50; // 单连接消息队列上限，防止内存无限增长
   private heartbeatInterval = 30000; // 心跳间隔（毫秒）
   private heartbeatTimeout = 60000; // 心跳超时时间（毫秒）
+  private disconnectHandlers: DisconnectHandler[] = [];
+  private messageHandlers = new Map<string, MessageHandler>();
 
   constructor() {
-    // 启动心跳检测
     this.startHeartbeatCheck();
+  }
+
+  /** 注册断线回调（由 app 在启动时注入，避免循环依赖） */
+  registerDisconnectHandler(fn: DisconnectHandler): void {
+    this.disconnectHandlers.push(fn);
+  }
+
+  /** 注册消息处理器（由 app 在启动时注入，避免循环依赖） */
+  registerMessageHandler(type: string, fn: MessageHandler): void {
+    this.messageHandlers.set(type, fn);
+  }
+
+  private notifyDisconnect(uid: Uid): void {
+    this.disconnectHandlers.forEach((fn) => fn(uid));
   }
 
   addConnection(uid: Uid, ws: WebSocket) {
@@ -46,13 +63,13 @@ class WSManager {
         oldWs.send(JSON.stringify({ type: 'kick', data: { reason: '账号在其他地方登录，30秒内无法再次登录' } }));
         // 延迟关闭，确保客户端收到并处理 kick 消息后再断开
         setTimeout(() => {
-          try { oldWs.close(4000, 'Duplicate login'); } catch (e) { /* ignore */ }
+          try { oldWs.close(4000, 'Duplicate login'); } catch { /* ignore */ }
         }, 200);
-      } catch (e) {
+      } catch {
         /* ignore */
       }
       this.connections.delete(key);
-      tradeService.handleDisconnect(uid);
+      this.notifyDisconnect(uid);
       logger.info('踢掉旧连接（重复登录）', { uid });
     }
 
@@ -70,7 +87,7 @@ class WSManager {
       if (cur && cur.ws === ws) {
         this.connections.delete(key);
         logger.info('WebSocket连接关闭', { uid, connections: this.connections.size });
-        tradeService.handleDisconnect(uid);
+        this.notifyDisconnect(uid);
       }
     });
 
@@ -86,8 +103,6 @@ class WSManager {
         const message = JSON.parse(data.toString());
         if (message.type === 'heartbeat') {
           connectionInfo.lastHeartbeat = Date.now();
-        } else if (message.type === 'trade') {
-          tradeService.handleMessage(uid, message.data);
         } else if (message.type === 'chat') {
           const text = String(message.data?.text || '').trim().slice(0, 200);
           if (text) {
@@ -101,6 +116,9 @@ class WSManager {
           if (mapId > 0) subscribeBoss(uid, mapId);
         } else if (message.type === 'unsubscribe_boss') {
           unsubscribeBoss(uid);
+        } else {
+          const handler = this.messageHandlers.get(message.type);
+          if (handler) handler(uid, message.data);
         }
       } catch (error) {
         logger.error('解析WebSocket消息失败', { error: error instanceof Error ? error.message : String(error) });
@@ -200,18 +218,20 @@ class WSManager {
           } catch (error) {
             logger.error('发送心跳失败', { uid, error: error instanceof Error ? error.message : String(error) });
             this.connections.delete(toKey(uid));
+            this.notifyDisconnect(uid);
           }
         }
 
         // 检查心跳超时
         if (now - connectionInfo.lastHeartbeat > this.heartbeatTimeout) {
           logger.warn('心跳超时，关闭连接', { uid });
+          this.connections.delete(toKey(uid));
+          this.notifyDisconnect(uid);
           try {
             connectionInfo.ws.close(408, 'Heartbeat timeout');
-          } catch (error) {
+          } catch {
             // 忽略关闭错误
           }
-          this.connections.delete(toKey(uid));
         }
       }
     }, this.heartbeatInterval);

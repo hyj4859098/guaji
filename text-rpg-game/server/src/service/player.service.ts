@@ -8,7 +8,6 @@ import { PlayerModel } from '../model/player.model';
 import { Player } from '../types/player';
 import { IBaseService, Id, Uid } from '../types/index';
 import { LevelExpService } from './level_exp.service';
-import { logger } from '../utils/logger';
 import { cacheService } from './cache.service';
 
 export class PlayerService implements IBaseService<Player> {

@@ -7,7 +7,6 @@
  */
 import { dataStorageService } from './data-storage.service';
 import { Uid } from '../types/index';
-import { logger } from '../utils/logger';
 
 const TITLE_BONUS: Record<number, number> = {
   1: 1.10, // 资本 +10%

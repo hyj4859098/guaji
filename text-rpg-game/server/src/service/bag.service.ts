@@ -7,13 +7,10 @@ import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { EquipEffectUtil } from '../utils/equip-effect';
 import { wsManager } from '../event/ws-manager';
-import { cacheService } from './cache.service';
+import { ItemEffectService } from './item-effect.service';
 
 const DEFAULT_EQUIPMENT_CAPACITY = 100;
 const MAX_EQUIPMENT_CAPACITY = 500;
-/** 扩容袋固定 item_id，使用后 +50 容量 */
-const EXPANSION_BAG_ITEM_ID = 11;
-const EXPANSION_BAG_CAPACITY = 50;
 
 export class BagService implements IBaseService<Bag> {
   private model: BagModel;
@@ -224,145 +221,31 @@ export class BagService implements IBaseService<Bag> {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '物品类型不存在');
     }
 
-    const itemType = Number(itemInfo.type);
-    logger.info('物品类型', { itemId: item.item_id, type: itemType });
-
-    // 扩容袋：固定 item_id 11，使用后 +50 容量，上限 500
-    if (item.item_id === EXPANSION_BAG_ITEM_ID) {
-      const PlayerService = require('./player.service').PlayerService;
-      const playerService = new PlayerService();
-      const players = await playerService.list(uid);
-      if (!players.length) throw createError(ErrorCode.SYSTEM_ERROR, '扩容袋使用失败');
-      const player = players[0];
-      const currentCap = player.equipment_capacity ?? DEFAULT_EQUIPMENT_CAPACITY;
-      const roomToMax = MAX_EQUIPMENT_CAPACITY - currentCap;
-      const maxUsable = Math.floor(roomToMax / EXPANSION_BAG_CAPACITY);
-      if (maxUsable <= 0) {
-        throw createError(ErrorCode.INVALID_PARAMS, '背包装备容量已达上限');
-      }
-      if (actualCount > maxUsable) {
-        throw createError(ErrorCode.INVALID_PARAMS, `最多只能使用 ${maxUsable} 个扩容袋，当前容量距上限仅可增加 ${roomToMax} 点`);
-      }
-      const addCap = actualCount * EXPANSION_BAG_CAPACITY;
-      const newCap = currentCap + addCap;
-      await playerService.update(player.id, { equipment_capacity: newCap } as any);
-      cacheService.player.invalidateByUid(uid);
-      if (item.count <= actualCount) {
-        await this.model.delete(item.original_id || item.id);
-      } else {
-        await this.model.update(item.original_id || item.id, {
-          count: item.count - actualCount,
-          update_time: Math.floor(Date.now() / 1000),
-        });
-      }
-      const updatedPlayers = await playerService.list(uid);
-      if (updatedPlayers.length) wsManager.sendToUser(uid, { type: 'player', data: updatedPlayers[0] });
-      const payload = await this.getListPayload(uid);
-      wsManager.sendToUser(uid, { type: 'bag', data: payload });
-      logger.info('扩容袋使用成功', { uid, currentCap, newCap, usedCount: actualCount });
-      return true;
+    // 唯一入口：item_effect 表配置驱动，无配置则不可使用
+    if (!(await ItemEffectService.hasConfig(item.item_id))) {
+      throw createError(ErrorCode.INVALID_PARAMS, '该物品无法直接使用');
     }
 
-    if (itemType === 6) {
-      const vipDaysPerCard = Number(itemInfo.vip_days) || 30;
-      const totalDays = vipDaysPerCard * actualCount;
-      const PlayerService = require('./player.service').PlayerService;
-      const playerService = new PlayerService();
-      const players = await playerService.list(uid);
-      if (!players.length) throw createError(ErrorCode.SYSTEM_ERROR, 'VIP卡使用失败');
-      const player = players[0];
-      const now = Math.floor(Date.now() / 1000);
-      const currentExpire = (player.vip_expire_time && player.vip_expire_time > now)
-        ? player.vip_expire_time : now;
-      const newExpire = currentExpire + totalDays * 86400;
-      await playerService.update(player.id, { vip_level: 1, vip_expire_time: newExpire } as any);
-      if (item.count <= actualCount) {
-        await this.model.delete(item.original_id || item.id);
-      } else {
-        await this.model.update(item.original_id || item.id, {
-          count: item.count - actualCount, update_time: now,
-        });
-      }
-      const updatedPlayers = await playerService.list(uid);
-      if (updatedPlayers.length) wsManager.sendToUser(uid, { type: 'player', data: updatedPlayers[0] });
-      const payload = await this.getListPayload(uid);
-      wsManager.sendToUser(uid, { type: 'bag', data: payload });
-      logger.info('VIP卡使用成功', { uid, totalDays, usedCount: actualCount, newExpire });
-      return true;
-    }
+    const result = await ItemEffectService.execute(uid, item.item_id, actualCount, itemInfo, { bagService: this });
+    if (!result.ok) return false;
 
-    if (itemType === 5) {
-      const BoostService = require('./boost.service').BoostService;
-      const boostService = new BoostService();
-      const ok = await boostService.useBoostCard(uid, item.item_id, actualCount);
-      if (!ok) {
-        throw createError(ErrorCode.SYSTEM_ERROR, '多倍卡使用失败');
-      }
-      if (item.count <= actualCount) {
-        await this.model.delete(item.original_id || item.id);
-      } else {
-        await this.model.update(item.original_id || item.id, {
-          count: item.count - actualCount,
-          update_time: Math.floor(Date.now() / 1000),
-        });
-      }
+    // 技能书等效果内部已处理背包扣减，仅推送更新
+    if (result.consumedByEffect) {
       const payload = await this.getListPayload(uid);
       wsManager.sendToUser(uid, { type: 'bag', data: payload });
       return true;
     }
 
-    if (itemType === 4) {
-      const skill = await dataStorageService.getByCondition('skill', { book_id: item.item_id });
-      if (skill) {
-        // 是技能书，学习技能（learnSkill 内部会移除技能书，已学技能会抛错）
-        const SkillService = require('./skill.service').SkillService;
-        const skillService = new SkillService();
-        const learned = await skillService.learnSkill(uid, item.item_id);
-        logger.info('技能书使用成功', { itemId: item.item_id, uid, learned });
-        return learned;
-      }
-    }
-
-    // 检查是否是消耗品（血药 type=1、蓝药 type=3），使用 hp_restore/mp_restore
-    const addHpVal = Number(itemInfo.hp_restore) || 0;
-    const addMpVal = Number(itemInfo.mp_restore) || 0;
-
-    if (addHpVal > 0 || addMpVal > 0) {
-      const PlayerService = require('./player.service').PlayerService;
-      const playerService = new PlayerService();
-      if (addHpVal > 0) await playerService.addHp(uid, addHpVal * actualCount);
-      if (addMpVal > 0) await playerService.addMp(uid, addMpVal * actualCount);
-
-      const players = await playerService.list(uid);
-      if (players.length > 0) {
-        wsManager.sendToUser(uid, { type: 'player', data: players[0] });
-      }
-
-      logger.info('从背包中移除物品', { itemId: item.id, uid, count: actualCount });
-      if (item.count <= actualCount) {
-        await this.model.delete(item.original_id || item.id);
-      } else {
-        await this.model.update(item.original_id || item.id, {
-          count: item.count - actualCount,
-          update_time: Math.floor(Date.now() / 1000)
-        });
-      }
-      const payload = await this.getListPayload(uid);
-      wsManager.sendToUser(uid, { type: 'bag', data: payload });
-      return true;
-    }
-
-    // 其他类型物品的处理
-    logger.info('从背包中移除物品', { itemId: item.id, uid, count: 1 });
-    if (item.count === 1) {
+    if (item.count <= actualCount) {
       await this.model.delete(item.original_id || item.id);
     } else {
       await this.model.update(item.original_id || item.id, {
-        count: item.count - 1,
-        update_time: Math.floor(Date.now() / 1000)
+        count: item.count - actualCount,
+        update_time: Math.floor(Date.now() / 1000),
       });
     }
-    
+    const payload = await this.getListPayload(uid);
+    wsManager.sendToUser(uid, { type: 'bag', data: payload });
     return true;
   }
 
@@ -432,7 +315,11 @@ export class BagService implements IBaseService<Bag> {
     }
   }
 
-  async wearItem(uid: Uid, bagItemId: Id): Promise<boolean> {
+  async wearItem(
+    uid: Uid,
+    bagItemId: Id,
+    equipService?: { list: (u: Uid) => Promise<any[]>; removeEquip: (u: Uid, equipId: Id) => Promise<boolean> }
+  ): Promise<boolean> {
     logger.info('开始穿戴装备', { bagItemId, uid });
     
     try {
@@ -506,15 +393,15 @@ export class BagService implements IBaseService<Bag> {
 
       logger.info('装备位置', { pos, itemId: bagItem.item_id });
 
-      // 处理装备位置被占用的情况
-      const EquipService = require('./equip.service').EquipService;
-      const equipService = new EquipService();
-      const equips = await equipService.list(uid);
+      // 处理装备位置被占用的情况（equipService 必须由调用方注入，避免与 equip.service 循环依赖）
+      if (!equipService) throw createError(ErrorCode.SYSTEM_ERROR, '穿戴装备需要装备服务');
+      const equip = equipService;
+      const equips = await equip.list(uid);
       const existingEquip = equips.find((equip: any) => equip.pos === pos);
       
       if (existingEquip) {
         logger.info('装备位置已被占用，自动卸下原装备', { uid, pos, equipment_uid: existingEquip.equipment_uid });
-        await equipService.removeEquip(uid, existingEquip.equipment_uid || existingEquip.id);
+        await equip.removeEquip(uid, existingEquip.equipment_uid || existingEquip.id);
         logger.info('原装备从装备栏卸下并返回背包', { itemId: existingEquip.item_id, uid, equipment_uid: existingEquip.equipment_uid });
       }
       

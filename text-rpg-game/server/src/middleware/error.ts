@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { AppError, ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
 
-export function errorHandler(err: any, req: Request, res: Response, next: NextFunction): void {
+export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction): void {
   logger.error('Error occurred', {
     error: err.message,
     stack: err.stack,

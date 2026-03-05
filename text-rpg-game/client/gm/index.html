@@ -57,6 +57,7 @@
         <button class="tab-btn" onclick="switchTab('skill', event)">技能管理</button>
         <button class="tab-btn" onclick="switchTab('map', event)">地图管理</button>
         <button class="tab-btn" onclick="switchTab('item', event)">物品管理</button>
+        <button class="tab-btn" onclick="switchTab('item-effect', event)">道具效果</button>
         <button class="tab-btn" onclick="switchTab('equip', event)">装备管理</button>
         <button class="tab-btn" onclick="switchTab('drop', event)">掉落管理</button>
         <button class="tab-btn" onclick="switchTab('level', event)">等级管理</button>
@@ -81,7 +82,7 @@
       
       <div id="skill-tab" class="tab-content hidden">
         <h3>技能管理</h3>
-        <button class="btn btn-primary" onclick="addSkill()">新增技能</button>
+        <p style="color:#666;">技能通过「物品管理」创建技能书时自动创建（选效果「技能书」并填写同时创建技能）。此处仅用于编辑、删除、查看。</p>
         <div id="skill-list"></div>
       </div>
       
@@ -96,11 +97,16 @@
         <button class="btn btn-primary" onclick="addItem()">新增物品</button>
         <div id="item-list"></div>
       </div>
+
+      <div id="item-effect-tab" class="tab-content hidden">
+        <h3>道具效果</h3>
+        <p style="color:#666;">效果在「物品管理」保存时自动同步。此处仅用于查看、编辑、删除（如为旧物品补充效果，请到物品管理编辑该物品并设置效果类型后保存）。</p>
+        <div id="item-effect-list"></div>
+      </div>
       
       <div id="equip-tab" class="tab-content hidden">
         <h3>装备管理</h3>
-        <p style="color:#666;">管理装备基础配置（equip_base），需先在物品管理中创建类型为装备的物品。</p>
-        <button class="btn btn-primary" onclick="addEquip()">新增装备基础</button>
+        <p style="color:#666;">装备在「物品管理」中创建（类型选装备并填写属性）。此处仅用于查看、编辑、删除已有 equip_base。</p>
         <div id="equip-list"></div>
       </div>
       

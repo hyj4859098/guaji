@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import { config } from '../config';
 
 export function getCurrentTime(): number {
   return Math.floor(Date.now() / 1000);

@@ -164,7 +164,6 @@ class TradeService {
     }
     this.pendingInvites.delete(toUid);
 
-    const fromName = this.lobbyPlayers.get(fromUid)?.name || '';
     const toName = this.lobbyPlayers.get(toUid)?.name || '';
 
     if (!accepted) {

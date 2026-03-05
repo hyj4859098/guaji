@@ -18,7 +18,7 @@ export class DataStorageService {
    * @param projection 投影
    * @returns 查询结果
    */
-  async query(collection: string, filter?: any, projection?: any, ctx?: any): Promise<any> {
+  async query(collection: string, filter?: any, projection?: any, _ctx?: any): Promise<any> {
     try {
       const result = await mongodbQuery(collection, filter, projection);
       return result;
@@ -51,7 +51,7 @@ export class DataStorageService {
    * @param data 数据对象
    * @returns 插入的ID
    */
-  async insert(collection: string, data: any, ctx?: any): Promise<any> {
+  async insert(collection: string, data: any, _ctx?: any): Promise<any> {
     const now = Math.floor(Date.now() / 1000);
     const insertData = {
       ...data,
@@ -70,7 +70,7 @@ export class DataStorageService {
    * @param data 数据对象
    * @returns 是否更新成功
    */
-  async update(collection: string, id: any, data: any, ctx?: any): Promise<boolean> {
+  async update(collection: string, id: any, data: any, _ctx?: any): Promise<boolean> {
     const updateData = {
       ...data,
       update_time: Math.floor(Date.now() / 1000)
@@ -86,7 +86,7 @@ export class DataStorageService {
    * @param id 记录ID
    * @returns 是否删除成功
    */
-  async delete(collection: string, id: any, ctx?: any): Promise<boolean> {
+  async delete(collection: string, id: any, _ctx?: any): Promise<boolean> {
     const result = await deleteOne(collection, { id: id });
     return result.affectedRows > 0;
   }
@@ -97,7 +97,7 @@ export class DataStorageService {
    * @param filter 过滤条件
    * @returns 删除的记录数
    */
-  async deleteMany(collection: string, filter: any, ctx?: any): Promise<number> {
+  async deleteMany(collection: string, filter: any, _ctx?: any): Promise<number> {
     const collectionObj = getCollection(collection);
     const result = await collectionObj.deleteMany(filter);
     return result.deletedCount;
@@ -109,7 +109,7 @@ export class DataStorageService {
    * @param id 记录ID
    * @returns 数据对象或null
    */
-  async getById(collection: string, id: any, ctx?: any): Promise<any | null> {
+  async getById(collection: string, id: any, _ctx?: any): Promise<any | null> {
     const result = await mongodbQuery(collection, { id: id });
     return result[0] || null;
   }
@@ -117,7 +117,7 @@ export class DataStorageService {
   /**
    * 按条件更新数据（用于 _id 等非 id 字段）
    */
-  async updateByFilter(collection: string, filter: any, data: any, ctx?: any): Promise<boolean> {
+  async updateByFilter(collection: string, filter: any, data: any, _ctx?: any): Promise<boolean> {
     const updateData = {
       ...data,
       update_time: Math.floor(Date.now() / 1000)
@@ -133,7 +133,7 @@ export class DataStorageService {
    * @param condition 条件对象
    * @returns 数据对象或null
    */
-  async getByCondition(collection: string, condition: any, ctx?: any): Promise<any | null> {
+  async getByCondition(collection: string, condition: any, _ctx?: any): Promise<any | null> {
     const result = await mongodbQuery(collection, condition);
     return result[0] || null;
   }
@@ -144,7 +144,7 @@ export class DataStorageService {
    * @param condition 条件对象（可选）
    * @returns 数据列表
    */
-  async list(collection: string, condition?: any, ctx?: any): Promise<any[]> {
+  async list(collection: string, condition?: any, _ctx?: any): Promise<any[]> {
     const result = await mongodbQuery(collection, condition);
     return result;
   }
@@ -155,7 +155,7 @@ export class DataStorageService {
    * @param dataList 数据列表
    * @returns 插入的ID列表
    */
-  async batchInsert(collection: string, dataList: any[], ctx?: any): Promise<any[]> {
+  async batchInsert(collection: string, dataList: any[], _ctx?: any): Promise<any[]> {
     if (dataList.length === 0) return [];
 
     const now = Math.floor(Date.now() / 1000);

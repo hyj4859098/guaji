@@ -3,7 +3,6 @@
  * Boss 复活时只推送给已订阅的玩家
  */
 import { Uid } from '../types/index';
-import { wsManager } from './ws-manager';
 
 function toKey(uid: Uid): string {
   return String(uid);
@@ -17,6 +16,13 @@ let onMapSubscribeChange: MapIdCallback | null = null;
 /** 设置订阅变化回调（用于 PVP 玩家列表广播） */
 export function setOnMapSubscribeChange(cb: MapIdCallback | null): void {
   onMapSubscribeChange = cb;
+}
+
+type SendToUserFn = (uid: Uid, message: any) => void;
+let sendToUserFn: SendToUserFn | null = null;
+/** 注入发送消息函数（由 app 启动时设置，避免与 ws-manager 循环依赖） */
+export function setSendToUser(fn: SendToUserFn): void {
+  sendToUserFn = fn;
 }
 
 export function subscribeBoss(uid: Uid, mapId: number): void {
@@ -48,13 +54,13 @@ export function getMapSubscriberUids(mapId: number): string[] {
 
 export function sendBossRespawnToSubscribers(mapId: number, bossId: number, bossName: string): void {
   const set = mapSubscribers.get(mapId);
-  if (!set || set.size === 0) return;
+  if (!set || set.size === 0 || !sendToUserFn) return;
   const message = {
     type: 'boss_respawn',
     data: { boss_id: bossId, map_id: mapId, boss_name: bossName },
   };
   set.forEach((uidStr) => {
     const uid = Number(uidStr) || uidStr;
-    wsManager.sendToUser(uid, message);
+    sendToUserFn!(uid, message);
   });
 }

@@ -1,0 +1,12 @@
+{
+  "name": "text-rpg-game",
+  "private": true,
+  "description": "文字回合制挂机游戏",
+  "scripts": {
+    "test:full": "node scripts/test-all.js",
+    "test:full:skip-api": "node scripts/test-all.js --skip-api"
+  },
+  "devDependencies": {
+    "ws": "^8.14.2"
+  }
+}

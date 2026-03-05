@@ -1,6 +1,6 @@
 import { MonsterModel } from '../model/monster.model';
 import { Monster } from '../types/monster';
-import { IBaseService, Id, Uid } from '../types/index';
+import { IBaseService, Id } from '../types/index';
 import { dataStorageService } from './data-storage.service';
 import { cacheService } from './cache.service';
 

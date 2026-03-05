@@ -7,6 +7,7 @@ import * as boss from './modules/boss.js';
 import * as skill from './modules/skill.js';
 import * as map from './modules/map.js';
 import * as item from './modules/item.js';
+import * as itemEffect from './modules/item-effect.js';
 import * as equip from './modules/equip.js';
 import * as drop from './modules/drop.js';
 import * as level from './modules/level.js';
@@ -34,9 +35,6 @@ function registerGlobals() {
   window.deleteBoss = boss.deleteBoss;
 
   window.loadSkillList = skill.loadSkillList;
-  window.addSkill = skill.addSkill;
-  window.saveSkill = skill.saveSkill;
-  window.cancelAddSkill = skill.cancelAddSkill;
   window.editSkill = skill.editSkill;
   window.cancelEditSkill = skill.cancelEditSkill;
   window.updateSkill = skill.updateSkill;
@@ -56,9 +54,12 @@ function registerGlobals() {
   window.updateItem = item.updateItem;
   window.deleteItem = item.deleteItem;
 
+  window.loadItemEffectList = itemEffect.loadItemEffectList;
+  window.editItemEffect = itemEffect.editItemEffect;
+  window.updateItemEffect = itemEffect.updateItemEffect;
+  window.deleteItemEffect = itemEffect.deleteItemEffect;
+
   window.loadEquipList = equip.loadEquipList;
-  window.addEquip = equip.addEquip;
-  window.saveEquip = equip.saveEquip;
   window.editEquip = equip.editEquip;
   window.updateEquip = equip.updateEquip;
   window.deleteEquip = equip.deleteEquip;
@@ -112,6 +113,7 @@ function switchTab(tabName, event) {
     case 'skill': skill.loadSkillList(); break;
     case 'map': map.loadMapList(); break;
     case 'item': item.loadItemList(); break;
+    case 'item-effect': itemEffect.loadItemEffectList(); break;
     case 'equip': equip.loadEquipList(); break;
     case 'drop': drop.loadDropList(); break;
     case 'level': level.loadLevelList(); break;

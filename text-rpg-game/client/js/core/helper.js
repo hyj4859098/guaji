@@ -9,6 +9,19 @@ const Helper = {
     return 'tool';
   },
 
+  /** 是否为装备（含 equipment_uid 的装备实例） */
+  isEquipment(item) {
+    return (item?.type === 2 || !!item?.equipment_uid);
+  },
+
+  /** 背包 Tab 配置（装备/消耗品/道具/材料），各页面统一使用 */
+  BAG_TABS: [
+    { key: 'equipment', label: '装备' },
+    { key: 'consumable', label: '消耗品' },
+    { key: 'tool', label: '道具' },
+    { key: 'material', label: '材料' }
+  ],
+
   formatNumber(num) {
     if (num >= 100000000) {
       return (num / 100000000).toFixed(2) + '亿';

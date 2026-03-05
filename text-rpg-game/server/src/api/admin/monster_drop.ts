@@ -2,17 +2,28 @@
  * GM 掉落管理 API
  * monster_drop 表：monster_id, item_id, quantity, probability
  */
-import { Router, Response, NextFunction } from 'express';
+import { Router } from 'express';
 import { dataStorageService } from '../../service/data-storage.service';
 import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
-import { logger } from '../../utils/logger';
+import { adminHandler, adminGetById, adminDelete, parseIdParam } from './admin-utils';
 
 const router = Router();
 
-/** 按怪物ID获取掉落列表（含物品名称） */
-router.get('/', async (req: any, res: Response, next: NextFunction) => {
-  try {
+const monsterDropGetter = {
+  get: async (id: number) => {
+    const d = await dataStorageService.getByCondition('monster_drop', { id });
+    if (!d) return null;
+    const [item, monster] = await Promise.all([
+      dataStorageService.getByCondition('item', { id: d.item_id }),
+      dataStorageService.getByCondition('monster', { id: d.monster_id })
+    ]);
+    return { ...d, item_name: item?.name, monster_name: monster?.name };
+  }
+};
+const monsterDropDeleter = { delete: (id: number) => dataStorageService.delete('monster_drop', id) };
+
+router.get('/', adminHandler(async (req, res) => {
     const monster_id = req.query.monster_id != null ? parseInt(String(req.query.monster_id)) : undefined;
     const filter = monster_id != null && !isNaN(monster_id) ? { monster_id } : undefined;
     const list = await dataStorageService.list('monster_drop', filter);
@@ -26,31 +37,11 @@ router.get('/', async (req: any, res: Response, next: NextFunction) => {
       monster_name: monsterMap.get(d.monster_id)?.name || `怪物${d.monster_id}`
     }));
     success(res, result);
-  } catch (error) {
-    logger.error('获取掉落列表失败:', error);
-    next(error);
-  }
-});
+}, '获取掉落列表失败'));
 
-/** 获取单个掉落 */
-router.get('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return fail(res, ErrorCode.INVALID_PARAMS, '无效的ID');
-    const d = await dataStorageService.getByCondition('monster_drop', { id });
-    if (!d) return fail(res, ErrorCode.NOT_FOUND, '掉落配置不存在');
-    const item = await dataStorageService.getByCondition('item', { id: d.item_id });
-    const monster = await dataStorageService.getByCondition('monster', { id: d.monster_id });
-    success(res, { ...d, item_name: item?.name, monster_name: monster?.name });
-  } catch (error) {
-    logger.error('获取掉落失败:', error);
-    next(error);
-  }
-});
+router.get('/:id', adminGetById(monsterDropGetter, '掉落配置', '获取掉落失败'));
 
-/** 新增掉落 */
-router.post('/', async (req: any, res: Response, next: NextFunction) => {
-  try {
+router.post('/', adminHandler(async (req, res) => {
     const { monster_id, item_id, quantity, probability } = req.body;
     if (monster_id == null || item_id == null) return fail(res, ErrorCode.INVALID_PARAMS, '缺少 monster_id 或 item_id');
     const monster = await dataStorageService.getByCondition('monster', { id: Number(monster_id) });
@@ -65,17 +56,11 @@ router.post('/', async (req: any, res: Response, next: NextFunction) => {
     };
     const insertId = await dataStorageService.insert('monster_drop', data);
     success(res, { id: insertId });
-  } catch (error) {
-    logger.error('新增掉落失败:', error);
-    next(error);
-  }
-});
+}, '新增掉落失败'));
 
-/** 更新掉落 */
-router.put('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return fail(res, ErrorCode.INVALID_PARAMS, '无效的ID');
+router.put('/:id', adminHandler(async (req, res) => {
+    const id = parseIdParam(req, res, 'ID');
+    if (id == null) return;
     const d = await dataStorageService.getByCondition('monster_drop', { id });
     if (!d) return fail(res, ErrorCode.NOT_FOUND, '掉落配置不存在');
     const { monster_id, item_id, quantity, probability } = req.body;
@@ -96,24 +81,8 @@ router.put('/:id', async (req: any, res: Response, next: NextFunction) => {
     const ok = await dataStorageService.update('monster_drop', id, updateData);
     if (ok) success(res, { message: '更新成功' });
     else fail(res, ErrorCode.NOT_FOUND, '更新失败');
-  } catch (error) {
-    logger.error('更新掉落失败:', error);
-    next(error);
-  }
-});
+}, '更新掉落失败'));
 
-/** 删除掉落 */
-router.delete('/:id', async (req: any, res: Response, next: NextFunction) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) return fail(res, ErrorCode.INVALID_PARAMS, '无效的ID');
-    const ok = await dataStorageService.delete('monster_drop', id);
-    if (ok) success(res, { message: '删除成功' });
-    else fail(res, ErrorCode.NOT_FOUND, '删除失败');
-  } catch (error) {
-    logger.error('删除掉落失败:', error);
-    next(error);
-  }
-});
+router.delete('/:id', adminDelete(monsterDropDeleter, '掉落配置', '删除掉落失败'));
 
 export default router;

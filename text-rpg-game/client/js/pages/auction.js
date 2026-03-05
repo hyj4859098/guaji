@@ -497,7 +497,7 @@ const AuctionPage = {
 
   showListPopup(bagItem) {
     if (!bagItem) return;
-    const isEquip = bagItem.type === 2;
+    const isEquip = Helper.isEquipment(bagItem);
     const maxCount = bagItem.count || 1;
     const bagId = bagItem.original_id || bagItem.id;
 
@@ -562,7 +562,7 @@ const AuctionPage = {
     this.listing = true;
     const result = await API.post('/auction/list', {
       bag_id: bagItemData.id,
-      count: bagItemData.type === 2 ? undefined : count,
+      count: Helper.isEquipment({ type: bagItemData.type }) ? undefined : count,
       price,
     });
     this.listing = false;

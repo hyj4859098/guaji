@@ -1,18 +1,15 @@
 /**
  * 装备提升服务：强化（材料消耗、成功率、失败惩罚）
- * 材料：强化石(6)、装备防爆符(7)、装备幸运符(8)
+ * 材料 ID 从 config.enhance_materials 读取，避免硬编码
  */
 import { EquipInstanceService } from './equip_instance.service';
 import { EquipInstanceModel } from '../model/equip_instance.model';
 import { dataStorageService } from './data-storage.service';
+import { getEnhanceMaterialIds } from './enhance-config.service';
 import { Uid } from '../types';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { wsManager } from '../event/ws-manager';
-
-const ITEM_STONE = 6;
-const ITEM_ANTI_EXPLODE = 7;
-const ITEM_LUCKY_CHARM = 8;
 const MAX_ENHANCE_LEVEL = 20;
 const FAIL_BROKEN_RATE = 30; // 失败时 30% 装备损坏
 
@@ -124,11 +121,12 @@ export class EquipUpgradeService {
 
     const targetLevel = currentLevel + 1;
     const stoneCost = this.getStoneCost(targetLevel);
+    const matIds = await getEnhanceMaterialIds();
 
     const [stoneCount, antiCount, luckyCount] = await Promise.all([
-      this.getMaterialCount(uid, ITEM_STONE),
-      this.getMaterialCount(uid, ITEM_ANTI_EXPLODE),
-      this.getMaterialCount(uid, ITEM_LUCKY_CHARM),
+      this.getMaterialCount(uid, matIds.stone),
+      this.getMaterialCount(uid, matIds.anti_explode),
+      this.getMaterialCount(uid, matIds.lucky),
     ]);
 
     if (stoneCount < stoneCost) {
@@ -138,21 +136,21 @@ export class EquipUpgradeService {
       );
     }
     if (options.useLuckyCharm && luckyCount < 1) {
-      throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '装备幸运符不足');
+      throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '幸运符不足');
     }
     if (options.useAntiExplode && antiCount < 1) {
-      throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '装备防爆符不足');
+      throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '防爆符不足');
     }
 
-    const stoneOk = await this.consumeMaterial(uid, ITEM_STONE, stoneCost);
+    const stoneOk = await this.consumeMaterial(uid, matIds.stone, stoneCost);
     if (!stoneOk) {
       throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '强化石扣除失败');
     }
     if (options.useLuckyCharm) {
-      await this.consumeMaterial(uid, ITEM_LUCKY_CHARM, 1);
+      await this.consumeMaterial(uid, matIds.lucky, 1);
     }
     if (options.useAntiExplode) {
-      await this.consumeMaterial(uid, ITEM_ANTI_EXPLODE, 1);
+      await this.consumeMaterial(uid, matIds.anti_explode, 1);
     }
 
     let successRate = this.getBaseSuccessRate(targetLevel);

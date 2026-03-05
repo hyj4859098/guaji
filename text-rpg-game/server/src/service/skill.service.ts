@@ -1,10 +1,8 @@
 import { SkillModel, PlayerSkillModel } from '../model/skill.model';
-import { Skill, PlayerSkill, SkillTypeEnum } from '../types/skill';
+import { Skill, SkillTypeEnum } from '../types/skill';
 import { IBaseService, Id, Uid } from '../types/index';
-import { query } from '../config/db';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
-import { transaction, TransactionContext } from '../utils/transaction';
 import { cacheService } from './cache.service';
 
 export class SkillService implements IBaseService<Skill> {
@@ -62,9 +60,14 @@ export class SkillService implements IBaseService<Skill> {
    * 学习技能
    * @param uid 用户ID
    * @param bookId 技能书ID
+   * @param bagService 背包服务（由调用方注入可避免循环依赖，未注入时内部 require）
    * @returns 是否学习成功
    */
-  async learnSkill(uid: Uid, bookId: number): Promise<boolean> {
+  async learnSkill(
+    uid: Uid,
+    bookId: number,
+    bagService?: { list: (u: Uid) => Promise<any[]>; delete: (id: number, opts?: any) => Promise<boolean> }
+  ): Promise<boolean> {
     try {
       // 获取技能书对应的技能
       const skill = await this.skillModel.getByBookId(bookId);
@@ -81,9 +84,8 @@ export class SkillService implements IBaseService<Skill> {
         throw createError(ErrorCode.INVALID_PARAMS, '该技能已学习，无法重复学习');
       }
 
-      // 从背包中移除技能书
-      const BagService = require('./bag.service').BagService;
-      const bagService = new BagService();
+      // 从背包中移除技能书（必须由调用方注入 bagService，避免与 bag.service 循环依赖）
+      if (!bagService) throw createError(ErrorCode.SYSTEM_ERROR, '学习技能需要背包服务');
       const bagItems = await bagService.list(uid);
       const bookItem = bagItems.find((item: any) => item.item_id === bookId);
       if (!bookItem || bookItem.count < 1) {

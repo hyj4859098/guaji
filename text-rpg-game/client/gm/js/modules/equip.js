@@ -1,13 +1,6 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, EQUIP_POS_NAMES } from './core.js';
 
 const API = getApiBaseUrl();
-const POS_NAMES = { 1: '武器', 2: '衣服', 3: '腰带', 4: '裤子', 5: '鞋子', 6: '戒指', 7: '项链', 8: '坐骑' };
-
-function posOptions(selected) {
-  return Object.entries(POS_NAMES)
-    .map(([v, n]) => `<option value="${v}" ${String(selected) === v ? 'selected' : ''}>${n}</option>`)
-    .join('');
-}
 
 function authHeaders(json) {
   const h = { 'Authorization': `Bearer ${getToken()}` };
@@ -21,7 +14,7 @@ function formHtml(d) {
   return `
     <div class="gm-form-row">
       <label>物品ID: <input type="number" id="equip-item-id" value="${v('item_id', '')}" ${isEdit ? 'disabled' : ''} min="1"></label>
-      <label>部位: <select id="equip-pos">${posOptions(v('pos', 1))}</select></label>
+      ${isEdit ? `<label>部位: <span>${EQUIP_POS_NAMES[v('pos', 1)] || v('pos', 1)}</span>（在物品管理中修改）</label>` : ''}
       <label>基础等级: <input type="number" id="equip-base-level" value="${v('base_level', 1)}" min="1"></label>
     </div>
     <div class="gm-form-row">
@@ -45,7 +38,6 @@ function readForm() {
   const int = id => parseInt(document.getElementById(id)?.value) || 0;
   return {
     item_id: int('equip-item-id'),
-    pos: int('equip-pos') || 1,
     base_level: int('equip-base-level') || 1,
     base_hp: int('equip-base-hp'),
     base_mp: int('equip-base-mp'),
@@ -77,7 +69,7 @@ export async function loadEquipList() {
         </tr></thead>
         <tbody>${list.map(e => {
           return `<tr>
-            <td>${e.item_id}</td><td>${POS_NAMES[e.pos] || e.pos}</td><td>${e.base_level ?? 1}</td>
+            <td>${e.item_id}</td><td>${EQUIP_POS_NAMES[e.pos] || e.pos}</td><td>${e.base_level ?? 1}</td>
             <td>${e.base_hp ?? 0}</td><td>${e.base_mp ?? 0}</td>
             <td>${e.base_phy_atk ?? 0}</td><td>${e.base_phy_def ?? 0}</td>
             <td>${e.base_mag_atk ?? 0}</td><td>${e.base_mag_def ?? 0}</td>
@@ -99,23 +91,6 @@ function filterEquipTable() {
   document.querySelectorAll('#equip-list .gm-table tbody tr').forEach(tr => {
     tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
   });
-}
-
-export function addEquip() {
-  showFormModal('新增装备', formHtml(null), saveEquip);
-}
-
-export async function saveEquip() {
-  const data = readForm();
-  if (!data.item_id) { showToast('请填写有效的物品ID', 'error'); return; }
-  try {
-    const r = await fetch(`${API}/admin/equip_base`, {
-      method: 'POST', headers: authHeaders(true), body: JSON.stringify(data)
-    });
-    const result = await r.json();
-    if (result.code === 0) { showToast('装备新增成功'); hideFormModal(); loadEquipList(); }
-    else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
 }
 
 export async function editEquip(id) {
@@ -153,4 +128,4 @@ export async function deleteEquip(id) {
 
 window.filterEquipTable = filterEquipTable;
 
-export default { loadEquipList, addEquip, saveEquip, editEquip, updateEquip, deleteEquip };
+export default { loadEquipList, editEquip, updateEquip, deleteEquip };
