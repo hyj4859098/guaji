@@ -5,8 +5,9 @@
  * 默认使用 MONGODB_DATABASE 环境变量指定的库（test-all 会设为 turn-based-game-test）
  */
 const path = require('path');
-const { MongoClient } = require('mongodb');
-const bcrypt = require(path.join(__dirname, '../server/node_modules/bcrypt'));
+const serverNodeModules = path.join(__dirname, '../server/node_modules');
+const { MongoClient } = require(path.join(serverNodeModules, 'mongodb'));
+const bcrypt = require(path.join(serverNodeModules, 'bcrypt'));
 
 const ADMIN_PASS = 'admin123';
 
