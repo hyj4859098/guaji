@@ -1,7 +1,8 @@
-/** 怪物掉落配置 */
+/** 怪物掉落配置（monster_drop 表） */
 export interface MonsterDropItem {
-  item_id: number;  // 装备 item_id（需在 equip_base 中存在）
-  prob: number;    // 掉落概率 0-100
+  item_id: number;
+  quantity: number;
+  probability: number;  // 掉落概率 0-100
 }
 
 export interface Monster {

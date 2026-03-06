@@ -43,7 +43,7 @@ sleep 2
 cd "$PROJECT_DIR/text-rpg-game/server"
 if command -v pm2 &>/dev/null; then
   pm2 delete text-rpg-game 2>/dev/null || true
-  pm2 start dist/app.js --name text-rpg-game
+  pm2 start dist/app.js --name text-rpg-game --cwd "$PROJECT_DIR/text-rpg-game/server"
   pm2 save
   echo "已用 PM2 重启"
 else

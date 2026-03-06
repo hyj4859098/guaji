@@ -1,4 +1,5 @@
-import { Router, Response, NextFunction } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { authLimiter } from '../middleware/rate-limit';
 import { dataStorageService } from '../service/data-storage.service';
 import { generateToken } from '../utils/helper';
 import { logger } from '../utils/logger';
@@ -6,11 +7,12 @@ import { config } from '../config';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { isInCooldown } from '../utils/kick-cooldown';
+import { verifyPassword, migratePasswordIfNeeded, hashPassword } from '../utils/password';
+import { sanitizeUsername, sanitizePassword } from '../utils/input-sanitize';
 
 const router = Router();
 
-/** 获取客户端真实 IP（考虑反向代理 X-Forwarded-For） */
-function getClientIp(req: any): string {
+function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
     return String(forwarded).split(',')[0].trim();
@@ -18,41 +20,39 @@ function getClientIp(req: any): string {
   return req.ip || req.socket?.remoteAddress || '';
 }
 
-router.post('/login', async (req: any, res: Response, next: NextFunction) => {
+router.post('/login', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { username, password } = req.body;
-    
+    const username = sanitizeUsername(req.body?.username);
+    const password = sanitizePassword(req.body?.password);
+
     if (!username || !password) {
-      logger.warn('登录失败 - 缺少用户名或密码');
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少用户名或密码');
+      logger.warn('登录失败 - 用户名或密码格式无效');
+      return fail(res, ErrorCode.INVALID_PARAMS, '用户名2-32位字母数字或中文，密码6-128位');
     }
-    
+
     const clientIp = getClientIp(req);
     logger.info(`用户登录 - 用户名: ${username}, IP: ${clientIp}`);
     const user = await dataStorageService.getByCondition('user', { username });
-    
+
     if (!user) {
       logger.warn(`登录失败 - 用户不存在: ${username}`);
       return fail(res, ErrorCode.NOT_FOUND, '用户不存在');
     }
-    
-    if (user.password !== password) {
+
+    const ok = await verifyPassword(password, user.password);
+    if (!ok) {
       logger.warn(`登录失败 - 密码错误: ${username}`);
       return fail(res, ErrorCode.UNAUTHORIZED, '密码错误');
     }
 
-    // 一账号一 IP：首次登录记录 IP，后续仅允许同 IP 登录
-    if (user.last_login_ip) {
-      if (user.last_login_ip !== clientIp) {
-        logger.warn(`登录失败 - IP 不匹配: ${username}, 期望: ${user.last_login_ip}, 实际: ${clientIp}`);
-        return fail(res, ErrorCode.FORBIDDEN, '该账号已在其他IP登录，请联系管理员解绑');
-      }
-    } else {
-      // 首次登录，记录 IP
+    const hashed = await migratePasswordIfNeeded(password, user.password);
+    if (hashed) {
       const updateFilter = user.id != null ? { id: user.id } : { _id: user._id };
-      await dataStorageService.updateByFilter('user', updateFilter, { last_login_ip: clientIp });
-      logger.info(`首次登录记录 IP: ${username}, IP: ${clientIp}`);
+      await dataStorageService.updateByFilter('user', updateFilter, { password: hashed });
+      logger.info(`密码已迁移为哈希: ${username}`);
     }
+
+    // IP 锁已暂时关闭（测试阶段）。多 IP 踢下线由 WebSocket 重复登录逻辑处理。
 
     // 优先用数字 id；只有 _id 的老用户用 _id 字符串，这样和已有角色数据的 uid 一致，能查到角色
     let uid: number | string;
@@ -85,28 +85,30 @@ router.post('/login', async (req: any, res: Response, next: NextFunction) => {
   }
 });
 
-router.post('/register', async (req: any, res: Response, next: NextFunction) => {
+router.post('/register', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { username, password } = req.body;
-    
+    const username = sanitizeUsername(req.body?.username);
+    const password = sanitizePassword(req.body?.password);
+
     if (!username || !password) {
-      logger.warn('注册失败 - 缺少用户名或密码');
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少用户名或密码');
+      logger.warn('注册失败 - 用户名或密码格式无效');
+      return fail(res, ErrorCode.INVALID_PARAMS, '用户名2-32位字母数字或中文，密码6-128位');
     }
-    
+
     const clientIp = getClientIp(req);
     logger.info(`用户注册 - 用户名: ${username}, IP: ${clientIp}`);
     const existing = await dataStorageService.getByCondition('user', { username });
-    
+
     if (existing) {
       logger.warn(`注册失败 - 用户名已存在: ${username}`);
       return fail(res, ErrorCode.INVALID_PARAMS, '用户名已存在');
     }
-    
+
+    const hashed = await hashPassword(password);
     const now = Math.floor(Date.now() / 1000);
     const userId = await dataStorageService.insert('user', {
       username,
-      password,
+      password: hashed,
       last_login_ip: clientIp,
       create_time: now,
       update_time: now

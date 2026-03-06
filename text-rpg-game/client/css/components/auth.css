@@ -160,6 +160,63 @@
   border-color: rgba(148, 163, 184, 0.5);
 }
 
+/* 用户协议勾选 */
+.auth-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.auth-agree input[type="checkbox"] {
+  margin-top: 2px;
+  accent-color: #f59e0b;
+  min-width: 16px;
+  min-height: 16px;
+}
+
+.auth-agree a {
+  color: #fbbf24;
+  text-decoration: underline;
+}
+
+.auth-agree a:hover {
+  color: #fcd34d;
+}
+
+/* 法律文本页 */
+.legal-content {
+  max-height: 400px;
+  overflow-y: auto;
+  text-align: left;
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.7;
+  padding: 12px 0;
+}
+
+.legal-content h3 {
+  color: #fef3c7;
+  font-size: 14px;
+  margin: 16px 0 6px;
+}
+
+.legal-content p {
+  margin: 0 0 8px;
+}
+
+.legal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.legal-content::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+}
+
 /* 创建角色面板 */
 .auth-panel.create-player .auth-title {
   margin-bottom: 24px;

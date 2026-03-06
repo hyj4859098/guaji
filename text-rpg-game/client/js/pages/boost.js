@@ -2,61 +2,7 @@ const BoostPage = {
   config: null,
   player: null,
 
-  style: `
-    <style>
-      body { background: #0a1929; }
-      #app { background: #0a1929; min-height: calc(100vh - 140px); padding: 20px; }
-      .boost-container {
-        max-width: 700px; margin: 0 auto; color: #e2e8f0;
-      }
-      .boost-container h2 {
-        text-align: center; color: #4299e1; margin-bottom: 24px; font-size: 22px;
-      }
-
-      .vip-panel {
-        background: #1a202c; border-radius: 8px; padding: 20px; margin-bottom: 24px;
-        border: 1px solid rgba(255,255,255,0.1);
-      }
-      .vip-panel h3 { margin: 0 0 12px 0; color: #ecc94b; font-size: 18px; }
-      .vip-status { font-size: 15px; margin-bottom: 8px; }
-      .vip-active { color: #48bb78; font-weight: bold; }
-      .vip-expired { color: #fc8181; font-weight: bold; }
-      .vip-benefits {
-        font-size: 13px; color: #a0aec0; margin-top: 10px; line-height: 1.8;
-        padding: 10px; background: #2d3748; border-radius: 4px;
-      }
-      .vip-benefits span { color: #48bb78; font-weight: bold; }
-
-      .boost-table {
-        width: 100%; border-collapse: collapse; background: #1a202c;
-        border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);
-      }
-      .boost-table th, .boost-table td {
-        padding: 12px 16px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.06);
-      }
-      .boost-table th {
-        background: #2d3748; color: #a0aec0; font-size: 14px; font-weight: bold;
-      }
-      .boost-table td { font-size: 14px; }
-      .boost-table tr:hover { background: rgba(66,153,225,0.06); }
-      .cat-label { text-align: left !important; font-weight: bold; color: #e2e8f0; }
-      .boost-cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-      .boost-cell input[type=checkbox] {
-        width: 18px; height: 18px; cursor: pointer; accent-color: #48bb78;
-      }
-      .boost-charges { font-size: 13px; color: #a0aec0; }
-      .boost-charges.active { color: #48bb78; font-weight: bold; }
-      .mult-value {
-        font-size: 16px; font-weight: bold; padding: 4px 12px;
-        border-radius: 4px; background: #2d3748;
-      }
-      .mult-value.boosted { background: #2f855a; color: #c6f6d5; }
-      .boost-hint {
-        text-align: center; color: #718096; font-size: 13px; margin-top: 16px;
-        line-height: 1.8;
-      }
-    </style>
-  `,
+  style: '',
 
   categoryNames: { exp: '经验', gold: '金币', drop: '掉落', reputation: '声望' },
   multiplierValues: { x2: 2, x4: 4, x8: 8 },

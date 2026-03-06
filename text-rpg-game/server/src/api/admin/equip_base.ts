@@ -3,6 +3,7 @@ import { dataStorageService } from '../../service/data-storage.service';
 import { getCollection } from '../../config/db';
 import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
+import { isEquipment } from '../../utils/item-type';
 import { adminHandler, parseIdParam } from './admin-utils';
 
 const router = Router();
@@ -44,6 +45,7 @@ router.post('/', adminHandler(async (req, res) => {
     if (existing) return fail(res, ErrorCode.INVALID_PARAMS, '该物品已有装备基础配置');
     const item = await dataStorageService.getByCondition('item', { id: Number(item_id) });
     if (!item) return fail(res, ErrorCode.NOT_FOUND, '物品不存在');
+    if (!isEquipment(item)) return fail(res, ErrorCode.INVALID_PARAMS, '仅装备类型(type=2)可配置 equip_base');
     const pos = (item as any).pos != null && (item as any).pos > 0 ? Number((item as any).pos) : 1;
     const data = {
       item_id: Number(item_id),

@@ -20,11 +20,15 @@ export class SkillService implements IBaseService<Skill> {
 
   async list(uid?: Uid, ctx?: any): Promise<any[]> {
     if (uid) {
-      // 从数据库获取
       const playerSkills = await this.playerSkillModel.listByUid(uid, ctx);
+      if (playerSkills.length === 0) return [];
+
+      // 批量查询所有技能定义（避免 N+1）
+      const allSkills = await this.skillModel.list(ctx);
+      const skillMap = new Map(allSkills.map((s: any) => [s.id, s]));
       
-      const skillsWithDetails = await Promise.all(playerSkills.map(async (playerSkill) => {
-        const skill = await this.skillModel.getBySkillId(playerSkill.skill_id, ctx);
+      const skillsWithDetails = playerSkills.map((playerSkill: any) => {
+        const skill = skillMap.get(playerSkill.skill_id);
         if (skill) {
           return {
             ...skill,
@@ -35,11 +39,10 @@ export class SkillService implements IBaseService<Skill> {
           };
         }
         return null;
-      }));
+      });
       
       return skillsWithDetails.filter(Boolean);
     } else {
-      // 获取所有技能
       return await this.skillModel.list(ctx);
     }
   }

@@ -1,5 +1,7 @@
 const API = {
-  baseUrl: `${location.protocol}//${location.hostname}:${location.port || 3000}/api`,
+  get baseUrl() {
+    return `${location.protocol}//${location.host}/api`;
+  },
 
   async request(url, options = {}) {
     const headers = {
@@ -18,13 +20,19 @@ const API = {
         headers
       });
 
-      const responseText = await response.text();
-      
-      const result = JSON.parse(responseText);
-
-      if (result.code === 401) {
+      if (response.status === 401) {
         State.clear();
-        window.location.reload();
+        if (typeof resetToLogin === 'function') resetToLogin();
+        else window.location.reload();
+        return { code: 40002, msg: '登录已过期', data: null };
+      }
+
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        return { code: 500, msg: '服务器返回格式异常', data: null };
       }
 
       return result;
@@ -32,7 +40,7 @@ const API = {
       console.error('API Error:', error);
       return {
         code: 500,
-        msg: '网络错误',
+        msg: '网络错误，请检查网络后重试',
         data: null
       };
     }

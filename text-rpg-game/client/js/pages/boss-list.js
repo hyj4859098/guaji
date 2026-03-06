@@ -3,50 +3,7 @@
  * 地图 → Boss列表 → 战斗页
  */
 const BossListPage = {
-  style: `
-    <style>
-      .boss-list-container { max-width: 1200px; margin: 0 auto; padding: 24px; overflow-y: auto; height: 100%; }
-      .boss-list-title { font-size: 24px; font-weight: bold; margin-bottom: 24px; text-align: center; }
-      .boss-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
-      .boss-card {
-        background: #1a202c; border-radius: 8px; padding: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: all 0.3s ease;
-        display: flex; flex-direction: column; min-height: 120px;
-        border-left: 4px solid #ed8936;
-      }
-      .boss-header { display: flex; align-items: center; margin-bottom: 12px; }
-      .boss-info { flex: 1; }
-      .boss-name { font-size: 18px; font-weight: bold; color: #f6ad55; margin-bottom: 4px; }
-      .boss-level { font-size: 12px; color: #a0aec0; }
-      .boss-hp { font-size: 11px; color: #e2e8f0; margin-top: 4px; }
-      .boss-status { font-size: 11px; margin-top: 4px; }
-      .boss-status.can-fight { color: #48bb78; }
-      .boss-status.respawn { color: #f56565; }
-      .boss-image-placeholder { width: 50px; height: 50px; background: #2d3748; border-radius: 4px; margin-left: 12px; }
-      .boss-battle-btn {
-        width: 80%; padding: 8px; background: #ed8936; color: white; border: none; border-radius: 4px;
-        font-size: 12px; font-weight: bold; cursor: pointer; align-self: center; transition: background 0.3s;
-      }
-      .boss-battle-btn:hover { background: #dd6b20; }
-      .boss-battle-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-      .boss-list-divider { margin: 20px 0; border-top: 1px solid #f6ad55; }
-      .boss-list-pvp-section { min-height: 80px; }
-      .pvp-title { font-size: 18px; font-weight: bold; margin-bottom: 12px; color: #e2e8f0; }
-      .pvp-player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
-      .pvp-player-card {
-        background: #2d3748; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; align-items: center;
-        border-left: 4px solid #4299e1;
-      }
-      .pvp-player-avatar { width: 48px; height: 48px; border-radius: 50%; background: #4a5568; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #e2e8f0; margin-bottom: 8px; }
-      .pvp-player-name { font-size: 14px; font-weight: bold; color: #e2e8f0; margin-bottom: 4px; }
-      .pvp-player-level { font-size: 12px; color: #a0aec0; margin-bottom: 8px; }
-      .pvp-challenge-btn { padding: 6px 12px; background: #4299e1; color: white; border: none; border-radius: 4px; font-size: 12px; cursor: pointer; }
-      .pvp-challenge-btn:hover { background: #3182ce; }
-      .pvp-challenge-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-      .pvp-in-battle { font-size: 12px; color: #f56565; }
-    </style>
-  `,
+  style: '',
 
   bosses: [],
   mapPlayers: [],

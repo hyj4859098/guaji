@@ -14,6 +14,16 @@ const Helper = {
     return (item?.type === 2 || !!item?.equipment_uid);
   },
 
+  /** 消耗品回血值：唯一数据源，优先 hp_restore，兼容旧字段 hp */
+  getHpRestore(item) {
+    return Number(item?.hp_restore ?? item?.hp) || 0;
+  },
+
+  /** 消耗品回蓝值：唯一数据源，优先 mp_restore，兼容旧字段 mp */
+  getMpRestore(item) {
+    return Number(item?.mp_restore ?? item?.mp) || 0;
+  },
+
   /** 背包 Tab 配置（装备/消耗品/道具/材料），各页面统一使用 */
   BAG_TABS: [
     { key: 'equipment', label: '装备' },

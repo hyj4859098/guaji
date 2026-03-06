@@ -12,8 +12,6 @@ import { SkillService } from './skill.service';
 import { EquipInstanceService } from './equip_instance.service';
 import { BagService } from './bag.service';
 import { BoostService } from './boost.service';
-import { WealthTitleService } from './wealth-title.service';
-import { LevelTitleService } from './level-title.service';
 import { Uid } from '../types/index';
 import { isVipActive } from '../types/player';
 import { BattleResultEnum } from '../types/enum';
@@ -22,6 +20,10 @@ import { sendBossRespawnToSubscribers } from '../event/boss-subscription';
 import { logger } from '../utils/logger';
 import { dataStorageService } from './data-storage.service';
 import { findOneAndUpdate } from '../config/db';
+import { createError, ErrorCode } from '../utils/error';
+import { applyBattleBonuses } from '../utils/combat-bonus';
+import { createAutoHealHandler, processDropList, settleBattleRewards } from '../utils/battle-shared';
+import { toUidKey } from '../utils/uid-key';
 import { BossModel } from '../model/boss.model';
 import { runBattle } from '../battle/runner';
 
@@ -42,16 +44,10 @@ const bossLockMap = new Map<string, boolean>();
 const bossBattleState = new Map<string, { stopRequested: boolean }>();
 const respawnTimers = new Map<number, NodeJS.Timeout>();
 
-function toKey(uid: Uid): string {
-  return String(uid);
-}
-
 export class BossService {
   private playerService = new PlayerService();
   private bossModel = new BossModel();
   private skillService = new SkillService();
-  private wealthTitleService = new WealthTitleService();
-  private levelTitleService = new LevelTitleService();
   private equipInstanceService = new EquipInstanceService();
   private bagService = new BagService();
   private _seq = 0;
@@ -114,7 +110,7 @@ export class BossService {
   }
 
   async challenge(uid: Uid, bossId: number, autoHeal?: any): Promise<BossResult> {
-    const key = toKey(uid);
+    const key = toUidKey(uid);
     if (bossLockMap.get(key)) return this.loseResult();
 
     bossLockMap.set(key, true);
@@ -122,18 +118,18 @@ export class BossService {
 
     try {
       const boss = await this.getBoss(bossId);
-      if (!boss) throw new Error('Boss 不存在');
+      if (!boss) throw createError(ErrorCode.BOSS_NOT_FOUND, 'Boss 不存在');
 
       const players = await this.playerService.list(uid);
-      if (!players.length) throw new Error('角色不存在');
+      if (!players.length) throw createError(ErrorCode.PLAYER_NOT_FOUND, '角色不存在');
 
       await this.ensureBossState(boss);
       const state = await this.getBossState(bossId);
       if (!state || state.current_hp <= 0) {
         if (state?.last_death_time && Math.floor(Date.now() / 1000) - state.last_death_time < RESPAWN_SECONDS) {
-          throw new Error(`Boss 已死亡，${RESPAWN_SECONDS - (Math.floor(Date.now() / 1000) - state.last_death_time)} 秒后刷新`);
+          throw createError(ErrorCode.BOSS_DEAD, `Boss 已死亡，${RESPAWN_SECONDS - (Math.floor(Date.now() / 1000) - state.last_death_time)} 秒后刷新`);
         }
-        throw new Error('Boss 不可挑战');
+        throw createError(ErrorCode.BOSS_DEAD, 'Boss 不可挑战');
       }
 
       const result = await this.runBossBattle(uid, players[0], boss, autoHeal);
@@ -151,7 +147,7 @@ export class BossService {
   }
 
   stopBattle(uid: Uid): boolean {
-    const s = bossBattleState.get(toKey(uid));
+    const s = bossBattleState.get(toUidKey(uid));
     if (!s) return false;
     s.stopRequested = true;
     return true;
@@ -234,20 +230,11 @@ export class BossService {
   }
 
   private async runBossBattle(uid: Uid, rawPlayer: any, boss: any, autoHeal?: any): Promise<BossResult> {
-    const key = toKey(uid);
+    const key = toUidKey(uid);
     let player = { ...rawPlayer };
     const bossCopy = { ...boss, max_hp: boss.hp };
 
-    const phyDefPct = player.phy_def_pct || 0;
-    const magDefPct = player.mag_def_pct || 0;
-    const maxHpPct = player.max_hp_pct || 0;
-    if (phyDefPct) player.phy_def = Math.floor((player.phy_def || 0) * (1 + phyDefPct / 100));
-    if (magDefPct) player.mag_def = Math.floor((player.mag_def || 0) * (1 + magDefPct / 100));
-    if (maxHpPct) {
-      const bonus = Math.floor((player.max_hp || player.hp) * maxHpPct / 100);
-      player.hp += bonus;
-      player.max_hp = (player.max_hp || player.hp) + bonus;
-    }
+    player = applyBattleBonuses(player);
 
     const state = await this.getBossState(boss.id);
     const bossCopyWithHp = { ...bossCopy, hp: state?.current_hp ?? boss.hp };
@@ -259,38 +246,12 @@ export class BossService {
       pushEvent: (ev, msg, d) => this.pushEvent(uid, ev, msg, d),
       pushBatch: (events) => this.pushBatch(uid, events),
       shouldStop: () => !!bossBattleState.get(key)?.stopRequested,
-      beforeEachRound: autoHeal ? async (attacker) => {
-        const roundEvents: any[] = [];
-        const maxHp = attacker.max_hp || attacker.hp;
-        const maxMp = attacker.max_mp ?? attacker.mp ?? 0;
-        const hpPct = maxHp > 0 ? (attacker.hp / maxHp) * 100 : 100;
-        const mpPct = maxMp > 0 ? ((attacker.mp ?? 0) / maxMp) * 100 : 100;
-        let curPlayer = attacker;
-        if (autoHeal.hp_enabled && autoHeal.hp_potion_bag_id && hpPct < (autoHeal.hp_threshold || 50)) {
-          try {
-            await this.bagService.useItem(uid, autoHeal.hp_potion_bag_id);
-            const pList = await this.playerService.list(uid);
-            if (pList.length) {
-              curPlayer = pList[0];
-              roundEvents.push({ event: 'auto_heal', message: `自动使用补血药水，HP: ${curPlayer.hp}/${maxHp}`, player_hp: curPlayer.hp, player_max_hp: maxHp, player_mp: curPlayer.mp, player_max_mp: maxMp });
-            }
-          } catch { logger.warn('Boss 自动补血失败', { uid }); }
-        }
-        if (autoHeal.mp_enabled && autoHeal.mp_potion_bag_id && mpPct < (autoHeal.mp_threshold || 50)) {
-          try {
-            await this.bagService.useItem(uid, autoHeal.mp_potion_bag_id);
-            const pList = await this.playerService.list(uid);
-            if (pList.length) {
-              curPlayer = pList[0];
-              roundEvents.push({ event: 'auto_heal', message: `自动使用补蓝药水，MP: ${curPlayer.mp}/${maxMp}`, player_hp: curPlayer.hp, player_max_hp: maxHp, player_mp: curPlayer.mp, player_max_mp: maxMp });
-            }
-          } catch { logger.warn('Boss 自动补蓝失败', { uid }); }
-        }
-        return { attacker: curPlayer, attackerHp: curPlayer.hp, roundEvents };
-      } : undefined,
+      beforeEachRound: autoHeal
+        ? createAutoHealHandler(uid, autoHeal, { bagService: this.bagService, playerService: this.playerService }, 'Boss ')
+        : undefined,
       getAttackerSkills: () => this.skillService.getEquippedSkills(uid),
       consumeAttackerMp: async (attacker, amount) => {
-        await this.playerService.update(attacker.id, { mp: (attacker.mp ?? 0) - amount });
+        await this.playerService.update(rawPlayer.id, { mp: (attacker.mp ?? 0) - amount });
       },
       applyDamageToDefender: async (damage) => {
         if (damage <= 0) {
@@ -335,94 +296,19 @@ export class BossService {
     };
   }
 
-  private async settle(uid: Uid, result: BossResult): Promise<void> {
-    const boostService = new BoostService();
-    const boostConfig = await boostService.getBoostConfig(uid);
-    const mult = BoostService.calcMultipliers(boostConfig);
-
-    const players = await this.playerService.list(uid);
-    const vipMult = (players.length && isVipActive(players[0])) ? 2 : 1;
-
-    let finalExp = result.exp * mult.exp * vipMult;
-    let finalGold = result.gold * mult.gold * vipMult;
-    const [wealthBonus, expBonus] = await Promise.all([
-      this.wealthTitleService.getGoldBonus(uid),
-      this.levelTitleService.getExpBonus(uid),
-    ]);
-    finalExp = Math.floor(finalExp * expBonus);
-    finalGold = Math.floor(finalGold * wealthBonus);
-    const finalRep = result.reputation * mult.reputation * vipMult;
-
-    try {
-      await this.playerService.addExp(uid, finalExp);
-      await this.playerService.addGold(uid, finalGold);
-      await this.playerService.addReputation(uid, finalRep);
-      await boostService.consumeCharges(uid);
-    } catch { logger.warn('Boss 结算失败', { uid }); }
-
-    this.pushEvent(uid, 'battle_reward', '战斗奖励结算', {
-      exp: finalExp, gold: finalGold, reputation: finalRep,
-      items: result.items || [],
+  private settle(uid: Uid, result: BossResult): Promise<void> {
+    return settleBattleRewards(uid, result, {
+      playerService: this.playerService,
+      bagService: this.bagService,
+      pushEvent: (u, ev, msg, data) => this.pushEvent(u, ev, msg, data),
     });
-
-    try {
-      const [pList, bagPayload] = await Promise.all([
-        this.playerService.list(uid),
-        this.bagService.getListPayload(uid),
-      ]);
-      if (pList.length) wsManager.sendToUser(uid, { type: 'player', data: pList[0] });
-      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-    } catch { logger.warn('Boss 推送 player/bag 失败', { uid }); }
   }
 
-  private async processDrop(uid: Uid, boss: any, dropMultiplier: number = 1): Promise<any[]> {
-    let dropList = boss?.drops;
-    if (!dropList?.length) {
-      dropList = await dataStorageService.list('boss_drop', { boss_id: boss.id });
-      if (!dropList?.length) dropList = await dataStorageService.list('monster_drop', { monster_id: boss.id });
-      const items = await dataStorageService.list('item', undefined);
-      const itemMap = new Map(items.map((i: any) => [i.id, i]));
-      dropList = dropList.map((d: any) => ({
-        item_id: d.item_id,
-        item_name: itemMap.get(d.item_id)?.name || `物品${d.item_id}`,
-        quantity: d.quantity ?? 1,
-        probability: d.probability ?? 0,
-      }));
-    }
-    const result: any[] = [];
-    for (const d of dropList) {
-      const prob = Number(d.probability ?? 0) || 0;
-      if (prob <= 0) continue;
-      const effectiveProb = prob * dropMultiplier;
-      let times = Math.floor(effectiveProb / 100);
-      const remain = effectiveProb % 100;
-      if (remain > 0 && Math.random() * 100 < remain) times++;
-      if (times <= 0) continue;
-      const itemId = Number(d.item_id);
-      const qty = Math.max(1, Number(d.quantity) || 1) * times;
-      if (!itemId) continue;
-      const itemInfo = await dataStorageService.getByCondition('item', { id: itemId }, undefined);
-      const itemType = itemInfo?.type ?? 2;
-      if (itemType === 2) {
-        for (let i = 0; i < qty; i++) {
-          const canAdd = await this.bagService.canAddEquipment(uid);
-          if (!canAdd) continue;
-          const equipId = await this.equipInstanceService.createFromDrop(uid, itemId);
-          if (equipId) {
-            try {
-              await this.bagService.addEquipInstanceToBag(uid, itemId, String(equipId));
-              result.push({ item_id: itemId, name: itemInfo?.name || `物品${itemId}`, count: 1, equipment_uid: String(equipId) });
-            } catch {
-              await this.equipInstanceService.deleteInstance(equipId);
-            }
-          }
-        }
-      } else {
-        await this.bagService.addItem(uid, itemId, qty);
-        result.push({ item_id: itemId, name: itemInfo?.name || `物品${itemId}`, count: qty });
-      }
-    }
-    return result;
+  private processDrop(uid: Uid, boss: any, dropMultiplier: number = 1): Promise<any[]> {
+    return processDropList(uid, boss, dropMultiplier, {
+      bagService: this.bagService,
+      equipInstanceService: this.equipInstanceService,
+    }, 'boss_drop', 'monster_drop');
   }
 
   private loseResult(): BossResult {

@@ -1,0 +1,59 @@
+/* Map page styles - extracted from map.js */
+.map-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.map-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.map-card {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 150px;
+}
+.map-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+}
+.map-name {
+  font-size: 20px;
+  font-weight: bold;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+  text-align: center;
+}
+.map-enter-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-blue);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+.map-enter-btn:hover {
+  background: var(--accent-blue-hover);
+}
+.map-enter-btn:active {
+  transform: scale(0.98);
+}

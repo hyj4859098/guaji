@@ -5,6 +5,7 @@ import { EquipInstanceModel } from '../model/equip_instance.model';
 import { dataStorageService } from './data-storage.service';
 import { calculateRandomAttr, getBaseMainValue, WEAPON_POS } from '../utils/equip';
 import { calcBlessingEffects, extractBlessingAttrs, BlessingEffect } from '../utils/blessing-effect';
+import { isEquipment } from '../utils/item-type';
 import { Uid } from '../types';
 import { logger } from '../utils/logger';
 
@@ -15,6 +16,11 @@ export class EquipInstanceService {
    * 创建装备实例（手动添加时用基础值，无浮动）
    */
   async createFromBase(uid: Uid, item_id: number): Promise<number | null> {
+    const item = await dataStorageService.getByCondition('item', { id: item_id }, undefined);
+    if (!item || !isEquipment(item)) {
+      logger.warn('createFromBase 跳过：物品非装备类型', { item_id, type: item?.type });
+      return null;
+    }
     const equipBase = await dataStorageService.getByCondition('equip_base', { item_id }, undefined);
     if (!equipBase) {
       logger.warn('equip_base 不存在', { item_id });
@@ -43,6 +49,11 @@ export class EquipInstanceService {
    * 从掉落创建装备实例（主属性 ±20% 浮动）
    */
   async createFromDrop(uid: Uid, item_id: number): Promise<number | null> {
+    const item = await dataStorageService.getByCondition('item', { id: item_id }, undefined);
+    if (!item || !isEquipment(item)) {
+      logger.warn('createFromDrop 跳过：物品非装备类型', { item_id, type: item?.type });
+      return null;
+    }
     const equipBase = await dataStorageService.getByCondition('equip_base', { item_id }, undefined);
     if (!equipBase) {
       logger.warn('equip_base 不存在', { item_id });
@@ -142,7 +153,8 @@ export class EquipInstanceService {
   async buildEquipAttrs(instance: any): Promise<Record<string, number>> {
     const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: instance.item_id }, undefined);
     if (!equipBase) return {};
-    const attr = await import('../utils/equip').then(m => m.getEquipMainAttr(instance.pos));
+    const equipModule = await import('../utils/equip');
+    const attr = equipModule.getEquipMainAttr(instance.pos);
     const enhance = 1 + (instance.enhance_level || 0) * 0.15;
     const mainVal = Math.floor((instance.main_value || 0) * enhance);
     const mainVal2 = instance.main_value_2 ? Math.floor((instance.main_value_2 || 0) * enhance) : 0;

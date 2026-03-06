@@ -1,16 +1,18 @@
 import { Router, Response, NextFunction } from 'express';
 import { auth, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { ShopService } from '../service/shop.service';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
+import { shopListQuery, shopBuyBody } from './schemas';
 
 const router = Router();
 const shopService = new ShopService();
 
-router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/list', auth, validate(shopListQuery, 'query'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const shopType = (req.query.type as string) || 'gold';
+    const shopType = req.query.type as string;
     const items = await shopService.listByType(shopType);
     success(res, items);
   } catch (error) {
@@ -19,19 +21,12 @@ router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunc
   }
 });
 
-router.post('/buy', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/buy', auth, validate(shopBuyBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { shop_item_id, count } = req.body;
-    if (!shop_item_id || !count) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少商品ID或数量');
-    }
-    await shopService.buy(req.uid!, Number(shop_item_id), Number(count));
+    await shopService.buy(req.uid!, shop_item_id, count);
     success(res, { message: '购买成功' });
-  } catch (error: any) {
-    if (error.code) {
-      return fail(res, error.code, error.message);
-    }
-    logger.error('商店购买失败:', error);
+  } catch (error) {
     next(error);
   }
 });

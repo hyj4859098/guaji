@@ -11,118 +11,7 @@
  */
 const BattlePage = {
   // ==================== 样式 ====================
-  style: `
-    <style>
-      body { background: #0a1929; }
-      #app { background: #0a1929; }
-
-      .battle-container {
-        max-width: 960px; margin: 0 auto; padding: 10px 15px; box-sizing: border-box;
-      }
-
-      .battle-top {
-        display: flex; justify-content: center; align-items: center; gap: 12px;
-        flex-wrap: wrap; margin-bottom: 10px;
-      }
-      .battle-top .control-btn { margin: 0; }
-      .auto-heal-settings {
-        display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
-        margin-bottom: 10px; color: #e2e8f0;
-      }
-      .heal-row { display: flex; gap: 5px; align-items: center; }
-      .heal-row label { font-size: 12px; color: #e2e8f0; width: 32px; }
-      .percent-select, .potion-select {
-        padding: 3px 5px; background: #2d3748; border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 4px; color: #e2e8f0; font-size: 11px;
-      }
-      .potion-select { min-width: 85px; }
-
-      .battle-body {
-        display: flex; gap: 10px; align-items: stretch;
-      }
-      .battle-col-left, .battle-col-right {
-        width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px;
-      }
-      .battle-col-center {
-        flex: 1; min-width: 0; display: flex; flex-direction: column;
-      }
-
-      .battle-module {
-        background: #1a202c; border-radius: 6px; padding: 10px;
-        color: #e2e8f0; overflow-y: auto;
-        border: 1px solid rgba(255,255,255,0.1);
-      }
-      .battle-module h3 {
-        margin: 0 0 8px 0; color: #4299e1; font-size: 13px;
-        border-bottom: 1px solid rgba(66,153,225,0.2); padding-bottom: 5px;
-      }
-
-      .player-info { }
-      .enemy-info { }
-      .skills, .monster-skills { }
-      .bonus-info.drop-panel { }
-      .battle-log {
-        background: #16213e; flex: 1; min-height: 600px; max-height: 750px;
-        border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
-        padding: 10px; display: flex; flex-direction: column;
-      }
-      .battle-log-content {
-        flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-        font-size: 12px; line-height: 1.4;
-      }
-
-      .status-bar { margin-bottom: 5px; }
-      .status-bar-label { font-size: 12px; margin-bottom: 2px; display: flex; justify-content: space-between; }
-      .status-bar-track { height: 10px; background: #2d3748; border: 1px solid #000; overflow: hidden; }
-      .status-bar-fill { height: 100%; transition: width 0.2s ease; }
-      .status-bar-fill.hp { background: #ef4444; }
-      .status-bar-fill.mp { background: #4299e1; }
-
-      .stats-list { margin-top: 6px; }
-      .stat-item {
-        font-size: 12px; display: flex; justify-content: space-between;
-        padding: 0; background: none; border: none; margin: 0;
-      }
-
-      .battle-log-item { padding: 2px 4px; font-size: 12px; color: #e2e8f0; white-space: pre-wrap; word-break: break-word; }
-      .battle-log-round { color: #3b82f6; font-weight: bold; text-align: center; }
-      .battle-log-player { color: #fbbf24; }
-      .battle-log-monster { color: #f43f5e; }
-      .battle-log-win { color: #22c55e; font-weight: bold; }
-      .battle-log-lose { color: #ef4444; font-weight: bold; }
-      .battle-log-draw { color: #f59e0b; font-weight: bold; }
-      .battle-log-skill { color: #9f7aea; }
-      .battle-log-crit { color: #f6ad55; font-weight: bold; }
-
-      .skill-item {
-        margin-bottom: 4px; padding: 4px 6px; background: #2d3748; border-radius: 4px;
-        border: 1px solid #4299e1; display: flex; justify-content: space-between; align-items: center;
-      }
-      .skill-item-name { font-size: 12px; font-weight: bold; color: #4299e1; }
-      .skill-item-prob { font-size: 11px; color: #a0aec0; }
-      .drop-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 12px; }
-      .empty-hint { text-align: center; color: #a0aec0; font-size: 12px; }
-
-      .control-btn {
-        padding: 6px 14px; border: none; border-radius: 4px; font-size: 12px; font-weight: bold;
-        cursor: pointer; transition: background 0.3s ease;
-      }
-      .auto-battle-btn { background: #48bb78; color: white; }
-      .auto-battle-btn:hover { background: #38a169; }
-      .exit-btn { background: #f56565; color: white; }
-      .exit-btn:hover { background: #e53e3e; }
-
-      .character-header { display: flex; align-items: center; margin-bottom: 8px; }
-      .character-avatar {
-        width: 36px; height: 36px; background: #2d3748; border-radius: 50%; margin-right: 8px;
-        display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: bold;
-      }
-      .character-info { flex: 1; }
-      .character-name { font-size: 13px; font-weight: bold; margin-bottom: 2px; }
-      .character-level { font-size: 11px; color: #a0aec0; }
-      .pvp-countdown { font-size: 16px; font-weight: bold; color: #fbbf24; }
-    </style>
-  `,
+  style: '',
 
   // ==================== 状态 ====================
   player: null,
@@ -189,7 +78,7 @@ const BattlePage = {
   /** 唯一入口：生成药水下拉选项 HTML（render 与 updateBagPotions 共用） */
   buildPotionOptions(type, items, saved) {
     const isHp = type === 'hp';
-    const potions = items.filter(i => (isHp ? (i.hp_restore || 0) : (i.mp_restore || 0)) > 0);
+    const potions = items.filter(i => (isHp ? Helper.getHpRestore(i) : Helper.getMpRestore(i)) > 0);
     const savedId = isHp ? saved?.hp_potion_bag_id : saved?.mp_potion_bag_id;
     const options = potions.map(i => {
       const vid = i.original_id || i.id;
@@ -275,7 +164,7 @@ const BattlePage = {
 
   updateBagPotions(bagPayload) {
     const payload = BagService.parseBagPayload(bagPayload);
-    this.bagItems = payload.items.filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0);
+    this.bagItems = payload.items.filter(i => Helper.getHpRestore(i) > 0 || Helper.getMpRestore(i) > 0);
     const saved = this.loadAutoHealSettings();
     const hpSelect = document.getElementById('hpPotion');
     const mpSelect = document.getElementById('mpPotion');
@@ -572,7 +461,7 @@ const BattlePage = {
     }
     const bagResult = await BagService.fetchList();
     const bagPayload = (bagResult.code === 0 && bagResult.data) ? bagResult.data : { items: [] };
-    this.bagItems = bagPayload.items.filter(i => (i.hp_restore || 0) > 0 || (i.mp_restore || 0) > 0);
+    this.bagItems = bagPayload.items.filter(i => Helper.getHpRestore(i) > 0 || Helper.getMpRestore(i) > 0);
     const playerResult = await API.get('/player/list');
     if (playerResult.code === 0 && playerResult.data?.length) this.player = playerResult.data[0];
     const equippedResult = await API.get('/skill/equipped');

@@ -32,6 +32,12 @@ export const cacheService = {
     },
     invalidateByUid(uid: Uid): void {
       playerCache.delete(String(uid));
+      // 同步清理反向映射，避免内存泄漏
+      for (const [pid, mappedUid] of playerIdToUid) {
+        if (mappedUid === uid || String(mappedUid) === String(uid)) {
+          playerIdToUid.delete(pid);
+        }
+      }
     },
     invalidateByPlayerId(playerId: string | number): void {
       const uid = playerIdToUid.get(String(playerId));

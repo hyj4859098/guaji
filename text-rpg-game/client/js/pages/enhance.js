@@ -92,51 +92,6 @@ const EnhancePage = {
     const maxLevel = 20;
 
     app.innerHTML = `
-      <style>
-        .enhance-container { padding: 10px 15px; max-width: 960px; margin: 0 auto; color: #e2e8f0; }
-        .enhance-container h2 { color: #e2e8f0; margin-bottom: 10px; font-size: 16px; }
-        .enhance-mat { margin-bottom: 10px; padding: 8px 12px; background: rgba(26,32,44,0.8); border-radius: 6px; }
-        .enhance-mat h3 { color: #48bb78; margin: 0 0 6px; font-size: 13px; }
-        .enhance-mat-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 12px; }
-        .enhance-mat-row label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-        .enhance-equip-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .enhance-equip-hdr h3 { color: #4299e1; margin: 0; font-size: 13px; }
-        .enhance-page-info { color: #718096; font-size: 11px; }
-        .e-item {
-          display: flex; align-items: center; padding: 6px 10px;
-          background: rgba(0,0,0,0.7); border-radius: 5px; margin-bottom: 4px;
-          transition: background 0.2s;
-        }
-        .e-item:hover { background: rgba(20,20,40,0.8); }
-        .e-item-icon {
-          width: 32px; height: 32px; border-radius: 5px; flex-shrink: 0;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: bold; color: white; margin-right: 8px; cursor: pointer;
-        }
-        .e-item-info { flex: 1; min-width: 0; }
-        .e-item-top { display: flex; align-items: baseline; gap: 6px; }
-        .e-item-name { font-size: 13px; font-weight: bold; color: #4299e1; }
-        .e-item-lv { font-size: 11px; color: #48bb78; }
-        .e-item-cost { font-size: 11px; color: #ecc94b; margin-top: 1px; }
-        .e-item-btns { display: flex; gap: 4px; flex-shrink: 0; }
-        .e-item-btn {
-          padding: 4px 10px; border: none; border-radius: 4px; cursor: pointer;
-          font-size: 11px; flex-shrink: 0; transition: background 0.2s;
-        }
-        .e-item-btn.enhance { background: #c53030; color: #faf089; }
-        .e-item-btn.enhance:hover:not(:disabled) { background: #9b2c2c; }
-        .e-item-btn.bless { background: #b7791f; color: #fefcbf; }
-        .e-item-btn.bless:hover:not(:disabled) { background: #975a16; }
-        .e-item-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .e-pager { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
-        .e-page-btn {
-          padding: 2px 8px; background: #2d3748; border: 1px solid rgba(255,255,255,0.1);
-          border-radius: 3px; color: #a0aec0; cursor: pointer; font-size: 11px;
-        }
-        .e-page-btn.active { background: #4299e1; color: white; }
-        .e-page-btn:hover { background: #4a5568; }
-      </style>
       <div class="enhance-container">
         <h2>装备强化</h2>
         <div class="enhance-mat">

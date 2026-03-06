@@ -1,14 +1,17 @@
 /**
- * 装备服务模块
+ * 装备服务模块 — 穿戴/卸下的唯一入口
  * 统一使用 equip_instance 表
  */
 import { EquipInstanceService } from '../service/equip_instance.service';
 import { Id, Uid } from '../types/index';
 import { dataStorageService } from './data-storage.service';
 import { EquipEffectUtil } from '../utils/equip-effect';
+import { isEquipment } from '../utils/item-type';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode, AppError } from '../utils/error';
+import { enrichEquipDetail } from '../utils/enrich-equip';
 import { wsManager } from '../event/ws-manager';
+import { pushPlayerFullUpdate } from '../utils/push-update';
 
 export class EquipService {
   private equipInstanceService: EquipInstanceService;
@@ -21,173 +24,187 @@ export class EquipService {
     const userEquips = await dataStorageService.list('user_equip', { uid });
     if (userEquips.length === 0) return [];
 
+    // 批量查询装备实例
+    const instanceIds = userEquips
+      .map((ue: any) => parseInt(String(ue.equipment_uid), 10))
+      .filter((id: number) => !isNaN(id));
+    const instances = await dataStorageService.getByIds('equip_instance', instanceIds);
+    const instanceMap = new Map(instances.map((i: any) => [i.id, i]));
+
+    // 批量查询 item 信息
+    const itemIds = [...new Set(instances.map((i: any) => i.item_id))];
+    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
+
     const result: any[] = [];
     for (const ue of userEquips) {
       const instanceId = parseInt(String(ue.equipment_uid), 10);
       if (isNaN(instanceId)) continue;
-      const instance = await this.equipInstanceService.get(instanceId);
+      const instance = instanceMap.get(instanceId);
       if (!instance || String(instance.uid) !== String(uid)) continue;
-      const attrs = await this.equipInstanceService.buildEquipAttrs(instance);
-      const baseAttrs = await this.equipInstanceService.buildBaseAttrs(instance);
-      const equipLevel = await this.equipInstanceService.getEquipLevel(instance);
-      const blessingEffects = await this.equipInstanceService.buildBlessingEffects(instance);
-      const itemInfo = await dataStorageService.getByCondition('item', { id: instance.item_id });
+      const detail = await enrichEquipDetail(this.equipInstanceService, instance);
+      const itemInfo = itemMap.get(instance.item_id);
       result.push({
         id: String(instanceId),
         equipment_uid: String(instanceId),
         item_id: instance.item_id,
-        pos: instance.pos,
         name: itemInfo?.name || '未知物品',
-        attributes: attrs,
-        equip_attributes: attrs,
-        base_attributes: baseAttrs,
-        level: equipLevel,
-        equip_level: equipLevel,
-        enhance_level: instance.enhance_level ?? 0,
-        main_value: instance.main_value ?? 0,
-        main_value_2: instance.main_value_2 ?? 0,
-        blessing_level: instance.blessing_level ?? 0,
-        blessing_effects: blessingEffects.length > 0 ? blessingEffects : undefined,
+        attributes: detail.equip_attributes,
+        ...detail,
       });
     }
     return result;
   }
 
-  async wearEquip(uid: Uid, equipId: Id): Promise<boolean> {
-    try {
-      logger.info('开始穿戴装备', { equipId, uid });
+  /**
+   * 穿戴装备（唯一入口，bag.service.wearItem 委托此方法）
+   * 失败一律 throw AppError，不返回 false
+   */
+  async wearEquip(uid: Uid, equipId: Id): Promise<void> {
+    logger.info('开始穿戴装备', { equipId, uid });
 
-      const BagService = require('./bag.service').BagService;
-      const bagService = new BagService();
+    const { services } = await import('./registry');
+    const bagService = services.bag;
+    const playerService = services.player;
 
-      const bagItems = await bagService.list(uid);
-      let equip = bagItems.find((item: any) => item.id === equipId || item.original_id === equipId);
+    const bagItems = await bagService.list(uid);
+    let equip = bagItems.find((item: any) => item.id === equipId || item.original_id === equipId);
 
-      if (!equip) {
-        const directItem = await bagService.get(equipId);
-        if (directItem) equip = directItem;
-      }
-
-      if (!equip || equip.uid !== uid) {
-        logger.warn('装备不存在或不属于该用户', { equipId, uid });
-        return false;
-      }
-
-      if (!equip.type) {
-        const itemInfo = await dataStorageService.getByCondition('item', { id: equip.item_id });
-        if (itemInfo) {
-          equip.type = itemInfo.type;
-          equip.pos = itemInfo.pos;
-        } else {
-          logger.warn('物品类型不存在', { itemId: equip.item_id });
-          return false;
-        }
-      }
-
-      if (equip.type !== 2) {
-        logger.warn('物品不是装备', { itemId: equip.item_id, type: equip.type });
-        return false;
-      }
-
-      // 检查装备等级需求
-      let equipLevel = equip.equip_level ?? equip.level ?? 1;
-      if (equipLevel == null && equip.equipment_uid) {
-        const instanceId = parseInt(String(equip.equipment_uid), 10);
-        if (!isNaN(instanceId)) {
-          const instance = await this.equipInstanceService.get(instanceId);
-          if (instance) equipLevel = await this.equipInstanceService.getEquipLevel(instance);
-        }
-      }
-      equipLevel = equipLevel ?? 1;
-      const PlayerService = require('./player.service').PlayerService;
-      const playerService = new PlayerService();
-      const players = await playerService.list(uid);
-      const playerLevel = players[0]?.level ?? 1;
-      if (playerLevel < equipLevel) {
-        throw createError(ErrorCode.INVALID_PARAMS, `装备需求等级 ${equipLevel}，当前等级 ${playerLevel} 不足`);
-      }
-
-      const pos = equip.pos || 2;
-      const equips = await this.list(uid);
-      const existingEquip = equips.find((e: any) => e.pos === pos);
-
-      if (existingEquip) {
-        await this.removeEquip(uid, existingEquip.equipment_uid || existingEquip.id);
-      }
-
-      const deleteId = equip.original_id || equip.id;
-      await bagService.delete(deleteId, { skipEquipInstance: true });
-
-      const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.insert('user_equip', {
-        uid: uid,
-        equipment_uid: equip.equipment_uid,
-        create_time: now,
-        update_time: now
-      });
-
-      await EquipEffectUtil.applyEquipEffect(uid, equip);
-
-      logger.info('装备穿戴成功', { itemId: equip.item_id, uid, pos, equipment_uid: equip.equipment_uid });
-      return true;
-    } catch (error) {
-      logger.error('穿戴装备失败:', error);
-      return false;
+    if (!equip) {
+      const directItem = await bagService.get(equipId);
+      if (directItem && String(directItem.uid) === String(uid)) equip = directItem;
     }
+
+    if (!equip) {
+      throw createError(ErrorCode.ITEM_NOT_FOUND, '物品不存在');
+    }
+
+    if (!equip.type) {
+      const itemInfo = await dataStorageService.getByCondition('item', { id: equip.item_id });
+      if (itemInfo) {
+        equip.type = itemInfo.type;
+        equip.pos = itemInfo.pos;
+      } else {
+        throw createError(ErrorCode.ITEM_NOT_FOUND, '物品类型不存在');
+      }
+    }
+
+    if (!isEquipment(equip)) {
+      throw createError(ErrorCode.ITEM_NOT_EQUIPMENT, '物品不是装备');
+    }
+    if (!equip.equipment_uid) {
+      throw createError(ErrorCode.ITEM_NOT_FOUND, '装备实例无效');
+    }
+
+    let equipLevel = equip.equip_level ?? equip.level ?? 1;
+    if (equipLevel == null && equip.equipment_uid) {
+      const instanceId = parseInt(String(equip.equipment_uid), 10);
+      if (!isNaN(instanceId)) {
+        const instance = await this.equipInstanceService.get(instanceId);
+        if (instance) equipLevel = await this.equipInstanceService.getEquipLevel(instance);
+      }
+    }
+    equipLevel = equipLevel ?? 1;
+
+    const players = await playerService.list(uid);
+    const playerLevel = players[0]?.level ?? 1;
+    if (playerLevel < equipLevel) {
+      throw createError(ErrorCode.INVALID_PARAMS, `装备需求等级 ${equipLevel}，当前等级 ${playerLevel} 不足`);
+    }
+
+    let pos = equip.pos;
+    if (pos == null && equip.equipment_uid) {
+      const instanceId = parseInt(String(equip.equipment_uid), 10);
+      if (!isNaN(instanceId)) {
+        const instance = await this.equipInstanceService.get(instanceId);
+        if (instance) pos = instance.pos;
+      }
+    }
+    pos = pos ?? 1;
+
+    const equips = await this.list(uid);
+    const existingEquip = equips.find((e: any) => e.pos === pos);
+    if (existingEquip) {
+      await this.removeEquip(uid, existingEquip.equipment_uid || existingEquip.id);
+    }
+
+    const deleteId = equip.original_id || equip.id;
+    await bagService.delete(deleteId, { skipEquipInstance: true });
+
+    if (!equip.equip_attributes) {
+      equip.equip_attributes = {
+        hp: 0, phy_atk: 0, phy_def: 0, mp: 0,
+        mag_def: 0, mag_atk: 0, hit_rate: 0, dodge_rate: 0, crit_rate: 0
+      };
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    await dataStorageService.insert('user_equip', {
+      uid,
+      equipment_uid: equip.equipment_uid,
+      create_time: now,
+      update_time: now
+    });
+
+    await EquipEffectUtil.applyEquipEffect(uid, equip);
+
+    // 数据不变式
+    const verifyEquips = await this.list(uid);
+    const worn = verifyEquips.find((e: any) => String(e.equipment_uid) === String(equip.equipment_uid));
+    if (!worn) {
+      logger.error('DATA_INTEGRITY: 穿戴后装备未出现在装备栏', { uid, equipment_uid: equip.equipment_uid, item_id: equip.item_id });
+    }
+
+    logger.info('装备穿戴成功', { itemId: equip.item_id, uid, pos, equipment_uid: equip.equipment_uid });
   }
 
-  async removeEquip(uid: Uid, equipmentUid: Id): Promise<boolean> {
-    try {
-      const instanceId = parseInt(String(equipmentUid), 10);
-      if (isNaN(instanceId)) {
-        logger.warn('无效的装备ID', { equipmentUid, uid });
-        return false;
-      }
-      const instance = await this.equipInstanceService.get(instanceId);
-      if (!instance || String(instance.uid) !== String(uid)) {
-        logger.warn('装备实例不存在或不属于该用户', { equipmentUid, uid });
-        return false;
-      }
-      const attrs = await this.equipInstanceService.buildEquipAttrs(instance);
-      const equipData = { equip_attributes: attrs, item_id: instance.item_id };
-
-      const BagService = require('./bag.service').BagService;
-      const bagService = new BagService();
-      const canAdd = await bagService.canAddEquipment(uid);
-      if (!canAdd) {
-        throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法卸下');
-      }
-
-      await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: String(instanceId) });
-      await bagService.add({ uid, item_id: instance.item_id, count: 1, equipment_uid: String(instanceId) });
-
-      await EquipEffectUtil.removeEquipEffect(uid, equipData);
-
-      logger.info('装备卸下成功', { equipmentUid, uid, itemId: instance.item_id });
-      return true;
-    } catch (error) {
-      logger.error('卸下装备失败:', error);
-      if (error instanceof AppError) throw error;
-      return false;
+  /**
+   * 卸下装备
+   * 失败一律 throw AppError，不返回 false
+   */
+  async removeEquip(uid: Uid, equipmentUid: Id | string): Promise<void> {
+    const instanceId = parseInt(String(equipmentUid), 10);
+    if (isNaN(instanceId)) {
+      throw createError(ErrorCode.INVALID_PARAMS, '无效的装备ID');
     }
+    const instance = await this.equipInstanceService.get(instanceId);
+    if (!instance || String(instance.uid) !== String(uid)) {
+      throw createError(ErrorCode.ITEM_NOT_FOUND, '装备实例不存在或不属于该用户');
+    }
+    const attrs = await this.equipInstanceService.buildEquipAttrs(instance);
+    const equipData = { equip_attributes: attrs, item_id: instance.item_id };
+
+    const { services } = await import('./registry');
+    const bagService = services.bag;
+    const canAdd = await bagService.canAddEquipment(uid);
+    if (!canAdd) {
+      throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法卸下');
+    }
+
+    await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: String(instanceId) });
+    await bagService.add({ uid, item_id: instance.item_id, count: 1, equipment_uid: String(instanceId) });
+
+    // 数据不变式
+    const verifyBags = await bagService.list(uid);
+    const returned = verifyBags.find((i: any) => String(i.equipment_uid) === String(instanceId));
+    if (returned) {
+      const itemInfo = await dataStorageService.getByCondition('item', { id: instance.item_id });
+      if (itemInfo && !isEquipment(itemInfo)) {
+        logger.error('DATA_INTEGRITY: 卸下后物品类型变异', { uid, equipmentUid, actualType: itemInfo.type, item_id: instance.item_id });
+      }
+      if (!returned.equipment_uid) {
+        logger.error('DATA_INTEGRITY: 卸下后 equipment_uid 丢失', { uid, equipmentUid, item_id: instance.item_id });
+      }
+    } else {
+      logger.error('DATA_INTEGRITY: 卸下后物品未出现在背包', { uid, equipmentUid, item_id: instance.item_id });
+    }
+
+    await EquipEffectUtil.removeEquipEffect(uid, equipData);
+
+    logger.info('装备卸下成功', { equipmentUid, uid, itemId: instance.item_id });
   }
 
-  async pushFullUpdate(uid: Uid): Promise<void> {
-    try {
-      const PlayerService = require('./player.service').PlayerService;
-      const BagService = require('./bag.service').BagService;
-      const playerService = new PlayerService();
-      const bagService = new BagService();
-      const [players, equips, bagPayload] = await Promise.all([
-        playerService.list(uid),
-        this.list(uid),
-        bagService.getListPayload(uid)
-      ]);
-      if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
-      wsManager.sendToUser(uid, { type: 'equip', data: equips });
-      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-    } catch {
-      logger.warn('装备变更推送失败', { uid });
-    }
+  pushFullUpdate(uid: Uid): Promise<void> {
+    return pushPlayerFullUpdate(uid);
   }
 }

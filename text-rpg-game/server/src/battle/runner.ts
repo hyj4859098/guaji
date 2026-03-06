@@ -6,7 +6,7 @@ import { calculateHit, calcPhysicalDamage, calcMagicDamage, calcElementBonus } f
 
 /** 战斗单位接口：Player、Monster、Boss 均满足 */
 export interface Combatant {
-  id?: any;
+  id?: number | string;
   name?: string;
   hp: number;
   max_hp?: number;
@@ -85,6 +85,7 @@ export async function runBattle(
   let defenderHp = defender.hp;
   const maxAttackerHp = attacker.max_hp ?? attacker.hp;
   const maxDefenderHp = defender.max_hp ?? defender.hp;
+  const maxAttackerMp = attacker.max_mp ?? attacker.mp ?? 0;
   const defenderName = defender.name ?? '对手';
 
   const pushEvent = options.pushEvent || (() => {});
@@ -92,6 +93,7 @@ export async function runBattle(
 
   pushEvent('battle_start', `战斗开始！对阵${defenderName}`, {
     player_hp: attackerHp, player_max_hp: maxAttackerHp,
+    player_mp: attacker.mp ?? 0, player_max_mp: maxAttackerMp,
     monster_hp: defenderHp, monster_max_hp: maxDefenderHp,
   });
 
@@ -136,6 +138,7 @@ export async function runBattle(
         await options.consumeAttackerMp!({ ...currentAttacker, mp: newMp }, s.cost);
         add('player_skill_attack', `你使用了 ${s.name} ${defenderName} 掉血 ${dmg}`, {
           damage: dmg, player_hp: attackerHp, player_max_hp: maxAttackerHp,
+          player_mp: newMp, player_max_mp: maxAttackerMp,
           monster_hp: defenderHp - totalDamageToDefender, monster_max_hp: maxDefenderHp,
         });
       }
@@ -152,6 +155,7 @@ export async function runBattle(
         await options.consumeAttackerMp!({ ...currentAttacker, mp: newMp }, s.cost);
         add('player_skill_attack', `你使用了 ${s.name} ${defenderName} 掉血 ${dmg}`, {
           damage: dmg, player_hp: attackerHp, player_max_hp: maxAttackerHp,
+          player_mp: newMp, player_max_mp: maxAttackerMp,
           monster_hp: defenderHp - totalDamageToDefender, monster_max_hp: maxDefenderHp,
         });
       }
@@ -167,16 +171,19 @@ export async function runBattle(
     totalDamageToDefender += pPhy.damage + pMag.damage;
 
     const critTag = (c: boolean) => c ? '【暴击】' : '';
+    const curAttackerMp = currentAttacker.mp ?? 0;
     add('player_phy_attack', pPhyHit
       ? `你使用了 物理攻击${critTag(pPhy.isCrit)} ${defenderName} 掉血 ${pPhy.damage}`
       : `你使用了 物理攻击 ${defenderName} 掉血 未命中`, {
       damage: pPhy.damage, is_crit: pPhy.isCrit, player_hp: attackerHp, player_max_hp: maxAttackerHp,
+      player_mp: curAttackerMp, player_max_mp: maxAttackerMp,
       monster_hp: defenderHp - totalDamageToDefender, monster_max_hp: maxDefenderHp,
     });
     add('player_mag_attack', pMagHit
       ? `你使用了 魔法攻击${critTag(pMag.isCrit)} ${defenderName} 掉血 ${pMag.damage}`
       : `你使用了 魔法攻击 ${defenderName} 掉血 未命中`, {
       damage: pMag.damage, is_crit: pMag.isCrit, player_hp: attackerHp, player_max_hp: maxAttackerHp,
+      player_mp: curAttackerMp, player_max_mp: maxAttackerMp,
       monster_hp: defenderHp - totalDamageToDefender, monster_max_hp: maxDefenderHp,
     });
 
@@ -207,6 +214,7 @@ export async function runBattle(
         await options.consumeDefenderMp!({ ...currentDefender, mp: defMp - s.cost }, s.cost);
         add('monster_skill_attack', `${defenderName} 使用了 ${s.name} 你 掉血 ${dmg}`, {
           damage: dmg, player_hp: attackerHp - totalDamageToAttacker, player_max_hp: maxAttackerHp,
+          player_mp: currentAttacker.mp ?? 0, player_max_mp: maxAttackerMp,
           monster_hp: defenderHp, monster_max_hp: maxDefenderHp,
         });
       }
@@ -222,6 +230,7 @@ export async function runBattle(
         await options.consumeDefenderMp!({ ...currentDefender, mp: defMp - s.cost }, s.cost);
         add('monster_skill_attack', `${defenderName} 使用了 ${s.name} 你 掉血 ${dmg}`, {
           damage: dmg, player_hp: attackerHp - totalDamageToAttacker, player_max_hp: maxAttackerHp,
+          player_mp: currentAttacker.mp ?? 0, player_max_mp: maxAttackerMp,
           monster_hp: defenderHp, monster_max_hp: maxDefenderHp,
         });
       }
@@ -236,17 +245,20 @@ export async function runBattle(
     const mMag = { damage: Math.floor(mMagRaw.damage * mElemMul), isCrit: mMagRaw.isCrit };
 
     attackerHp = Math.max(0, attackerHp - totalDamageToAttacker - mPhy.damage - mMag.damage);
+    currentAttacker = { ...currentAttacker, hp: attackerHp };
 
     add('monster_phy_attack', mPhyHit
       ? `${defenderName} 使用了 物理攻击${critTag(mPhy.isCrit)} 你 掉血 ${mPhy.damage}`
       : `${defenderName} 使用了 物理攻击 你 掉血 未命中`, {
       damage: mPhy.damage, is_crit: mPhy.isCrit, player_hp: attackerHp, player_max_hp: maxAttackerHp,
+      player_mp: currentAttacker.mp ?? 0, player_max_mp: maxAttackerMp,
       monster_hp: defenderHp, monster_max_hp: maxDefenderHp,
     });
     add('monster_mag_attack', mMagHit
       ? `${defenderName} 使用了 魔法攻击${critTag(mMag.isCrit)} 你 掉血 ${mMag.damage}`
       : `${defenderName} 使用了 魔法攻击 你 掉血 未命中`, {
       damage: mMag.damage, is_crit: mMag.isCrit, player_hp: attackerHp, player_max_hp: maxAttackerHp,
+      player_mp: currentAttacker.mp ?? 0, player_max_mp: maxAttackerMp,
       monster_hp: defenderHp, monster_max_hp: maxDefenderHp,
     });
 

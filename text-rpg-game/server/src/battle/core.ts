@@ -21,13 +21,15 @@ export function calculateCrit(attacker: any): boolean {
 export function calcPhysicalDamage(attacker: any, defender: any): { damage: number; isCrit: boolean } {
   const base = Math.max(1, (attacker.phy_atk || 0) - (defender.phy_def || 0));
   const isCrit = calculateCrit(attacker);
-  return { damage: isCrit ? Math.floor(base * CRIT_DAMAGE_MULTIPLIER) : base, isCrit };
+  const critDamage = Math.max(base + 1, Math.floor(base * CRIT_DAMAGE_MULTIPLIER));
+  return { damage: isCrit ? critDamage : base, isCrit };
 }
 
 export function calcMagicDamage(attacker: any, defender: any): { damage: number; isCrit: boolean } {
   const base = Math.max(1, (attacker.mag_atk || 0) - (defender.mag_def || 0));
   const isCrit = calculateCrit(attacker);
-  return { damage: isCrit ? Math.floor(base * CRIT_DAMAGE_MULTIPLIER) : base, isCrit };
+  const critDamage = Math.max(base + 1, Math.floor(base * CRIT_DAMAGE_MULTIPLIER));
+  return { damage: isCrit ? critDamage : base, isCrit };
 }
 
 /**

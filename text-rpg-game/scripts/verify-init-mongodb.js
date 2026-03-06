@@ -2,13 +2,14 @@
 /**
  * init-mongodb 验证脚本
  * 验证数据库集合和功能性道具是否正确初始化
+ * 默认使用测试库 turn-based-game-test，不污染正式库
  * 用法：node scripts/verify-init-mongodb.js
- * 可选环境变量：MONGODB_URI（默认 mongodb://localhost:27017）
+ * 可选环境变量：MONGODB_URI、MONGODB_DATABASE（默认 turn-based-game-test）
  */
 const { MongoClient } = require('mongodb');
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
-const DB_NAME = 'turn-based-game';
+const DB_NAME = process.env.MONGODB_DATABASE || 'turn-based-game-test';
 
 const REQUIRED_COLLECTIONS = [
   'user', 'player', 'bag', 'equip_instance', 'user_equip', 'skill', 'player_skill',
@@ -87,6 +88,13 @@ async function main() {
       }
 
       if (cfg) {
+        const consumableIds = [1, 2];
+        for (const id of consumableIds) {
+          const item = await itemColl.findOne({ id });
+          if (item && item.type === 1) ok(`消耗品 id=${id}`, item.name || '');
+          else fail(`消耗品 id=${id}`, '不存在或非消耗品');
+        }
+
         const em = cfg.enhance_materials || {};
         const materialIds = [em.stone, em.anti_explode, em.lucky, em.blessing_oil].filter(Boolean);
         for (const id of materialIds) {

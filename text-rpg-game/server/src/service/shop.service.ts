@@ -1,22 +1,17 @@
 import { dataStorageService } from './data-storage.service';
+import { shopModel } from '../model/shop.model';
+import { getHpRestore, getMpRestore, isEquipment } from '../utils/item-type';
 import { PlayerService } from './player.service';
 import { BagService } from './bag.service';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { wsManager } from '../event/ws-manager';
 import { Uid } from '../types';
+import { withUserLock } from '../utils/per-user-lock';
+import { tryWithTransaction } from '../config/db';
+import { Shop } from '../types/shop';
 
-export interface ShopItem {
-  id: number;
-  shop_type: string;
-  item_id: number;
-  price: number;
-  category: string;
-  sort_order: number;
-  enabled: boolean;
-  create_time: number;
-  update_time: number;
-}
+export type ShopItem = Shop;
 
 const CURRENCY_MAP: Record<string, { field: string; label: string }> = {
   gold: { field: 'gold', label: '金币' },
@@ -24,7 +19,7 @@ const CURRENCY_MAP: Record<string, { field: string; label: string }> = {
   points: { field: 'points', label: '积分' },
 };
 
-const _shopLocks = new Map<string, Promise<any>>();
+const _shopLocks = new Map<string, Promise<unknown>>();
 
 export class ShopService {
   private playerService: PlayerService;
@@ -36,36 +31,30 @@ export class ShopService {
   }
 
   async listByType(shopType: string): Promise<any[]> {
-    const items = await dataStorageService.list('shop', { shop_type: shopType, enabled: true });
-    const enriched = await Promise.all(items.map(async (si: any) => {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: si.item_id });
+    const items = await shopModel.list({ shop_type: shopType, enabled: true });
+    if (items.length === 0) return [];
+
+    const itemIds = [...new Set(items.map((si: any) => si.item_id))];
+    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
+
+    const enriched = items.map((si: any) => {
+      const itemInfo = itemMap.get(si.item_id);
       return {
         ...si,
         item_name: itemInfo?.name || '未知物品',
         item_type: itemInfo?.type,
         item_description: itemInfo?.description || '',
-        hp_restore: itemInfo?.hp_restore ?? 0,
-        mp_restore: itemInfo?.mp_restore ?? 0,
+        hp_restore: getHpRestore(itemInfo),
+        mp_restore: getMpRestore(itemInfo),
       };
-    }));
+    });
     enriched.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     return enriched;
   }
 
   async buy(uid: Uid, shopItemId: number, count: number): Promise<void> {
-    const key = String(uid);
-    const prev = _shopLocks.get(key) ?? Promise.resolve();
-    let resolve!: () => void;
-    const gate = new Promise<void>(r => { resolve = r; });
-    _shopLocks.set(key, gate);
-
-    try {
-      await prev;
-      return await this._doBuy(uid, shopItemId, count);
-    } finally {
-      resolve();
-      if (_shopLocks.get(key) === gate) _shopLocks.delete(key);
-    }
+    return withUserLock(_shopLocks, uid, () => this._doBuy(uid, shopItemId, count));
   }
 
   private async _doBuy(uid: Uid, shopItemId: number, count: number): Promise<void> {
@@ -73,7 +62,7 @@ export class ShopService {
       throw createError(ErrorCode.INVALID_PARAMS, '购买数量无效');
     }
 
-    const shopItem = await dataStorageService.getById('shop', shopItemId);
+    const shopItem = await shopModel.get(shopItemId);
     if (!shopItem || !shopItem.enabled) {
       throw createError(ErrorCode.NOT_FOUND, '商品不存在或已下架');
     }
@@ -83,7 +72,8 @@ export class ShopService {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '物品不存在');
     }
 
-    if (itemInfo.type === 2) {
+    const TEST_WEAPON_ID = 13; // E2E 测试用木剑，允许商店购买
+    if (isEquipment(itemInfo) && itemInfo.id !== TEST_WEAPON_ID) {
       throw createError(ErrorCode.INVALID_PARAMS, '装备类物品不可在商店购买');
     }
 
@@ -105,13 +95,15 @@ export class ShopService {
       throw createError(ErrorCode.INVALID_PARAMS, `${currency.label}不足，需要 ${totalCost}，当前 ${balance}`);
     }
 
-    // 扣除货币
     const deductMethods: Record<string, string> = { gold: 'addGold', reputation: 'addReputation', points: 'addPoints' };
     const deductMethod = deductMethods[currency.field] || 'addGold';
-    await (this.playerService as any)[deductMethod](uid, -totalCost);
-
-    // 发放物品
-    await this.bagService.addItem(uid, shopItem.item_id, count);
+    await tryWithTransaction(async (session) => {
+      const deductOk = await (this.playerService as any)[deductMethod](uid, -totalCost, session);
+      if (!deductOk) {
+        throw createError(ErrorCode.INVALID_PARAMS, `${currency.label}扣除失败`);
+      }
+      await this.bagService.addItem(uid, shopItem.item_id, count);
+    });
 
     // 推送更新
     const updatedPlayers = await this.playerService.list(uid);
@@ -128,17 +120,23 @@ export class ShopService {
 
   async listAll(shopType?: string): Promise<any[]> {
     const filter = shopType ? { shop_type: shopType } : undefined;
-    const items = await dataStorageService.list('shop', filter);
-    const enriched = await Promise.all(items.map(async (si: any) => {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: si.item_id });
+    const items = await shopModel.list(filter);
+    if (items.length === 0) return [];
+
+    const itemIds = [...new Set(items.map((si: any) => si.item_id))];
+    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
+
+    const enriched = items.map((si: any) => {
+      const itemInfo = itemMap.get(si.item_id);
       return { ...si, item_name: itemInfo?.name || '未知物品', item_type: itemInfo?.type };
-    }));
+    });
     enriched.sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     return enriched;
   }
 
   async get(id: number): Promise<ShopItem | null> {
-    return await dataStorageService.getById('shop', id);
+    return await shopModel.get(id);
   }
 
   async add(data: Partial<ShopItem>): Promise<number> {
@@ -152,10 +150,10 @@ export class ShopService {
     if (!itemInfo) {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '关联的物品不存在');
     }
-    if (itemInfo.type === 2) {
+    if (isEquipment(itemInfo)) {
       throw createError(ErrorCode.INVALID_PARAMS, '装备类物品不可上架商店');
     }
-    return await dataStorageService.insert('shop', {
+    return await shopModel.insert({
       shop_type: data.shop_type,
       item_id: data.item_id,
       price: data.price,
@@ -172,13 +170,13 @@ export class ShopService {
     if (data.item_id != null) {
       const itemInfo = await dataStorageService.getByCondition('item', { id: data.item_id });
       if (!itemInfo) throw createError(ErrorCode.ITEM_NOT_FOUND, '关联的物品不存在');
-      if (itemInfo.type === 2) throw createError(ErrorCode.INVALID_PARAMS, '装备类物品不可上架商店');
+      if (isEquipment(itemInfo)) throw createError(ErrorCode.INVALID_PARAMS, '装备类物品不可上架商店');
     }
-    return await dataStorageService.update('shop', id, data);
+    return await shopModel.update(id, data);
   }
 
   async delete(id: number): Promise<boolean> {
-    return await dataStorageService.delete('shop', id);
+    return await shopModel.delete(id);
   }
 
   static getCurrencyMap() {

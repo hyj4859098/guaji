@@ -1,0 +1,14 @@
+{
+  "name": "guaji",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "cd text-rpg-game/server && npm run lint",
+    "lint:client": "cd text-rpg-game && npm run lint:client",
+    "test": "cd text-rpg-game/server && npm run test"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^15.2.10"
+  }
+}

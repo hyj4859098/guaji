@@ -1,76 +1,56 @@
 import { Router, Response, NextFunction } from 'express';
 import { auth, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { auctionService } from '../service/auction.service';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
+import { sanitizeKeyword } from '../utils/input-sanitize';
+import { auctionListQuery, auctionListBody, auctionBuyBody, auctionOffShelfBody } from './schemas';
 
 const router = Router();
 
-router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/list', auth, validate(auctionListQuery, 'query'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const type = req.query.type != null ? Number(req.query.type) : undefined;
-    let keyword = (req.query.keyword as string) || '';
+    const q = req.query as any;
+    let keyword = sanitizeKeyword(q.keyword);
     if (keyword === 'undefined' || keyword === 'null') keyword = '';
-    const pos = req.query.pos != null ? Number(req.query.pos) : undefined;
-    const min_level = req.query.min_level != null ? Number(req.query.min_level) : undefined;
-    const max_level = req.query.max_level != null ? Number(req.query.max_level) : undefined;
-    const page = req.query.page != null ? Number(req.query.page) : 1;
-    const pageSize = req.query.pageSize != null ? Number(req.query.pageSize) : 15;
 
     const result = await auctionService.list({
-      type,
+      type: q.type,
       keyword: keyword || undefined,
-      pos,
-      min_level,
-      max_level,
-      page,
-      pageSize,
+      pos: q.pos,
+      min_level: q.min_level,
+      max_level: q.max_level,
+      page: q.page,
+      pageSize: q.pageSize,
     });
     success(res, result);
-  } catch (error: any) {
-    if (error.code) {
-      return fail(res, error.code, error.message);
-    }
-    logger.error('获取拍卖列表失败:', error);
+  } catch (error) {
     next(error);
   }
 });
 
-router.post('/list', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/list', auth, validate(auctionListBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { bag_id, count, price } = req.body;
-    if (!bag_id || price == null) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少背包ID或价格');
-    }
     const auctionId = await auctionService.listItem(req.uid!, {
-      bag_id: Number(bag_id),
-      count: count != null ? Number(count) : undefined,
-      price: Number(price),
+      bag_id,
+      count,
+      price,
     });
     success(res, { auction_id: auctionId, message: '上架成功' });
-  } catch (error: any) {
-    if (error.code) {
-      return fail(res, error.code, error.message);
-    }
-    logger.error('拍卖上架失败:', error);
+  } catch (error) {
     next(error);
   }
 });
 
-router.post('/buy', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/buy', auth, validate(auctionBuyBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { auction_id, count } = req.body;
-    if (!auction_id || !count) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少拍卖ID或数量');
-    }
-    await auctionService.buy(req.uid!, Number(auction_id), Number(count));
+    await auctionService.buy(req.uid!, auction_id, count);
     success(res, { message: '购买成功' });
-  } catch (error: any) {
-    if (error.code) {
-      return fail(res, error.code, error.message);
-    }
-    logger.error('拍卖购买失败:', error);
+  } catch (error) {
     next(error);
   }
 });
@@ -79,28 +59,17 @@ router.get('/records', auth, async (req: AuthRequest, res: Response, next: NextF
   try {
     const records = await auctionService.getRecords(req.uid!);
     success(res, { records });
-  } catch (error: any) {
-    if (error.code) {
-      return fail(res, error.code, error.message);
-    }
-    logger.error('获取拍卖记录失败:', error);
+  } catch (error) {
     next(error);
   }
 });
 
-router.post('/off-shelf', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/off-shelf', auth, validate(auctionOffShelfBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { auction_id } = req.body;
-    if (!auction_id) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少拍卖ID');
-    }
-    await auctionService.offShelf(req.uid!, Number(auction_id));
+    await auctionService.offShelf(req.uid!, auction_id);
     success(res, { message: '下架成功' });
-  } catch (error: any) {
-    if (error.code) {
-      return fail(res, error.code, error.message);
-    }
-    logger.error('拍卖下架失败:', error);
+  } catch (error) {
     next(error);
   }
 });

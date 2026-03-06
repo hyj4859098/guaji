@@ -1,7 +1,7 @@
 /**
  * GM 工具：缓存管理、玩家查询
  */
-import { getToken, getApiBaseUrl, showToast } from './core.js';
+import { getToken, getApiBaseUrl, showToast, escapeHtml } from './core.js';
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -29,7 +29,7 @@ export async function loadItemSelect() {
     const sel = document.getElementById('give-item');
     if (!sel || result.code !== 0) return;
     sel.innerHTML = '<option value="">请选择物品</option>' +
-      result.data.map(i => `<option value="${i.id}">${i.name} (id=${i.id}, type=${i.type})</option>`).join('');
+      result.data.map(i => `<option value="${escapeHtml(i.id)}">${escapeHtml(i.name)} (id=${escapeHtml(i.id)}, type=${escapeHtml(i.type)})</option>`).join('');
   } catch (e) { /* ignore */ }
 }
 
@@ -128,17 +128,18 @@ export async function getPlayerInfo() {
     });
     const result = await r.json();
     if (result.code === 0) {
+      const d = result.data;
       const el = document.getElementById('player-info');
       if (el) el.innerHTML = `
         <h4>玩家信息</h4>
         <div style="border: 1px solid #ddd; padding: 10px;">
-          <p>ID: ${result.data.id}</p>
-          <p>名称: ${result.data.name}</p>
-          <p>等级: ${result.data.level}</p>
-          <p>经验: ${result.data.exp}</p>
-          <p>金币: ${result.data.gold}</p>
-          <p>积分: ${result.data.points ?? 0}</p>
-          <p>生命值: ${result.data.hp}/${result.data.max_hp}</p>
+          <p>ID: ${escapeHtml(d.id)}</p>
+          <p>名称: ${escapeHtml(d.name)}</p>
+          <p>等级: ${escapeHtml(d.level)}</p>
+          <p>经验: ${escapeHtml(d.exp)}</p>
+          <p>金币: ${escapeHtml(d.gold)}</p>
+          <p>积分: ${escapeHtml(d.points ?? 0)}</p>
+          <p>生命值: ${escapeHtml(d.hp)}/${escapeHtml(d.max_hp)}</p>
         </div>
       `;
     } else {

@@ -2,6 +2,7 @@
  * 道具效果执行服务 - 从 item_effect 表读取配置并执行
  */
 import { Uid } from '../types';
+import { getHpRestore, getMpRestore } from '../utils/item-type';
 import { dataStorageService } from './data-storage.service';
 import { createError, ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
@@ -22,16 +23,16 @@ export class ItemEffectService {
     const effect = await dataStorageService.getByCondition('item_effect', { item_id: itemId });
     if (!effect) return { ok: false };
 
-    const PlayerService = require('./player.service').PlayerService;
-    const playerService = new PlayerService();
+    const { services } = await import('./registry');
+    const playerService = services.player;
     const players = await playerService.list(uid);
     if (!players.length) throw createError(ErrorCode.SYSTEM_ERROR, '道具使用失败');
 
     const player = players[0];
 
     if (effect.effect_type === 'restore') {
-      const addHp = Number(itemInfo?.hp_restore) || 0;
-      const addMp = Number(itemInfo?.mp_restore) || 0;
+      const addHp = getHpRestore(itemInfo);
+      const addMp = getMpRestore(itemInfo);
       if (addHp <= 0 && addMp <= 0) throw createError(ErrorCode.INVALID_PARAMS, '该物品无法使用');
       if (addHp > 0) await playerService.addHp(uid, addHp * actualCount);
       if (addMp > 0) await playerService.addMp(uid, addMp * actualCount);
@@ -57,7 +58,7 @@ export class ItemEffectService {
     }
 
     if (effect.effect_type === 'boost') {
-      const BoostService = require('./boost.service').BoostService;
+      const { BoostService } = await import('./boost.service');
       const boostService = new BoostService();
       const ok = await boostService.useBoostCard(uid, itemId, actualCount);
       if (!ok) throw createError(ErrorCode.SYSTEM_ERROR, '多倍卡使用失败');
@@ -66,7 +67,7 @@ export class ItemEffectService {
     }
 
     if (effect.effect_type === 'learn_skill') {
-      const SkillService = require('./skill.service').SkillService;
+      const { SkillService } = await import('./skill.service');
       const skillService = new SkillService();
       const learned = await skillService.learnSkill(uid, itemId, options?.bagService);
       logger.info('技能书使用成功', { itemId, uid, learned });

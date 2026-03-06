@@ -29,13 +29,16 @@ npm run dev
 
 ## 项目配置
 
-在 `server/src/config/index.ts` 中可修改：
+支持环境变量，复制 `server/.env.example` 为 `server/.env` 并修改：
 
-- **port**: HTTP 端口（默认 3000）
-- **jwt_secret**: JWT 密钥（生产环境必须修改）
-- **mongodb.url**: MongoDB 连接地址（默认 mongodb://localhost:27017）
-- **mongodb.database**: 数据库名（默认 turn-based-game）
-- **ws_port**: WebSocket 端口（默认 3001）
+- **PORT**: HTTP 端口（默认 3000）
+- **JWT_SECRET**: JWT 密钥（生产环境必须修改）
+- **MONGODB_URI**: MongoDB 连接（默认 mongodb://localhost:27017）
+- **MONGODB_DATABASE**: 数据库名（默认 turn-based-game）
+- **WS_PORT**: WebSocket 端口（默认 3001）
+- **WS_URL**: 生产环境可设完整 WS 地址（如 wss://domain.com/ws）
+
+不配置 `.env` 时使用默认值，开发可直接运行。
 
 ## 访问地址
 

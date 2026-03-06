@@ -1,12 +1,13 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+if not defined DEPLOY_SERVER set DEPLOY_SERVER=root@120.26.0.177
 
 echo ========================================
 echo   从服务器恢复 - 下载生产环境代码到本地
 echo ========================================
 echo.
-echo 服务器: 120.26.0.177
+echo 服务器: %DEPLOY_SERVER%
 echo 将下载到: 项目同级目录的 guaji-从服务器恢复 文件夹
 echo.
 echo 下载完成后，可将该文件夹中的文件复制到当前项目覆盖
@@ -16,7 +17,7 @@ echo 需输入服务器 root 密码
 echo.
 
 set "TARGET=%~dp0..\guaji-从服务器恢复"
-scp -r root@120.26.0.177:/opt/guaji "%TARGET%"
+scp -r %DEPLOY_SERVER%:/opt/guaji "%TARGET%"
 
 echo.
 echo ========================================

@@ -6,6 +6,8 @@ import { dataStorageService } from './data-storage.service';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { EquipEffectUtil } from '../utils/equip-effect';
+import { getHpRestore, getMpRestore, isEquipment } from '../utils/item-type';
+import { enrichEquipDetail } from '../utils/enrich-equip';
 import { wsManager } from '../event/ws-manager';
 import { ItemEffectService } from './item-effect.service';
 
@@ -27,19 +29,24 @@ export class BagService implements IBaseService<Bag> {
   }
 
   async list(uid: Uid): Promise<any[]> {
-    // 直接从数据库获取
     const bags = await this.model.listByUid(uid);
-    
+    if (bags.length === 0) return [];
+
+    // 批量查询所有 item 信息（避免 N+1）
+    const itemIds = [...new Set(bags.map((b) => b.item_id))];
+    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
+
     const bagsWithDetails = await Promise.all(bags.map(async (bag) => {
       try {
-        const itemInfo = await dataStorageService.getByCondition('item', { id: bag.item_id });
+        const itemInfo = itemMap.get(bag.item_id);
         if (itemInfo) {
           const itemData = {
             ...bag,
             name: itemInfo.name,
             type: itemInfo.type,
-            hp_restore: itemInfo.hp_restore,
-            mp_restore: itemInfo.mp_restore,
+            hp_restore: getHpRestore(itemInfo),
+            mp_restore: getMpRestore(itemInfo),
             description: itemInfo.description
           };
           
@@ -48,22 +55,9 @@ export class BagService implements IBaseService<Bag> {
             if (!isNaN(instanceId)) {
               const instance = await this.equipInstanceService.get(instanceId);
               if (instance && String(instance.uid) === String(uid)) {
-                const attrs = await this.equipInstanceService.buildEquipAttrs(instance);
-                const baseAttrs = await this.equipInstanceService.buildBaseAttrs(instance);
-                const equipLevel = await this.equipInstanceService.getEquipLevel(instance);
-                (itemData as any).equip_attributes = attrs;
-                (itemData as any).base_attributes = baseAttrs;
-                (itemData as any).equip_level = equipLevel;
-                (itemData as any).level = equipLevel;
-                (itemData as any).enhance_level = instance.enhance_level ?? 0;
-                (itemData as any).main_value = instance.main_value ?? 0;
-                (itemData as any).main_value_2 = instance.main_value_2 ?? 0;
-                (itemData as any).blessing_level = instance.blessing_level ?? 0;
+                const detail = await enrichEquipDetail(this.equipInstanceService, instance);
+                Object.assign(itemData, detail);
                 (itemData as any).pos = instance.pos ?? itemInfo.pos;
-                if ((instance.blessing_level ?? 0) > 0) {
-                  const bEffects = await this.equipInstanceService.buildBlessingEffects(instance);
-                  (itemData as any).blessing_effects = bEffects;
-                }
               }
             }
           }
@@ -124,9 +118,8 @@ export class BagService implements IBaseService<Bag> {
 
   /** 获取背包装备容量上限，无则返回 100 */
   async getEquipmentCapacity(uid: Uid): Promise<number> {
-    const PlayerService = require('./player.service').PlayerService;
-    const playerService = new PlayerService();
-    const players = await playerService.list(uid);
+    const { services } = await import('./registry');
+    const players = await services.player.list(uid);
     const cap = players[0]?.equipment_capacity;
     if (cap == null) return DEFAULT_EQUIPMENT_CAPACITY;
     return Math.min(Math.max(Number(cap) || DEFAULT_EQUIPMENT_CAPACITY, 0), MAX_EQUIPMENT_CAPACITY);
@@ -163,14 +156,23 @@ export class BagService implements IBaseService<Bag> {
     return await this.model.insert(newItem);
   }
 
-  async update(id: Id, data: Partial<Bag>): Promise<boolean> {
-    // 直接更新数据库
+  async update(id: Id, data: Partial<Bag>, uid?: Uid): Promise<boolean> {
+    if (uid != null) {
+      const bag = await this.model.get(id);
+      if (!bag || String(bag.uid) !== String(uid)) {
+        throw createError(ErrorCode.FORBIDDEN, '无权操作该物品');
+      }
+    }
     return await this.model.update(id, { ...data, update_time: Math.floor(Date.now() / 1000) });
   }
 
-  async delete(id: Id, options?: { skipEquipInstance?: boolean }): Promise<boolean> {
+  async delete(id: Id, options?: { skipEquipInstance?: boolean; uid?: Uid }): Promise<boolean> {
     const bag = await this.model.get(id);
-    if (bag && bag.equipment_uid && !options?.skipEquipInstance) {
+    if (!bag) return false;
+    if (options?.uid != null && String(bag.uid) !== String(options.uid)) {
+      throw createError(ErrorCode.FORBIDDEN, '无权删除该物品');
+    }
+    if (bag.equipment_uid && !options?.skipEquipInstance) {
       const instanceId = parseInt(String(bag.equipment_uid), 10);
       if (!isNaN(instanceId)) {
         await this.equipInstanceService.deleteInstance(instanceId);
@@ -273,15 +275,20 @@ export class BagService implements IBaseService<Bag> {
   }
 
   async addItem(uid: Uid, itemId: number, count: number): Promise<void> {
+    if (!Number.isInteger(count) || count < 1 || count > 9999) {
+      throw createError(ErrorCode.INVALID_PARAMS, '数量无效');
+    }
     const itemInfo = await dataStorageService.getByCondition('item', { id: itemId });
 
     if (!itemInfo) {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '物品不存在');
     }
 
-    const itemType = itemInfo.type;
+    if (itemInfo.type == null || itemInfo.type < 1 || itemInfo.type > 6) {
+      throw createError(ErrorCode.INVALID_PARAMS, '物品类型异常，无法添加');
+    }
 
-    if (itemType === 2) {
+    if (isEquipment(itemInfo)) {
       for (let i = 0; i < count; i++) {
         const canAdd = await this.canAddEquipment(uid);
         if (!canAdd) {
@@ -295,161 +302,26 @@ export class BagService implements IBaseService<Bag> {
         logger.info('装备进入背包', { itemId, uid, equipment_uid: instanceId });
       }
     } else {
-      // 检查背包中是否已存在相同物品
-      const existingItems = await this.model.listByUid(uid);
-      const existingItem = existingItems.find((item: any) => item.item_id === itemId && !item.equipment_uid);
-      
-      if (existingItem) {
-        // 已存在，增加数量
-        await this.model.update(existingItem.id, {
-          count: existingItem.count + count
-        });
-      } else {
-        // 不存在，添加新物品
-        await this.model.insert({
-          uid: uid,
-          item_id: itemId,
-          count: count
-        });
-      }
+      // 消耗品/材料/道具：使用 model.addItem 统一合并逻辑，确保与已有堆叠
+      await this.model.addItem(uid, itemId, count);
     }
   }
 
+  /**
+   * 穿戴装备 — 委托 EquipService.wearEquip（唯一穿戴逻辑入口）
+   * 保留此方法签名以兼容现有 API 调用方和集成测试
+   */
   async wearItem(
     uid: Uid,
     bagItemId: Id,
-    equipService?: { list: (u: Uid) => Promise<any[]>; removeEquip: (u: Uid, equipId: Id) => Promise<boolean> }
+    equipService?: { wearEquip: (u: Uid, equipId: Id) => Promise<void> }
   ): Promise<boolean> {
-    logger.info('开始穿戴装备', { bagItemId, uid });
-    
-    try {
-      // 从数据库获取背包数据
-      const bags = await this.list(uid);
-      // 先尝试通过id或original_id查找
-      let bagItem = bags.find((item: any) => item.id === bagItemId || item.original_id === bagItemId);
-      
-      // 如果没找到，尝试直接从数据库查询
-      if (!bagItem) {
-        logger.info('通过id或original_id未找到物品，尝试直接从数据库查询', { bagItemId, uid });
-        const directItem = await this.get(bagItemId);
-        if (directItem) {
-          bagItem = directItem;
-        }
-      }
-      
-      if (!bagItem) {
-        logger.warn('背包物品不存在', { bagItemId, uid });
-        throw createError(ErrorCode.ITEM_NOT_FOUND, '物品不存在');
-      }
-
-      // 检查物品类型
-      if (!bagItem.type) {
-        // 尝试从数据库获取物品类型
-        const itemInfo = await dataStorageService.getByCondition('item', { id: bagItem.item_id });
-        if (itemInfo) {
-          bagItem.type = itemInfo.type;
-          bagItem.pos = itemInfo.pos;
-        } else {
-          logger.warn('物品类型不存在', { itemId: bagItem.item_id });
-          throw createError(ErrorCode.ITEM_NOT_FOUND, '物品类型不存在');
-        }
-      }
-      
-      if (bagItem.type !== 2) {
-        logger.warn('物品不是装备', { itemId: bagItem.item_id, type: bagItem.type });
-        throw createError(ErrorCode.ITEM_NOT_EQUIPMENT, '物品不是装备');
-      }
-
-      logger.info('是装备，准备穿戴', { itemId: bagItem.item_id, type: bagItem.type });
-      
-      // 检查装备等级需求
-      let equipLevel = bagItem.equip_level ?? bagItem.level;
-      if (equipLevel == null && bagItem.equipment_uid) {
-        const instanceId = parseInt(String(bagItem.equipment_uid), 10);
-        if (!isNaN(instanceId)) {
-          const instance = await this.equipInstanceService.get(instanceId);
-          if (instance) equipLevel = await this.equipInstanceService.getEquipLevel(instance);
-        }
-      }
-      equipLevel = equipLevel ?? 1;
-      const PlayerService = require('./player.service').PlayerService;
-      const playerService = new PlayerService();
-      const players = await playerService.list(uid);
-      const playerLevel = players[0]?.level ?? 1;
-      if (playerLevel < equipLevel) {
-        throw createError(ErrorCode.INVALID_PARAMS, `装备需求等级 ${equipLevel}，当前等级 ${playerLevel} 不足`);
-      }
-      
-      // 装备部位优先使用 equip_instance.pos（来自 equip_base）
-      let pos = bagItem.pos;
-      if (pos == null && bagItem.equipment_uid) {
-        const instanceId = parseInt(String(bagItem.equipment_uid), 10);
-        if (!isNaN(instanceId)) {
-          const instance = await this.equipInstanceService.get(instanceId);
-          if (instance) pos = instance.pos;
-        }
-      }
-      pos = pos ?? 1;
-
-      logger.info('装备位置', { pos, itemId: bagItem.item_id });
-
-      // 处理装备位置被占用的情况（equipService 必须由调用方注入，避免与 equip.service 循环依赖）
-      if (!equipService) throw createError(ErrorCode.SYSTEM_ERROR, '穿戴装备需要装备服务');
-      const equip = equipService;
-      const equips = await equip.list(uid);
-      const existingEquip = equips.find((equip: any) => equip.pos === pos);
-      
-      if (existingEquip) {
-        logger.info('装备位置已被占用，自动卸下原装备', { uid, pos, equipment_uid: existingEquip.equipment_uid });
-        await equip.removeEquip(uid, existingEquip.equipment_uid || existingEquip.id);
-        logger.info('原装备从装备栏卸下并返回背包', { itemId: existingEquip.item_id, uid, equipment_uid: existingEquip.equipment_uid });
-      }
-      
-      // 从背包中移除装备
-      const deleteId = bagItem.original_id || bagItem.id;
-      logger.info('从背包中移除装备', { deleteId, uid });
-      await this.delete(deleteId, { skipEquipInstance: true });
-      
-      if (!bagItem.equipment_uid) {
-        throw createError(ErrorCode.ITEM_NOT_FOUND, '装备实例无效');
-      }
-
-      // 确保装备有属性
-      if (!bagItem.equip_attributes) {
-        bagItem.equip_attributes = {
-          hp: 0,
-          phy_atk: 0,
-          phy_def: 0,
-          mp: 0,
-          mag_def: 0,
-          mag_atk: 0,
-          hit_rate: 0,
-          dodge_rate: 0,
-          crit_rate: 0
-        };
-      }
-      
-      // 将装备添加到user_equip表
-      const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.insert('user_equip', {
-        uid: uid,
-        equipment_uid: bagItem.equipment_uid,
-        create_time: now,
-        update_time: now
-      });
-      
-      logger.info('装备添加到装备栏', { uid, itemId: bagItem.item_id, equipment_uid: bagItem.equipment_uid });
-      
-      // 应用装备属性效果
-      await EquipEffectUtil.applyEquipEffect(uid, bagItem);
-      
-      logger.info('装备穿戴成功', { itemId: bagItem.item_id, uid, pos, equipment_uid: bagItem.equipment_uid });
-      
-      return true;
-    } catch (error) {
-      logger.error('装备穿戴失败', { error: error instanceof Error ? error.message : String(error), bagItemId, uid });
-      throw createError(ErrorCode.SYSTEM_ERROR, '装备穿戴失败');
+    if (!equipService) {
+      const { services } = await import('./registry');
+      equipService = services.equip;
     }
+    await equipService.wearEquip(uid, bagItemId);
+    return true;
   }
 
 

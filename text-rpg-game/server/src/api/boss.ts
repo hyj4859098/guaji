@@ -1,6 +1,8 @@
 import { Router, Response, NextFunction } from 'express';
 import { BossService } from '../service/boss.service';
 import { auth, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { bossChallengeBody } from './schemas';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
@@ -32,15 +34,13 @@ router.get('/get', auth, async (req: AuthRequest, res: Response, next: NextFunct
   }
 });
 
-router.post('/challenge', auth, async (req: AuthRequest, res: Response, _next: NextFunction) => {
+router.post('/challenge', auth, validate(bossChallengeBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { boss_id, auto_heal } = req.body;
-    if (!boss_id) return fail(res, ErrorCode.INVALID_PARAMS, '缺少 Boss ID');
     const result = await bossService.challenge(req.uid!, boss_id, auto_heal);
     success(res, result);
-  } catch (error: any) {
-    logger.error('Boss 挑战失败', { uid: req.uid, error: error?.message });
-    fail(res, ErrorCode.INVALID_PARAMS, error?.message || 'Boss 挑战失败');
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -48,8 +48,8 @@ router.post('/stop', auth, async (req: AuthRequest, res: Response, next: NextFun
   try {
     const ok = bossService.stopBattle(req.uid!);
     success(res, { success: ok });
-  } catch (error: any) {
-    logger.error('Boss 停止失败', { uid: req.uid, error: error?.message });
+  } catch (error: unknown) {
+    logger.error('Boss 停止失败', { uid: req.uid, error: error instanceof Error ? error.message : String(error) });
     next(error);
   }
 });

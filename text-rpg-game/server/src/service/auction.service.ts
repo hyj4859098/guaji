@@ -9,6 +9,11 @@ import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { wsManager } from '../event/ws-manager';
 import { Uid } from '../types';
+import { getHpRestore, getMpRestore, isEquipment } from '../utils/item-type';
+import { enrichEquipDetail, enrichEquipFromBase } from '../utils/enrich-equip';
+import { withUserLock } from '../utils/per-user-lock';
+import { tryWithTransaction } from '../config/db';
+import type { TxCtx } from './data-storage.service';
 
 export interface AuctionListing {
   id: number;
@@ -20,7 +25,7 @@ export interface AuctionListing {
   create_time: number;
 }
 
-const _auctionLocks = new Map<string, Promise<any>>();
+const _auctionLocks = new Map<string, Promise<unknown>>();
 const AUCTION_RECORD_MAX = 20;
 
 export class AuctionService {
@@ -36,6 +41,7 @@ export class AuctionService {
 
   /**
    * 获取拍卖列表（支持筛选、分页）
+   * 优化：批量查询 item/equip_base/player，避免 N+1
    */
   async list(params: {
     type?: number;
@@ -49,11 +55,24 @@ export class AuctionService {
     const { type, keyword, pos, min_level, max_level, page = 1, pageSize = 15 } = params;
 
     const allAuctions = await dataStorageService.list('auction');
-    const items: any[] = [];
+    if (allAuctions.length === 0) return { items: [], total: 0 };
+
+    // 批量预加载所有相关 item 和 equip_base
+    const auctionItemIds = [...new Set(allAuctions.map((a: any) => a.item_id))];
+    const [allItems, allEquipBases] = await Promise.all([
+      dataStorageService.getByIds('item', auctionItemIds),
+      dataStorageService.getByIds('equip_base', []),
+    ]);
+    const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
+    // equip_base 按 item_id 索引
+    const equipBaseList = await dataStorageService.list('equip_base');
+    const equipBaseMap = new Map(equipBaseList.map((eb: any) => [eb.item_id, eb]));
+
     const keywordLower = keyword?.trim()?.toLowerCase();
+    const filtered: any[] = [];
 
     for (const row of allAuctions) {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: row.item_id });
+      const itemInfo = itemMap.get(row.item_id);
       if (!itemInfo) continue;
 
       if (type != null && type > 0 && itemInfo.type !== type) continue;
@@ -61,9 +80,9 @@ export class AuctionService {
 
       let equipBase: any = null;
       if (row.equipment_uid) {
-        equipBase = await dataStorageService.getByCondition('equip_base', { item_id: row.item_id });
+        equipBase = equipBaseMap.get(row.item_id) || null;
         if (pos != null) {
-          const instancePos = (await this.equipInstanceService.get(Number(row.equipment_uid)))?.pos ?? equipBase?.pos;
+          const instancePos = equipBase?.pos;
           if (instancePos !== pos) continue;
         }
         if (min_level != null || max_level != null) {
@@ -73,19 +92,27 @@ export class AuctionService {
         }
       }
 
-      items.push({ ...row, _itemInfo: itemInfo, _equipBase: equipBase });
+      filtered.push({ ...row, _itemInfo: itemInfo, _equipBase: equipBase });
     }
 
-    items.sort((a, b) => (b.create_time ?? 0) - (a.create_time ?? 0));
-    const total = items.length;
-    const paged = items.slice((page - 1) * pageSize, page * pageSize);
+    filtered.sort((a, b) => (b.create_time ?? 0) - (a.create_time ?? 0));
+    const total = filtered.length;
+    const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    // 批量查询卖家信息
+    const sellerUids = [...new Set(paged.map((r: any) => r.seller_uid))];
+    const sellerPlayers = await Promise.all(sellerUids.map(uid => this.playerService.list(uid)));
+    const sellerMap = new Map<string, string>();
+    sellerUids.forEach((uid, i) => {
+      const p = sellerPlayers[i];
+      sellerMap.set(String(uid), p.length ? (p[0].name || `玩家${uid}`) : `玩家${uid}`);
+    });
 
     const result: any[] = [];
     for (const row of paged) {
       const itemInfo = row._itemInfo || {};
       const equipBase = row._equipBase || {};
-      const sellerPlayers = await this.playerService.list(row.seller_uid);
-      const sellerName = sellerPlayers.length ? (sellerPlayers[0].name || `玩家${row.seller_uid}`) : `玩家${row.seller_uid}`;
+      const sellerName = sellerMap.get(String(row.seller_uid)) || `玩家${row.seller_uid}`;
 
       let enriched: any = {
         id: row.id,
@@ -100,39 +127,18 @@ export class AuctionService {
         type: itemInfo.type,
         pos: itemInfo.pos ?? equipBase.pos,
         description: itemInfo.description,
-        hp_restore: itemInfo.hp_restore,
-        mp_restore: itemInfo.mp_restore,
+        hp_restore: getHpRestore(itemInfo),
+        mp_restore: getMpRestore(itemInfo),
       };
 
       if (row.equipment_uid) {
         const instance = await this.equipInstanceService.get(Number(row.equipment_uid));
         if (instance) {
-          enriched.equip_level = (equipBase as any)?.base_level ?? 1;
-          enriched.enhance_level = instance.enhance_level ?? 0;
-          enriched.blessing_level = instance.blessing_level ?? 0;
-          enriched.main_value = instance.main_value ?? 0;
-          enriched.main_value_2 = instance.main_value_2 ?? 0;
-          enriched.equip_attributes = await this.equipInstanceService.buildEquipAttrs(instance);
-          enriched.base_attributes = await this.equipInstanceService.buildBaseAttrs(instance);
+          const detail = await enrichEquipDetail(this.equipInstanceService, instance);
+          Object.assign(enriched, detail);
           enriched.pos = instance.pos ?? (equipBase as any)?.pos;
-          if ((instance.blessing_level ?? 0) > 0) {
-            enriched.blessing_effects = await this.equipInstanceService.buildBlessingEffects(instance);
-          }
-        } else if (equipBase && itemInfo.type === 2) {
-          enriched.equip_level = (equipBase as any).base_level ?? 1;
-          enriched.pos = (equipBase as any).pos ?? 1;
-          enriched.equip_attributes = {
-            hp: (equipBase as any).base_hp ?? 0,
-            phy_atk: (equipBase as any).base_phy_atk ?? 0,
-            phy_def: (equipBase as any).base_phy_def ?? 0,
-            mp: (equipBase as any).base_mp ?? 0,
-            mag_def: (equipBase as any).base_mag_def ?? 0,
-            mag_atk: (equipBase as any).base_mag_atk ?? 0,
-            hit_rate: (equipBase as any).base_hit_rate ?? 0,
-            dodge_rate: (equipBase as any).base_dodge_rate ?? 0,
-            crit_rate: (equipBase as any).base_crit_rate ?? 0,
-          };
-          enriched.base_attributes = { ...enriched.equip_attributes };
+        } else if (equipBase && isEquipment(itemInfo)) {
+          Object.assign(enriched, enrichEquipFromBase(equipBase));
         }
       }
 
@@ -153,19 +159,7 @@ export class AuctionService {
       throw createError(ErrorCode.INVALID_PARAMS, '缺少背包ID或价格无效');
     }
 
-    const key = String(uid);
-    const prev = _auctionLocks.get(key) ?? Promise.resolve();
-    let resolve!: () => void;
-    const gate = new Promise<void>((r) => { resolve = r; });
-    _auctionLocks.set(key, gate);
-
-    try {
-      await prev;
-      return await this._doListItem(uid, bag_id, count, price);
-    } finally {
-      resolve();
-      if (_auctionLocks.get(key) === gate) _auctionLocks.delete(key);
-    }
+    return withUserLock(_auctionLocks, uid, () => this._doListItem(uid, bag_id, count, price));
   }
 
   private async _doListItem(uid: Uid, bagId: number, count: number, price: number): Promise<number> {
@@ -175,10 +169,10 @@ export class AuctionService {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '背包物品不存在');
     }
 
-    const itemType = bagItem.type;
+    const isEquip = isEquipment(bagItem);
     const maxCount = bagItem.count ?? 1;
 
-    if (itemType === 2) {
+    if (isEquip) {
       count = 1;
       if (!bagItem.equipment_uid) {
         throw createError(ErrorCode.INVALID_PARAMS, '装备数据异常');
@@ -191,16 +185,6 @@ export class AuctionService {
 
     const realBagId = bagItem.original_id ?? bagItem.id;
 
-    if (itemType === 2) {
-      await this.bagService.delete(realBagId, { skipEquipInstance: true });
-    } else {
-      if (count >= maxCount) {
-        await this.bagService.delete(realBagId);
-      } else {
-        await this.bagService.reduceBagItemCount(realBagId, count);
-      }
-    }
-
     const auctionData: any = {
       seller_uid: uid,
       item_id: bagItem.item_id,
@@ -211,7 +195,18 @@ export class AuctionService {
       auctionData.equipment_uid = Number(bagItem.equipment_uid);
     }
 
-    const auctionId = await dataStorageService.insert('auction', auctionData);
+    const auctionId = await tryWithTransaction(async (session: TxCtx) => {
+      if (isEquip) {
+        await this.bagService.delete(realBagId, { skipEquipInstance: true });
+      } else {
+        if (count >= maxCount) {
+          await this.bagService.delete(realBagId);
+        } else {
+          await this.bagService.reduceBagItemCount(realBagId, count);
+        }
+      }
+      return await dataStorageService.insert('auction', auctionData, session);
+    });
 
     const payload = await this.bagService.getListPayload(uid);
     wsManager.sendToUser(uid, { type: 'bag', data: payload });
@@ -269,19 +264,7 @@ export class AuctionService {
       throw createError(ErrorCode.INVALID_PARAMS, '参数无效');
     }
 
-    const key = `buy-${auctionId}`;
-    const prev = _auctionLocks.get(key) ?? Promise.resolve();
-    let resolve!: () => void;
-    const gate = new Promise<void>((r) => { resolve = r; });
-    _auctionLocks.set(key, gate);
-
-    try {
-      await prev;
-      return await this._doBuy(uid, auctionId, count);
-    } finally {
-      resolve();
-      if (_auctionLocks.get(key) === gate) _auctionLocks.delete(key);
-    }
+    return withUserLock(_auctionLocks, `buy-${auctionId}`, () => this._doBuy(uid, auctionId, count));
   }
 
   private async _doBuy(uid: Uid, auctionId: number, count: number): Promise<void> {
@@ -317,25 +300,28 @@ export class AuctionService {
       throw createError(ErrorCode.INVALID_PARAMS, `金币不足，需要 ${totalCost}，当前 ${balance}`);
     }
 
-    await this.playerService.addGold(uid, -totalCost);
-    await this.playerService.addGold(auction.seller_uid, totalCost);
-
-    if (auction.equipment_uid) {
-      const ok = await this.equipInstanceService.tradeToUser(auction.seller_uid, uid, Number(auction.equipment_uid));
-      if (!ok) {
-        await this.playerService.addGold(uid, totalCost);
-        await this.playerService.addGold(auction.seller_uid, -totalCost);
-        throw createError(ErrorCode.INVALID_PARAMS, '装备转移失败');
+    await tryWithTransaction(async (session) => {
+      const buyerDeductOk = await this.playerService.addGold(uid, -totalCost, session);
+      if (!buyerDeductOk) {
+        throw createError(ErrorCode.INVALID_PARAMS, `金币扣除失败`);
       }
-    } else {
-      await this.bagService.addItem(uid, auction.item_id, buyCount);
-    }
+      await this.playerService.addGold(auction.seller_uid, totalCost, session);
 
-    if (auction.count === buyCount) {
-      await dataStorageService.delete('auction', auctionId);
-    } else {
-      await dataStorageService.update('auction', auctionId, { count: auction.count - buyCount });
-    }
+      if (auction.equipment_uid) {
+        const ok = await this.equipInstanceService.tradeToUser(auction.seller_uid, uid, Number(auction.equipment_uid));
+        if (!ok) {
+          throw createError(ErrorCode.INVALID_PARAMS, '装备转移失败');
+        }
+      } else {
+        await this.bagService.addItem(uid, auction.item_id, buyCount);
+      }
+
+      if (auction.count === buyCount) {
+        await dataStorageService.delete('auction', auctionId, session);
+      } else {
+        await dataStorageService.update('auction', auctionId, { count: auction.count - buyCount }, session);
+      }
+    });
 
     const buyerPlayers = await this.playerService.list(uid);
     if (buyerPlayers.length) {

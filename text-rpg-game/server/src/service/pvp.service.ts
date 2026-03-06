@@ -6,7 +6,7 @@ import { PlayerService } from './player.service';
 import { SkillService } from './skill.service';
 import { runBattle } from '../battle/runner';
 import { getMapSubscriberUids } from '../event/boss-subscription';
-import { setInBattle, clearInBattle, isInBattle, setMapBan } from '../event/pvp-presence';
+import { setInBattle, clearInBattle, isInBattle } from '../event/pvp-presence';
 import { wsManager } from '../event/ws-manager';
 import { logger } from '../utils/logger';
 
@@ -122,8 +122,9 @@ export class PvpService {
       },
     });
 
-    // 先返回成功，让双方客户端进入战斗页；延迟 3 秒后开战，与前端倒计时同步
-    setTimeout(() => this.runPvpBattle(challenger, target, challengerUid, targetUid, mapId), 3000);
+    // 先返回成功，让双方客户端进入战斗页；延迟 3 秒后开战，与前端倒计时同步（测试环境无延迟，便于测试等待完成）
+    const pvpDelay = process.env.NODE_ENV === 'test' ? 0 : 3000;
+    setTimeout(() => this.runPvpBattle(challenger, target, challengerUid, targetUid, mapId), pvpDelay);
     return { ok: true };
   }
 
@@ -204,11 +205,12 @@ export class PvpService {
         this.skillService.getEquippedSkills(targetUid),
       ]);
 
+      const battleDelay = process.env.NODE_ENV === 'test' ? 0 : 1000;
       const runResult = await runBattle(challengerCopy, targetCopy, {
         maxRounds: 100,
         pushEvent,
         pushBatch,
-        delayMs: 1000,
+        delayMs: battleDelay,
         attackerSkills,
         defenderSkills,
         consumeAttackerMp: async () => { /* PVP 满血满蓝对决，不消耗真实 MP */ },
@@ -229,13 +231,6 @@ export class PvpService {
       } else {
         loserUid = null;
         winnerUid = challengerUid;
-      }
-
-      if (runResult.winner === 'draw') {
-        setMapBan(challengerUid, mapId, 30);
-        setMapBan(targetUid, mapId, 30);
-      } else if (loserUid) {
-        setMapBan(loserUid, mapId, 30);
       }
 
       clearInBattle(challengerUid);
@@ -275,14 +270,13 @@ export class PvpService {
   }
 
   /** 广播地图玩家列表变化（供 boss-subscription 在订阅/取消时调用） */
-  notifyMapPlayersChanged(mapId: number): void {
-    this.getPlayersInMap(mapId).then((players) => {
-      const uids = getMapSubscriberUids(mapId);
-      const payload = { type: 'pvp_map_players', data: { map_id: mapId, players } };
-      uids.forEach((uidStr) => {
-        const uid = Number(uidStr) || uidStr;
-        wsManager.sendToUser(uid, payload);
-      });
+  async notifyMapPlayersChanged(mapId: number): Promise<void> {
+    const players = await this.getPlayersInMap(mapId);
+    const uids = getMapSubscriberUids(mapId);
+    const payload = { type: 'pvp_map_players', data: { map_id: mapId, players } };
+    uids.forEach((uidStr) => {
+      const uid = Number(uidStr) || uidStr;
+      wsManager.sendToUser(uid, payload);
     });
   }
 }

@@ -78,10 +78,9 @@ const Tooltip = {
       hasAttributes = true;
     }
 
-    // 血药、蓝药
     if (!hasAttributes) {
-      const hpVal = Number(item.hp_restore) || 0;
-      const mpVal = Number(item.mp_restore) || 0;
+      const hpVal = Helper.getHpRestore(item);
+      const mpVal = Helper.getMpRestore(item);
       if (hpVal > 0 || mpVal > 0) {
         const parts = [];
         if (hpVal > 0) parts.push(`+${hpVal} HP`);
@@ -111,7 +110,9 @@ const Tooltip = {
     }
 
     if (!hasAttributes && item) {
-      const attrs = { hp: item.hp, phy_atk: item.phy_atk, phy_def: item.phy_def, mp: item.mp, mag_def: item.mag_def, mag_atk: item.mag_atk, hit_rate: item.hit_rate, dodge_rate: item.dodge_rate, crit_rate: item.crit_rate };
+      const hpVal = Helper.getHpRestore(item);
+      const mpVal = Helper.getMpRestore(item);
+      const attrs = { hp: hpVal, phy_atk: item.phy_atk, phy_def: item.phy_def, mp: mpVal, mag_def: item.mag_def, mag_atk: item.mag_atk, hit_rate: item.hit_rate, dodge_rate: item.dodge_rate, crit_rate: item.crit_rate };
       for (const [key, value] of Object.entries(attrs)) {
         if (value > 0) {
           content += `<div class="tooltip-attr"><span class="tooltip-attr-name">${this.getAttributeName(key)}:</span><span class="tooltip-attr-value">${value}</span></div>`;

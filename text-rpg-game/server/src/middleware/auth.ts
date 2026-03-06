@@ -19,7 +19,7 @@ export interface AuthRequest extends Request {
 /**
  * 认证中间件
  */
-export function auth(req: any, res: Response, next: NextFunction) {
+export function auth(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -27,7 +27,7 @@ export function auth(req: any, res: Response, next: NextFunction) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const decoded = jwt.verify(token, config.jwt_secret) as { uid: number | string };
+    const decoded = jwt.verify(token, config.jwt_secret, { algorithms: ['HS256'] }) as { uid: number | string };
     req.user = { uid: decoded.uid };
     req.uid = decoded.uid;
     next();
@@ -41,7 +41,7 @@ export function auth(req: any, res: Response, next: NextFunction) {
  * 管理员认证中间件
  * 支持 token 中 uid 为数字 id 或 _id 字符串（24 位十六进制）
  */
-export async function adminAuth(req: any, res: Response, next: NextFunction) {
+export async function adminAuth(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -49,7 +49,7 @@ export async function adminAuth(req: any, res: Response, next: NextFunction) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const decoded = jwt.verify(token, config.jwt_secret) as { uid: number | string };
+    const decoded = jwt.verify(token, config.jwt_secret, { algorithms: ['HS256'] }) as { uid: number | string };
 
     let user = null;
     if (typeof decoded.uid === 'string' && /^[a-f0-9]{24}$/i.test(decoded.uid)) {

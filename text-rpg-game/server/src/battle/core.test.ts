@@ -62,6 +62,23 @@ describe('battle/core', () => {
       const result = calcPhysicalDamage(attacker, defender);
       expect(result.damage).toBeGreaterThanOrEqual(1);
     });
+
+    it('暴击时伤害至少为 base+1，且大于普攻', () => {
+      const attacker = { phy_atk: 7, phy_def: 0, crit_rate: 100 };
+      const defender = { phy_def: 5 };
+      let critCount = 0;
+      let normalCount = 0;
+      for (let i = 0; i < 50; i++) {
+        const result = calcPhysicalDamage(attacker, defender);
+        if (result.isCrit) {
+          critCount++;
+          expect(result.damage).toBeGreaterThanOrEqual(3); // base=2, crit>=3
+        } else {
+          normalCount++;
+        }
+      }
+      expect(critCount).toBe(50);
+    });
   });
 
   describe('calcMagicDamage', () => {
@@ -96,6 +113,44 @@ describe('battle/core', () => {
       const defender = {};
       // 木克土，但 defender 无 elem_earth，defVal=0，bonus += 5
       expect(calcElementBonus(attacker, defender)).toBe(5);
+    });
+
+    it('攻击方属性小于等于防御方时无加成', () => {
+      const attacker = { elem_metal: 3 };
+      const defender = { elem_wood: 5 };
+      expect(calcElementBonus(attacker, defender)).toBe(0);
+    });
+  });
+
+  describe('calcPhysicalDamage 边界', () => {
+    it('攻击为 0 时至少 1 点伤害', () => {
+      const attacker = { phy_atk: 0, crit_rate: 0 };
+      const defender = { phy_def: 100 };
+      const result = calcPhysicalDamage(attacker, defender);
+      expect(result.damage).toBeGreaterThanOrEqual(1);
+    });
+
+    it('防御为 0 时伤害等于攻击', () => {
+      const attacker = { phy_atk: 50, crit_rate: 0 };
+      const defender = { phy_def: 0 };
+      const result = calcPhysicalDamage(attacker, defender);
+      expect(result.damage).toBe(50);
+    });
+  });
+
+  describe('calcMagicDamage 边界', () => {
+    it('攻击为 0 时至少 1 点伤害', () => {
+      const attacker = { mag_atk: 0, crit_rate: 0 };
+      const defender = { mag_def: 100 };
+      const result = calcMagicDamage(attacker, defender);
+      expect(result.damage).toBeGreaterThanOrEqual(1);
+    });
+
+    it('防御大于攻击时至少 1 点伤害', () => {
+      const attacker = { mag_atk: 10, crit_rate: 0 };
+      const defender = { mag_def: 200 };
+      const result = calcMagicDamage(attacker, defender);
+      expect(result.damage).toBe(1);
     });
   });
 });

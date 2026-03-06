@@ -1,6 +1,6 @@
 import { Router, Response, NextFunction } from 'express';
 import { LevelExpService } from '../service/level_exp.service';
-import { auth, AuthRequest } from '../middleware/auth';
+import { auth, adminAuth, AuthRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
@@ -25,8 +25,7 @@ router.get('/get', auth, async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     if (!levelExp) {
-      logger.warn(`经验配置不存在 - uid: ${req.uid}`);
-      return fail(res, ErrorCode.NOT_FOUND, '经验配置不存在');
+      return success(res, { level: Number(level || id), exp: 0, is_max_level: true });
     }
 
     logger.info(`经验配置获取成功 - uid: ${req.uid}`);
@@ -50,7 +49,7 @@ router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunc
   }
 });
 
-router.post('/add', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/add', adminAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { level, exp } = req.body;
     if (!level || exp === undefined) {
@@ -72,7 +71,7 @@ router.post('/add', auth, async (req: AuthRequest, res: Response, next: NextFunc
   }
 });
 
-router.post('/update', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/update', adminAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id, ...data } = req.body;
     if (!id) {
@@ -87,33 +86,27 @@ router.post('/update', auth, async (req: AuthRequest, res: Response, next: NextF
     if (successResult) {
       success(res, null);
     } else {
-      fail(res, 1, 'failed');
+      return fail(res, ErrorCode.SYSTEM_ERROR, '更新失败');
     }
   } catch (error) {
-    logger.error(`经验配置更新失败 - uid: ${req.uid}, 错误: ${error}`);
     next(error);
   }
 });
 
-router.post('/delete', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/delete', adminAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.body;
     if (!id) {
-      logger.warn(`删除经验配置失败 - uid: ${req.uid}, 缺少ID`);
       return fail(res, ErrorCode.INVALID_PARAMS, '缺少ID');
     }
 
-    logger.info(`删除经验配置 - uid: ${req.uid}, ID: ${id}`);
     const successResult = await levelExpService.delete(id);
-
-    logger.info(`经验配置删除${successResult ? '成功' : '失败'} - uid: ${req.uid}, ID: ${id}`);
     if (successResult) {
       success(res, null);
     } else {
-      fail(res, 1, 'failed');
+      return fail(res, ErrorCode.SYSTEM_ERROR, '删除失败');
     }
   } catch (error) {
-    logger.error(`经验配置删除失败 - uid: ${req.uid}, 错误: ${error}`);
     next(error);
   }
 });

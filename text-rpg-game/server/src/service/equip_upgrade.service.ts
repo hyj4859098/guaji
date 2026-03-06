@@ -9,7 +9,9 @@ import { getEnhanceMaterialIds } from './enhance-config.service';
 import { Uid } from '../types';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
-import { wsManager } from '../event/ws-manager';
+import { getMaterialCount, consumeMaterial } from '../utils/material';
+import { withUserLock } from '../utils/per-user-lock';
+import { pushPlayerFullUpdate } from '../utils/push-update';
 const MAX_ENHANCE_LEVEL = 20;
 const FAIL_BROKEN_RATE = 30; // 失败时 30% 装备损坏
 
@@ -25,7 +27,7 @@ export interface EnhanceResult {
   message?: string;
 }
 
-const _enhanceLocks = new Map<string, Promise<any>>();
+const _enhanceLocks = new Map<string, Promise<unknown>>();
 
 export class EquipUpgradeService {
   private equipInstanceService = new EquipInstanceService();
@@ -41,38 +43,14 @@ export class EquipUpgradeService {
     return Math.max(20, 100 - (targetLevel - 1) * 10);
   }
 
-  /** 获取材料数量 */
+  /** 获取材料数量（委托公共模块） */
   async getMaterialCount(uid: Uid, itemId: number): Promise<number> {
-    const rows = await dataStorageService.list('bag', {
-      uid,
-      item_id: itemId,
-      equipment_uid: null,
-    });
-    return rows.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
+    return getMaterialCount(uid, itemId);
   }
 
-  /** 消耗材料 */
+  /** 消耗材料（委托公共模块） */
   async consumeMaterial(uid: Uid, itemId: number, count: number): Promise<boolean> {
-    const total = await this.getMaterialCount(uid, itemId);
-    if (total < count) return false;
-    const rows = await dataStorageService.list('bag', {
-      uid,
-      item_id: itemId,
-      equipment_uid: null,
-    });
-    let remain = count;
-    for (const row of rows) {
-      if (remain <= 0) break;
-      const c = Math.min(remain, row.count || 0);
-      if (c <= 0) continue;
-      if (row.count === c) {
-        await dataStorageService.delete('bag', row.id);
-      } else {
-        await dataStorageService.update('bag', row.id, { count: row.count - c });
-      }
-      remain -= c;
-    }
-    return remain <= 0;
+    return consumeMaterial(uid, itemId, count);
   }
 
   /**
@@ -83,19 +61,7 @@ export class EquipUpgradeService {
     instanceId: number,
     options: EnhanceOptions
   ): Promise<EnhanceResult> {
-    const key = String(uid);
-    const prev = _enhanceLocks.get(key) ?? Promise.resolve();
-    let resolve!: () => void;
-    const gate = new Promise<void>(r => { resolve = r; });
-    _enhanceLocks.set(key, gate);
-
-    try {
-      await prev;
-      return await this._doEnhance(uid, instanceId, options);
-    } finally {
-      resolve();
-      if (_enhanceLocks.get(key) === gate) _enhanceLocks.delete(key);
-    }
+    return withUserLock(_enhanceLocks, uid, () => this._doEnhance(uid, instanceId, options));
   }
 
   private async _doEnhance(
@@ -163,6 +129,15 @@ export class EquipUpgradeService {
       await this.equipInstanceModel.update(instanceId, {
         enhance_level: targetLevel,
       });
+
+      // 数据不变式：强化后验证 enhance_level 已更新且实例仍存在
+      const verify = await this.equipInstanceService.get(instanceId);
+      if (!verify) {
+        logger.error('DATA_INTEGRITY: 强化成功后装备实例消失', { uid, instanceId, targetLevel });
+      } else if ((verify.enhance_level ?? 0) !== targetLevel) {
+        logger.error('DATA_INTEGRITY: 强化成功后 enhance_level 不匹配', { uid, instanceId, expected: targetLevel, actual: verify.enhance_level });
+      }
+
       logger.info('强化成功', { uid, instanceId, targetLevel });
       await this.pushEnhanceUpdate(uid);
       return {
@@ -191,24 +166,7 @@ export class EquipUpgradeService {
     };
   }
 
-  private async pushEnhanceUpdate(uid: Uid): Promise<void> {
-    try {
-      const BagService = (await import('./bag.service')).BagService;
-      const PlayerService = (await import('./player.service')).PlayerService;
-      const EquipService = (await import('./equip.service')).EquipService;
-      const bagService = new BagService();
-      const playerService = new PlayerService();
-      const equipService = new EquipService();
-      const [bagPayload, players, equips] = await Promise.all([
-        bagService.getListPayload(uid),
-        playerService.list(uid),
-        equipService.list(uid),
-      ]);
-      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-      if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
-      wsManager.sendToUser(uid, { type: 'equip', data: equips });
-    } catch (e) {
-      logger.error('强化推送失败', { uid, error: e });
-    }
+  private pushEnhanceUpdate(uid: Uid): Promise<void> {
+    return pushPlayerFullUpdate(uid);
   }
 }

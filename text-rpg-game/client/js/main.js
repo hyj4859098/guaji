@@ -214,7 +214,16 @@ function appendChatMessage(data) {
   const timeStr = `${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
   const msg = document.createElement('div');
   msg.className = 'chat-msg' + (isMe ? ' chat-msg-me' : '');
-  msg.innerHTML = `<span class="chat-time">${timeStr}</span><span class="chat-name">${data.name}</span><span class="chat-text">${data.text.replace(/</g,'&lt;')}</span>`;
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'chat-time';
+  timeSpan.textContent = timeStr;
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'chat-name';
+  nameSpan.textContent = data.name;
+  const textSpan = document.createElement('span');
+  textSpan.className = 'chat-text';
+  textSpan.textContent = data.text;
+  msg.append(timeSpan, nameSpan, textSpan);
   box.appendChild(msg);
   if (box.children.length > 100) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
@@ -242,7 +251,10 @@ async function init() {
 
   if (result.code === 0 && result.data && result.data.length > 0) {
     State.setPlayer(result.data[0]);
-    if (typeof WS !== 'undefined' && WS.connect) WS.connect();
+    if (typeof WS !== 'undefined' && WS.connect) {
+      await WS.connect();
+      await WS.ensureConnected(10000);
+    }
     renderLayout();
     // 初始化所有页面数据
     if (Pages.role) await Pages.role.load();
@@ -303,14 +315,22 @@ WS.on('title_login', (data) => {
   const box = document.getElementById('chatMessages');
   if (!box) return;
   const titles = Array.isArray(data.titles) ? data.titles : [];
-  const name = String(data.name || '玩家').replace(/</g, '&lt;');
-  const tagHtml = titles.map(t => `【${String(t).replace(/</g, '&lt;')}】`).join('');
-  const text = `${tagHtml} ${name} 已上线！`;
+  const name = String(data.name || '玩家');
+  const tagText = titles.map(t => `【${String(t)}】`).join('');
   const msg = document.createElement('div');
   msg.className = 'chat-msg chat-msg-system chat-msg-title-login';
   const time = new Date();
   const timeStr = `${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
-  msg.innerHTML = `<span class="chat-time">${timeStr}</span><span class="chat-sys-tag">系统</span><span class="chat-text">${text}</span>`;
+  const timeSpan = document.createElement('span');
+  timeSpan.className = 'chat-time';
+  timeSpan.textContent = timeStr;
+  const sysTag = document.createElement('span');
+  sysTag.className = 'chat-sys-tag';
+  sysTag.textContent = '系统';
+  const textSpan = document.createElement('span');
+  textSpan.className = 'chat-text';
+  textSpan.textContent = `${tagText} ${name} 已上线！`;
+  msg.append(timeSpan, sysTag, textSpan);
   box.appendChild(msg);
   if (box.children.length > 100) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
@@ -398,6 +418,10 @@ window.showRegister = function() {
     form.innerHTML = `
       <input type="text" id="username" placeholder="用户名" class="auth-input">
       <input type="password" id="password" placeholder="密码" class="auth-input">
+      <label class="auth-agree">
+        <input type="checkbox" id="agreeTerms">
+        <span>我已阅读并同意 <a href="javascript:void(0)" onclick="showTerms(event)">用户协议</a> 和 <a href="javascript:void(0)" onclick="showPrivacy(event)">隐私政策</a></span>
+      </label>
       <button id="authSubmitBtn" class="auth-btn auth-btn-success">注册</button>
     `;
     document.getElementById('authSubmitBtn').onclick = register;
@@ -411,8 +435,10 @@ window.showRegister = function() {
 };
 
 window.login = async function() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+  const usernameEl = document.getElementById('username');
+  const passwordEl = document.getElementById('password');
+  const username = usernameEl?.value?.trim();
+  const password = passwordEl?.value;
 
   if (!username || !password) {
     UI.showToast('请输入用户名和密码');
@@ -434,11 +460,18 @@ window.login = async function() {
 };
 
 window.register = async function() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+  const usernameEl = document.getElementById('username');
+  const passwordEl = document.getElementById('password');
+  const agreeEl = document.getElementById('agreeTerms');
+  const username = usernameEl?.value?.trim();
+  const password = passwordEl?.value;
 
   if (!username || !password) {
     UI.showToast('请输入用户名和密码');
+    return;
+  }
+  if (agreeEl && !agreeEl.checked) {
+    UI.showToast('请先阅读并同意用户协议和隐私政策');
     return;
   }
 
@@ -448,11 +481,64 @@ window.register = async function() {
 
   if (result.code === 0) {
     UI.showToast('注册成功，请登录');
-    document.getElementById('username').value = username;
+    const u = document.getElementById('username');
+    if (u) u.value = username;
     showLogin();
   } else {
     UI.showToast(result.msg || '注册失败');
   }
+};
+
+window.showTerms = function(e) {
+  if (e) e.preventDefault();
+  UI.showModal(`
+    <h2 class="auth-title">用户协议</h2>
+    <div class="legal-content">
+      <p><strong>生效日期：</strong>2025年1月1日</p>
+      <h3>1. 服务说明</h3>
+      <p>本游戏为文字回合制挂机游戏（以下简称"本游戏"），由开发团队提供运营和技术支持。注册并使用本游戏即表示您同意本协议所有条款。</p>
+      <h3>2. 账号注册与使用</h3>
+      <p>用户应提供真实、准确的注册信息。每位用户对其账号下的所有行为负责。禁止使用外挂、脚本、漏洞利用等破坏游戏公平性的行为。</p>
+      <h3>3. 虚拟物品与货币</h3>
+      <p>游戏内的虚拟货币、道具、装备等均为游戏数据，不具有法定货币价值。严禁通过非官方渠道进行虚拟物品的现金交易。</p>
+      <h3>4. 用户行为规范</h3>
+      <p>用户不得在游戏内（含聊天）发布违法、色情、暴力、人身攻击等不良信息。违反者将被禁言或封号处理。</p>
+      <h3>5. 服务变更与终止</h3>
+      <p>开发团队有权对游戏进行更新、维护、调整或终止服务，并将提前通过公告告知用户。</p>
+      <h3>6. 免责声明</h3>
+      <p>因不可抗力（如服务器故障、网络中断等）导致的数据丢失或服务中断，开发团队不承担赔偿责任。</p>
+      <h3>7. 协议修订</h3>
+      <p>本协议可能随时更新，更新后的协议将在游戏内公告。继续使用本游戏即视为同意更新后的协议。</p>
+    </div>
+    <button class="auth-btn auth-btn-primary" onclick="UI.hideModal();showRegister()">返回注册</button>
+  `, { type: 'legal' });
+};
+
+window.showPrivacy = function(e) {
+  if (e) e.preventDefault();
+  UI.showModal(`
+    <h2 class="auth-title">隐私政策</h2>
+    <div class="legal-content">
+      <p><strong>生效日期：</strong>2025年1月1日</p>
+      <h3>1. 信息收集</h3>
+      <p>我们收集的信息包括：注册信息（用户名、密码哈希）、登录 IP 地址、游戏行为数据（角色、装备、战斗记录等）。</p>
+      <h3>2. 信息使用</h3>
+      <p>收集的信息仅用于：提供游戏服务、维护账号安全、改善游戏体验、防止作弊行为。</p>
+      <h3>3. 信息存储与保护</h3>
+      <p>密码采用 bcrypt 加密存储，不以明文保存。我们采取合理的技术措施保护用户数据安全，但无法保证绝对安全。</p>
+      <h3>4. 信息共享</h3>
+      <p>我们不会将用户个人信息出售或出租给第三方。除非法律要求或用户授权，我们不会向第三方披露用户信息。</p>
+      <h3>5. Cookie 与本地存储</h3>
+      <p>本游戏使用 localStorage 存储登录凭证（Token）。不使用第三方追踪 Cookie。</p>
+      <h3>6. 用户权利</h3>
+      <p>用户有权：查看自己的游戏数据、要求删除账号及相关数据、撤回对本隐私政策的同意（将导致账号注销）。</p>
+      <h3>7. 未成年人保护</h3>
+      <p>本游戏不面向 16 岁以下未成年人。如发现未成年人注册，我们有权冻结相关账号。</p>
+      <h3>8. 政策更新</h3>
+      <p>本隐私政策可能随时更新，更新后将在游戏内公告。</p>
+    </div>
+    <button class="auth-btn auth-btn-primary" onclick="UI.hideModal();showRegister()">返回注册</button>
+  `, { type: 'legal' });
 };
 
 function logout() {
@@ -460,8 +546,33 @@ function logout() {
   window.location.reload();
 }
 
+/** 401 时重置到登录态：清除界面、断开 WS、显示登录框 */
+function resetToLogin() {
+  document.querySelectorAll('.top-nav, .chat-bar').forEach(el => el.remove());
+  const app = document.getElementById('app');
+  if (app) app.innerHTML = '';
+  if (typeof WS !== 'undefined' && WS.ws) {
+    WS.ws.onclose = null;
+    WS.ws.onerror = null;
+    try { WS.ws.close(); } catch (e) {}
+    WS.ws = null;
+  }
+  UI.hideLoading();
+  UI.showModal(`
+    <h1 class="auth-title">登录已过期</h1>
+    <p class="auth-subtitle">请重新登录</p>
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login" onclick="showLogin()">登录</button>
+      <button class="auth-tab" data-tab="register" onclick="showRegister()">注册</button>
+    </div>
+    <div id="authForm"></div>
+  `, { type: 'auth' });
+  showLogin();
+}
+
 window.createPlayer = async function() {
-  const name = document.getElementById('playerName').value;
+  const nameEl = document.getElementById('playerName');
+  const name = nameEl?.value?.trim();
   
   if (!name) {
     UI.showToast('请输入角色名称');

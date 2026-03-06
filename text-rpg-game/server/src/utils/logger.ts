@@ -14,6 +14,7 @@ export class Logger {
   private logDir: string | null = null;
   private maxFileSize = 10 * 1024 * 1024; // 10MB
   private maxFiles = 5;
+  private maxDays = 30;
 
   private constructor() {}
 
@@ -28,6 +29,11 @@ export class Logger {
     this.logDir = dir;
     this.ensureLogDirExists();
     this.logFile = path.join(dir, `app-${new Date().toISOString().split('T')[0]}.log`);
+    this.cleanOldLogs();
+  }
+
+  public setMaxDays(days: number): void {
+    this.maxDays = days;
   }
 
   public setMaxFileSize(size: number): void {
@@ -41,6 +47,28 @@ export class Logger {
   private ensureLogDirExists(): void {
     if (this.logDir && !fs.existsSync(this.logDir)) {
       fs.mkdirSync(this.logDir, { recursive: true });
+    }
+  }
+
+  private cleanOldLogs(): void {
+    if (!this.logDir) return;
+    try {
+      const cutoff = Date.now() - this.maxDays * 24 * 60 * 60 * 1000;
+      const files = fs.readdirSync(this.logDir).filter(f => f.startsWith('app-') && f.endsWith('.log'));
+      let deleted = 0;
+      for (const file of files) {
+        const filePath = path.join(this.logDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.mtimeMs < cutoff) {
+          fs.unlinkSync(filePath);
+          deleted++;
+        }
+      }
+      if (deleted > 0) {
+        console.log(`[Logger] Cleaned ${deleted} log files older than ${this.maxDays} days`);
+      }
+    } catch (e) {
+      console.error('[Logger] Failed to clean old logs:', e);
     }
   }
 

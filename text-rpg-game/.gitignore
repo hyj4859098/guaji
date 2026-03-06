@@ -8,3 +8,8 @@ npm-debug.log*
 .env
 .DS_Store
 Thumbs.db
+playwright-report/
+test-results/
+server/battle_test_output.txt
+server/cov-*.txt
+server/coverage-*.txt

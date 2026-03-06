@@ -4,14 +4,13 @@ import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
 import { logger } from '../../utils/logger';
 import { adminHandler } from './admin-utils';
+import { validate } from '../../middleware/validate';
+import { adminUnbindIpBody } from '../schemas';
 
 const router = Router();
 
-router.post('/unbind-ip', adminHandler(async (req, res) => {
+router.post('/unbind-ip', validate(adminUnbindIpBody), adminHandler(async (req, res) => {
     const { username } = req.body;
-    if (!username) {
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少用户名');
-    }
 
     const user = await dataStorageService.getByCondition('user', { username });
     if (!user) {

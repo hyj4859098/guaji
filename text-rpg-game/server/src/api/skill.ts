@@ -2,6 +2,8 @@ import { Router, Response, NextFunction } from 'express';
 import { SkillService } from '../service/skill.service';
 import { BagService } from '../service/bag.service';
 import { auth, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validate';
+import { skillLearnBody, skillEquipBody, skillUnequipBody } from './schemas';
 import { logger } from '../utils/logger';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
@@ -23,13 +25,9 @@ router.get('/list', auth, async (req: AuthRequest, res: Response, next: NextFunc
   }
 });
 
-router.post('/learn', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/learn', auth, validate(skillLearnBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { book_id } = req.body;
-    if (!book_id) {
-      logger.warn(`学习技能失败 - uid: ${req.uid}, 缺少技能书ID`);
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少技能书ID');
-    }
     
     logger.info(`学习技能 - uid: ${req.uid}, 技能书ID: ${book_id}`);
     const successResult = await skillService.learnSkill(req.uid!, book_id, bagService);
@@ -38,22 +36,16 @@ router.post('/learn', auth, async (req: AuthRequest, res: Response, next: NextFu
     if (successResult) {
       success(res, null, '学习成功');
     } else {
-      fail(res, 1, '学习失败');
+      return fail(res, ErrorCode.SYSTEM_ERROR, '学习失败');
     }
   } catch (error) {
-    const { book_id } = req.body;
-    logger.error(`技能学习失败 - uid: ${req.uid}, 技能书ID: ${book_id || '未知'}, 错误: ${error}`);
     next(error);
   }
 });
 
-router.post('/equip', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/equip', auth, validate(skillEquipBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { skill_id } = req.body;
-    if (!skill_id) {
-      logger.warn(`装备技能失败 - uid: ${req.uid}, 缺少技能ID`);
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少技能ID');
-    }
     
     logger.info(`装备技能 - uid: ${req.uid}, 技能ID: ${skill_id}`);
     const successResult = await skillService.equipSkill(req.uid!, skill_id);
@@ -62,22 +54,16 @@ router.post('/equip', auth, async (req: AuthRequest, res: Response, next: NextFu
     if (successResult) {
       success(res, null, '装备成功');
     } else {
-      fail(res, 1, '装备失败');
+      return fail(res, ErrorCode.SYSTEM_ERROR, '装备失败');
     }
   } catch (error) {
-    const { skill_id } = req.body;
-    logger.error(`技能装备失败 - uid: ${req.uid}, 技能ID: ${skill_id || '未知'}, 错误: ${error}`);
     next(error);
   }
 });
 
-router.post('/unequip', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/unequip', auth, validate(skillUnequipBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { skill_id } = req.body;
-    if (!skill_id) {
-      logger.warn(`卸下技能失败 - uid: ${req.uid}, 缺少技能ID`);
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少技能ID');
-    }
     
     logger.info(`卸下技能 - uid: ${req.uid}, 技能ID: ${skill_id}`);
     const successResult = await skillService.unequipSkill(req.uid!, skill_id);
@@ -86,11 +72,9 @@ router.post('/unequip', auth, async (req: AuthRequest, res: Response, next: Next
     if (successResult) {
       success(res, null, '卸下成功');
     } else {
-      fail(res, 1, '卸下失败');
+      return fail(res, ErrorCode.SYSTEM_ERROR, '卸下失败');
     }
   } catch (error) {
-    const { skill_id } = req.body;
-    logger.error(`技能卸下失败 - uid: ${req.uid}, 技能ID: ${skill_id || '未知'}, 错误: ${error}`);
     next(error);
   }
 });

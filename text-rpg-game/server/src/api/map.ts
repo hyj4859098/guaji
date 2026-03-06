@@ -1,9 +1,11 @@
 import { Router, Response, NextFunction } from 'express';
 import { MapService } from '../service/map.service';
-import { auth, AuthRequest } from '../middleware/auth';
+import { auth, adminAuth, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
+import { mapGetQuery, mapAddBody, mapUpdateBody, mapDeleteBody } from './schemas';
 
 const router = Router();
 const mapService = new MapService();
@@ -20,16 +22,12 @@ router.get('/list', async (req: AuthRequest, res: Response, next: NextFunction) 
   }
 });
 
-router.get('/get', async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/get', validate(mapGetQuery, 'query'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.query;
-    if (!id) {
-      logger.warn('获取地图失败 - 缺少地图ID');
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少地图ID');
-    }
+    const id = req.query.id as unknown as number;
     
     logger.info(`获取地图 - 地图ID: ${id}`);
-    const map = await mapService.get(Number(id));
+    const map = await mapService.get(id);
 
     if (!map) {
       logger.warn(`地图不存在 - 地图ID: ${id}`);
@@ -44,14 +42,9 @@ router.get('/get', async (req: AuthRequest, res: Response, next: NextFunction) =
   }
 });
 
-router.post('/add', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/add', adminAuth, validate(mapAddBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { name } = req.body;
-
-    if (!name) {
-      logger.warn('添加地图失败 - 地图名称不能为空');
-      return fail(res, ErrorCode.INVALID_PARAMS, '地图名称不能为空');
-    }
 
     logger.info(`添加地图 - 地图名称: ${name}`);
     const id = await mapService.add({ name });
@@ -64,14 +57,9 @@ router.post('/add', auth, async (req: AuthRequest, res: Response, next: NextFunc
   }
 });
 
-router.post('/update', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/update', adminAuth, validate(mapUpdateBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id, name } = req.body;
-
-    if (!id || !name) {
-      logger.warn('更新地图失败 - 地图ID和名称不能为空');
-      return fail(res, ErrorCode.INVALID_PARAMS, '地图ID和名称不能为空');
-    }
 
     logger.info(`更新地图 - 地图ID: ${id}, 名称: ${name}`);
     const successResult = await mapService.update(id, { name });
@@ -89,14 +77,9 @@ router.post('/update', auth, async (req: AuthRequest, res: Response, next: NextF
   }
 });
 
-router.post('/delete', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/delete', adminAuth, validate(mapDeleteBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.body;
-
-    if (!id) {
-      logger.warn('删除地图失败 - 地图ID不能为空');
-      return fail(res, ErrorCode.INVALID_PARAMS, '地图ID不能为空');
-    }
 
     logger.info(`删除地图 - 地图ID: ${id}`);
     const successResult = await mapService.delete(id);

@@ -29,18 +29,23 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .role-header h2 {
   font-size: 20px;
-  color: #3b82f6;
+  font-weight: bold;
+  color: #4a90e2;
 }
 
 .role-level {
-  background: #0f3460;
+  background: linear-gradient(135deg, #4a90e2, #50e3c2);
+  color: white;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 14px;
+  font-weight: bold;
 }
 
 .status-bar {
@@ -76,10 +81,34 @@
   margin-top: 20px;
 }
 
-.stat-item {
+.role-info .stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.role-info .stat-item {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
   font-size: 14px;
+  background: none;
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.role-info .stat-item:hover {
+  background: none;
+}
+
+.role-info .stat-item span:first-child {
+  color: #ccc;
+}
+
+.role-info .stat-item span:last-child {
+  font-weight: bold;
+  color: #fff;
 }
 
 /* 装备栏 */

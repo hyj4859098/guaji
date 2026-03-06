@@ -1,179 +1,110 @@
 /**
- * 数据存储服务
- * 封装数据库操作，提供统一的CRUD接口
+ * 数据存储服务 — 统一 CRUD 接口
+ *
+ * ctx 参数接受 MongoDB ClientSession，用于事务内操作。
+ * 传入 session 时所有读写均在该事务上下文中执行。
  */
-import { getCollection, insert, update, deleteOne, query as mongodbQuery } from '../config/db';
+import { ClientSession, Document } from 'mongodb';
+import { getCollection, insert, update, deleteOne, query as mongodbQuery, queryWithSort } from '../config/db';
 import { logger } from '../utils/logger';
+import type { Id } from '../types/index';
 
-interface Transaction {
-  commit: () => Promise<void>;
-  rollback: () => Promise<void>;
-}
+export type TxCtx = ClientSession | undefined;
 
 export class DataStorageService {
-  /**
-   * 执行MongoDB查询
-   * @param collection 集合名
-   * @param filter 过滤条件
-   * @param projection 投影
-   * @returns 查询结果
-   */
-  async query(collection: string, filter?: any, projection?: any, _ctx?: any): Promise<any> {
+  async query<T extends Document = Document>(collection: string, filter?: Record<string, unknown>, projection?: Record<string, unknown>, ctx?: TxCtx): Promise<T[]> {
     try {
-      const result = await mongodbQuery(collection, filter, projection);
-      return result;
+      return await mongodbQuery<T>(collection, filter as Record<string, unknown>, projection, ctx);
     } catch (error) {
       logger.error('数据库查询失败', { error: error instanceof Error ? error.message : String(error), collection, filter });
       throw error;
     }
   }
 
-  /**
-   * 开始事务
-   * @returns 事务对象
-   */
-  async beginTransaction(): Promise<Transaction> {
-    // MongoDB事务需要在副本集环境下使用
-    // 这里简化处理，返回一个空事务对象
-    return {
-      async commit(): Promise<void> {
-        // 无操作
-      },
-      async rollback(): Promise<void> {
-        // 无操作
-      }
-    };
-  }
-
-  /**
-   * 插入数据
-   * @param collection 集合名
-   * @param data 数据对象
-   * @returns 插入的ID
-   */
-  async insert(collection: string, data: any, _ctx?: any): Promise<any> {
+  async insert(collection: string, data: Record<string, unknown>, ctx?: TxCtx): Promise<Id> {
     const now = Math.floor(Date.now() / 1000);
-    const insertData = {
-      ...data,
-      create_time: now,
-      update_time: now
-    };
-
-    const result = await insert(collection, insertData);
+    const result = await insert(collection, { ...data, create_time: now, update_time: now }, ctx);
     return result.insertId;
   }
 
-  /**
-   * 更新数据
-   * @param collection 集合名
-   * @param id 记录ID
-   * @param data 数据对象
-   * @returns 是否更新成功
-   */
-  async update(collection: string, id: any, data: any, _ctx?: any): Promise<boolean> {
-    const updateData = {
-      ...data,
-      update_time: Math.floor(Date.now() / 1000)
-    };
-
-    const result = await update(collection, { id: id }, updateData);
+  async update(collection: string, id: Id, data: Record<string, unknown>, ctx?: TxCtx): Promise<boolean> {
+    const result = await update(collection, { id }, { ...data, update_time: Math.floor(Date.now() / 1000) }, ctx);
     return result.affectedRows > 0;
   }
 
-  /**
-   * 删除数据
-   * @param collection 集合名
-   * @param id 记录ID
-   * @returns 是否删除成功
-   */
-  async delete(collection: string, id: any, _ctx?: any): Promise<boolean> {
-    const result = await deleteOne(collection, { id: id });
+  async delete(collection: string, id: Id, ctx?: TxCtx): Promise<boolean> {
+    const result = await deleteOne(collection, { id }, ctx);
     return result.affectedRows > 0;
   }
 
-  /**
-   * 批量删除数据
-   * @param collection 集合名
-   * @param filter 过滤条件
-   * @returns 删除的记录数
-   */
-  async deleteMany(collection: string, filter: any, _ctx?: any): Promise<number> {
+  async deleteMany(collection: string, filter: Record<string, unknown>, ctx?: TxCtx): Promise<number> {
     const collectionObj = getCollection(collection);
-    const result = await collectionObj.deleteMany(filter);
+    const opts = ctx ? { session: ctx } : {};
+    const result = await collectionObj.deleteMany(filter, opts);
     return result.deletedCount;
   }
 
-  /**
-   * 根据ID获取数据
-   * @param collection 集合名
-   * @param id 记录ID
-   * @returns 数据对象或null
-   */
-  async getById(collection: string, id: any, _ctx?: any): Promise<any | null> {
-    const result = await mongodbQuery(collection, { id: id });
+  async getById<T extends Document = Document>(collection: string, id: Id, ctx?: TxCtx): Promise<T | null> {
+    const result = await mongodbQuery<T>(collection, { id } as Record<string, unknown>, undefined, ctx);
     return result[0] || null;
   }
 
-  /**
-   * 按条件更新数据（用于 _id 等非 id 字段）
-   */
-  async updateByFilter(collection: string, filter: any, data: any, _ctx?: any): Promise<boolean> {
-    const updateData = {
-      ...data,
-      update_time: Math.floor(Date.now() / 1000)
-    };
+  async updateByFilter(collection: string, filter: Record<string, unknown>, data: Record<string, unknown>, ctx?: TxCtx): Promise<boolean> {
     const collectionObj = getCollection(collection);
-    const result = await collectionObj.updateOne(filter, { $set: updateData });
+    const opts = ctx ? { session: ctx } : {};
+    const result = await collectionObj.updateOne(filter, { $set: { ...data, update_time: Math.floor(Date.now() / 1000) } }, opts);
     return (result.modifiedCount ?? 0) > 0;
   }
 
-  /**
-   * 根据条件获取数据
-   * @param collection 集合名
-   * @param condition 条件对象
-   * @returns 数据对象或null
-   */
-  async getByCondition(collection: string, condition: any, _ctx?: any): Promise<any | null> {
-    const result = await mongodbQuery(collection, condition);
+  async getByCondition<T extends Document = Document>(collection: string, condition: Record<string, unknown>, _projection?: unknown, ctx?: TxCtx): Promise<T | null> {
+    const result = await mongodbQuery<T>(collection, condition as Record<string, unknown>, undefined, ctx);
     return result[0] || null;
   }
 
-  /**
-   * 获取列表数据
-   * @param collection 集合名
-   * @param condition 条件对象（可选）
-   * @returns 数据列表
-   */
-  async list(collection: string, condition?: any, _ctx?: any): Promise<any[]> {
-    const result = await mongodbQuery(collection, condition);
-    return result;
+  async list<T extends Document = Document>(collection: string, condition?: Record<string, unknown>, ctx?: TxCtx): Promise<T[]> {
+    return await mongodbQuery<T>(collection, condition, undefined, ctx);
   }
 
-  /**
-   * 批量插入数据
-   * @param collection 集合名
-   * @param dataList 数据列表
-   * @returns 插入的ID列表
-   */
-  async batchInsert(collection: string, dataList: any[], _ctx?: any): Promise<any[]> {
+  async getByIds<T extends Document = Document>(collection: string, ids: (number | string)[], ctx?: TxCtx): Promise<T[]> {
+    if (ids.length === 0) return [];
+    const unique = [...new Set(ids)];
+    return await mongodbQuery<T>(collection, { id: { $in: unique } } as Record<string, unknown>, undefined, ctx);
+  }
+
+  async listSorted<T extends Document = Document>(
+    collection: string,
+    filter: Record<string, unknown>,
+    sort: Record<string, 1 | -1>,
+    limit: number,
+    skip = 0
+  ): Promise<T[]> {
+    return await queryWithSort(collection, filter, sort, limit, skip);
+  }
+
+  /** 带排序+分页查询并返回总数 */
+  async listSortedWithCount<T extends Document = Document>(
+    collection: string,
+    filter: Record<string, unknown>,
+    sort: Record<string, 1 | -1>,
+    limit: number,
+    skip = 0
+  ): Promise<{ items: T[]; total: number }> {
+    const collObj = getCollection(collection);
+    const [items, total] = await Promise.all([
+      collObj.find(filter).sort(sort).skip(skip).limit(limit).toArray() as unknown as Promise<T[]>,
+      collObj.countDocuments(filter),
+    ]);
+    return { items, total };
+  }
+
+  async batchInsert(collection: string, dataList: Record<string, unknown>[], ctx?: TxCtx): Promise<unknown[]> {
     if (dataList.length === 0) return [];
-
     const now = Math.floor(Date.now() / 1000);
-    const insertDataList = dataList.map(data => ({
-      ...data,
-      create_time: now,
-      update_time: now
-    }));
-
+    const withTimestamps = dataList.map(d => ({ ...d, create_time: now, update_time: now }));
     const collectionObj = getCollection(collection);
-    const result = await collectionObj.insertMany(insertDataList);
-    
-    // 生成插入的ID列表
-    const ids: any[] = [];
-    for (const id of Object.values(result.insertedIds)) {
-      ids.push(id);
-    }
-    return ids;
+    const opts = ctx ? { session: ctx } : {};
+    const result = await collectionObj.insertMany(withTimestamps, opts);
+    return Object.values(result.insertedIds);
   }
 }
 

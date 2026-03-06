@@ -3,18 +3,17 @@
  * 统一管理物品属性、类型、使用逻辑
  */
 import { dataStorageService } from './data-storage.service';
+import {
+  getItemType, getHpRestore, getMpRestore,
+  isEquipment, isConsumable, isMaterial, isBoostCard, isVipCard,
+  ItemType,
+} from '../utils/item-type';
 import { logger } from '../utils/logger';
 import { Uid } from '../types';
 import { getCollection } from '../config/db';
 import { createError, ErrorCode } from '../utils/error';
 
-// 物品类型枚举
-export enum ItemType {
-  EQUIP = 1,      // 装备
-  CONSUMABLE = 2,  // 消耗品
-  MATERIAL = 3,    // 材料
-  TOOL = 4         // 道具（包含技能书）
-}
+export { ItemType };
 
 // 物品使用结果
 export interface ItemUseResult {
@@ -119,6 +118,15 @@ export class ItemService {
     return await dataStorageService.update('item', id, updateData);
   }
 
+  /** 删除 equip_base（物品 type 从 2 改为非 2 时调用） */
+  async deleteEquipBaseByItemId(itemId: number): Promise<void> {
+    const eb = await dataStorageService.getByCondition('equip_base', { item_id: itemId });
+    if (eb) {
+      await dataStorageService.delete('equip_base', eb.id);
+      logger.info('deleteEquipBaseByItemId', { itemId });
+    }
+  }
+
   /** 同步 equip_base（物品管理为唯一创建入口，upsert） */
   async syncEquipBase(itemId: number, opts: {
     pos: number;
@@ -133,6 +141,11 @@ export class ItemService {
     base_dodge_rate?: number;
     base_crit_rate?: number;
   }): Promise<void> {
+    const item = await dataStorageService.getByCondition('item', { id: itemId });
+    if (!item || !isEquipment(item)) {
+      logger.warn('syncEquipBase 跳过：物品非装备类型', { itemId, type: item?.type });
+      return;
+    }
     const now = Math.floor(Date.now() / 1000);
     const data = {
       item_id: itemId,
@@ -170,16 +183,17 @@ export class ItemService {
     let effectType: string | null = null;
     const effectData: any = { item_id: itemId };
 
-    if (itemType === 1 || itemType === 3) {
+    const typeObj = { type: itemType };
+    if (isConsumable(typeObj) || isMaterial(typeObj)) {
       const item = await dataStorageService.getByCondition('item', { id: itemId });
-      if (item && ((item.hp_restore ?? 0) > 0 || (item.mp_restore ?? 0) > 0)) {
+      if (item && (getHpRestore(item) > 0 || getMpRestore(item) > 0)) {
         effectType = 'restore';
       }
-    } else if (itemType === 5) {
+    } else if (isBoostCard(typeObj)) {
       effectType = 'boost';
-    } else if (itemType === 6) {
+    } else if (isVipCard(typeObj)) {
       effectType = 'vip';
-    } else if (itemType === 4 && effectOptions?.effect_type) {
+    } else if (getItemType(typeObj) === 'tool' && itemType === 4 && effectOptions?.effect_type) {
       effectType = effectOptions.effect_type;
       if (effectType === 'expand_bag') {
         effectData.value = effectOptions.value ?? 50;
@@ -222,7 +236,7 @@ export class ItemService {
         result.skill_probability = skill.probability;
       }
     }
-    if ((item as any).type === 2) {
+    if (isEquipment(item)) {
       const eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
       if (eb) {
         result.base_level = eb.base_level;
@@ -252,27 +266,35 @@ export class ItemService {
   }
 
   /**
-   * 计算物品属性
-   * @param item 物品信息
-   * @returns 物品属性
+   * 计算物品属性（装备从 equip_base 读取，消耗品用 getHpRestore/getMpRestore）
    */
-  calculateItemAttributes(item: any): ItemAttributes {
+  async calculateItemAttributes(item: any): Promise<ItemAttributes> {
     const attributes: ItemAttributes = {};
 
-    // 根据物品类型和等级计算属性
-    if (item.type === ItemType.EQUIP) {
-      // 装备属性计算
-      attributes.attack = item.attack || 0;
-      attributes.defense = item.defense || 0;
-      attributes.hp = item.hp || 0;
-      attributes.mp = item.mp || 0;
-      attributes.hitRate = item.hit_rate || 0;
-      attributes.dodgeRate = item.dodge_rate || 0;
-      attributes.critRate = item.crit_rate || 0;
-    } else if (item.type === ItemType.CONSUMABLE) {
-      // 消耗品属性计算（血药蓝药用 hp_restore/mp_restore）
-      attributes.hp = item.hp_restore ?? item.hp ?? 0;
-      attributes.mp = item.mp_restore ?? item.mp ?? 0;
+    if (isEquipment(item)) {
+      const eb = item.id != null
+        ? await dataStorageService.getByCondition('equip_base', { item_id: item.id })
+        : null;
+      if (eb) {
+        attributes.attack = (eb as any).base_phy_atk ?? 0;
+        attributes.defense = (eb as any).base_phy_def ?? 0;
+        attributes.hp = (eb as any).base_hp ?? 0;
+        attributes.mp = (eb as any).base_mp ?? 0;
+        attributes.hitRate = (eb as any).base_hit_rate ?? 0;
+        attributes.dodgeRate = (eb as any).base_dodge_rate ?? 0;
+        attributes.critRate = (eb as any).base_crit_rate ?? 0;
+      } else {
+        attributes.attack = item.attack ?? item.base_phy_atk ?? 0;
+        attributes.defense = item.defense ?? item.base_phy_def ?? 0;
+        attributes.hp = item.hp ?? item.base_hp ?? 0;
+        attributes.mp = item.mp ?? item.base_mp ?? 0;
+        attributes.hitRate = item.hit_rate ?? item.base_hit_rate ?? 0;
+        attributes.dodgeRate = item.dodge_rate ?? item.base_dodge_rate ?? 0;
+        attributes.critRate = item.crit_rate ?? item.base_crit_rate ?? 0;
+      }
+    } else if (isConsumable(item)) {
+      attributes.hp = getHpRestore(item);
+      attributes.mp = getMpRestore(item);
     }
 
     return attributes;
@@ -285,42 +307,19 @@ export class ItemService {
    * @returns 使用结果
    */
   async useItem(uid: Uid, bagItemId: number): Promise<ItemUseResult> {
-    try {
-      // 调用bag.service中的useItem方法
-      const BagService = require('./bag.service').BagService;
-      const bagService = new BagService();
-      const success = await bagService.useItem(uid, bagItemId);
-      
-      if (success) {
-        // 获取物品信息
-        const bagItems = await bagService.list(uid);
-        const bagItem = bagItems.find((item: any) => item.id === bagItemId || item.original_id === bagItemId);
-        if (bagItem) {
-          const item = await this.getItemById(bagItem.item_id);
-          if (item) {
-            return {
-              success: true,
-              message: `使用了${item.name}`
-            };
-          }
-        }
-        return {
-          success: true,
-          message: '物品使用成功'
-        };
-      } else {
-        return {
-          success: false,
-          message: '物品使用失败'
-        };
+    const { services } = await import('./registry');
+    const bagService = services.bag;
+    await bagService.useItem(uid, bagItemId);
+
+    const bagItems = await bagService.list(uid);
+    const bagItem = bagItems.find((item: any) => item.id === bagItemId || item.original_id === bagItemId);
+    if (bagItem) {
+      const item = await this.getItemById(bagItem.item_id);
+      if (item) {
+        return { success: true, message: `使用了${item.name}` };
       }
-    } catch (error) {
-      logger.error('使用物品失败', { error, uid, bagItemId });
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : '使用物品失败'
-      };
     }
+    return { success: true, message: '物品使用成功' };
   }
 
   /**
@@ -334,23 +333,31 @@ export class ItemService {
       return '物品不存在';
     }
 
-    switch (item.type) {
-      case ItemType.EQUIP:
-        return `装备到对应部位，增加属性`;
-      case ItemType.CONSUMABLE:
-        return `使用后${(item.hp_restore || item.hp) ? `恢复${item.hp_restore ?? item.hp ?? 0}点HP` : ''}${(item.mp_restore || item.mp) ? `恢复${item.mp_restore ?? item.mp ?? 0}点MP` : ''}`;
-      case ItemType.MATERIAL:
-        return `用于合成或任务`;
-      case ItemType.TOOL:
-        // 检查是否是技能书
-        const skill = await dataStorageService.getByCondition('skill', { book_id: itemId });
-        if (skill) {
-          return `使用后学习对应技能`;
-        }
-        return `用于特定功能`;
-      default:
-        return `物品用途未知`;
+    if (isEquipment(item)) {
+      return '装备到对应部位，增加属性';
     }
+    if (isBoostCard(item)) {
+      return '使用后增加对应类型多倍效果';
+    }
+    if (isVipCard(item)) {
+      return '使用后增加 VIP 时长';
+    }
+    if (isConsumable(item)) {
+      const hp = getHpRestore(item);
+      const mp = getMpRestore(item);
+      return `使用后${hp ? `恢复${hp}点HP` : ''}${mp ? `恢复${mp}点MP` : ''}`;
+    }
+    if (isMaterial(item)) {
+      return '用于合成或任务';
+    }
+    if (getItemType(item) === 'tool') {
+      const skill = await dataStorageService.getByCondition('skill', { book_id: itemId });
+      if (skill) {
+        return '使用后学习对应技能';
+      }
+      return '用于特定功能';
+    }
+    return '物品用途未知';
   }
 }
 

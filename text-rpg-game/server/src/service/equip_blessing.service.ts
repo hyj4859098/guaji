@@ -10,7 +10,9 @@ import { getEnhanceMaterialIds } from './enhance-config.service';
 import { Uid } from '../types';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
-import { wsManager } from '../event/ws-manager';
+import { getMaterialCount as getMaterialCountUtil, consumeMaterial as consumeMaterialUtil } from '../utils/material';
+import { withUserLock } from '../utils/per-user-lock';
+import { pushPlayerFullUpdate } from '../utils/push-update';
 const BLESSING_GOLD_COST = 1000000;
 const BLESSING_SUCCESS_RATE = 50;
 const MAX_BLESSING_LEVEL = 30;
@@ -21,49 +23,22 @@ export interface BlessResult {
   message: string;
 }
 
-const _blessLocks = new Map<string, Promise<any>>();
+const _blessLocks = new Map<string, Promise<unknown>>();
 
 export class EquipBlessingService {
   private equipInstanceService = new EquipInstanceService();
   private equipInstanceModel = new EquipInstanceModel();
 
   async getMaterialCount(uid: Uid, itemId: number): Promise<number> {
-    const rows = await dataStorageService.list('bag', { uid, item_id: itemId, equipment_uid: null });
-    return rows.reduce((sum: number, r: any) => sum + (r.count || 0), 0);
+    return getMaterialCountUtil(uid, itemId);
   }
 
   async consumeMaterial(uid: Uid, itemId: number, count: number): Promise<boolean> {
-    const total = await this.getMaterialCount(uid, itemId);
-    if (total < count) return false;
-    const rows = await dataStorageService.list('bag', { uid, item_id: itemId, equipment_uid: null });
-    let remain = count;
-    for (const row of rows) {
-      if (remain <= 0) break;
-      const c = Math.min(remain, row.count || 0);
-      if (c <= 0) continue;
-      if (row.count === c) {
-        await dataStorageService.delete('bag', row.id);
-      } else {
-        await dataStorageService.update('bag', row.id, { count: row.count - c });
-      }
-      remain -= c;
-    }
-    return remain <= 0;
+    return consumeMaterialUtil(uid, itemId, count);
   }
 
   async bless(uid: Uid, instanceId: number): Promise<BlessResult> {
-    const key = String(uid);
-    const prev = _blessLocks.get(key) ?? Promise.resolve();
-    let resolve!: () => void;
-    const gate = new Promise<void>(r => { resolve = r; });
-    _blessLocks.set(key, gate);
-    try {
-      await prev;
-      return await this._doBless(uid, instanceId);
-    } finally {
-      resolve();
-      if (_blessLocks.get(key) === gate) _blessLocks.delete(key);
-    }
+    return withUserLock(_blessLocks, uid, () => this._doBless(uid, instanceId));
   }
 
   private async _doBless(uid: Uid, instanceId: number): Promise<BlessResult> {
@@ -89,8 +64,8 @@ export class EquipBlessingService {
       throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, '祝福油不足');
     }
 
-    const PlayerService = (await import('./player.service')).PlayerService;
-    const playerService = new PlayerService();
+    const { services } = await import('./registry');
+    const playerService = services.player;
     const players = await playerService.list(uid);
     if (!players.length) throw createError(ErrorCode.USER_NOT_FOUND, '角色不存在');
     const player = players[0];
@@ -98,8 +73,9 @@ export class EquipBlessingService {
       throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, `金币不足，需要 ${BLESSING_GOLD_COST}`);
     }
 
+    const goldOk = await playerService.addGold(uid, -BLESSING_GOLD_COST);
+    if (!goldOk) throw createError(ErrorCode.ITEM_COUNT_NOT_ENOUGH, `金币扣除失败`);
     await this.consumeMaterial(uid, matIds.blessing_oil, 1);
-    await playerService.addGold(uid, -BLESSING_GOLD_COST);
 
     const roll = Math.random() * 100;
     const success = roll < BLESSING_SUCCESS_RATE;
@@ -108,6 +84,15 @@ export class EquipBlessingService {
     if (success) {
       const newLevel = currentLevel + 1;
       await this.equipInstanceModel.update(instanceId, { blessing_level: newLevel });
+
+      // 数据不变式：祝福后验证 blessing_level 已更新且实例仍存在
+      const verify = await this.equipInstanceService.get(instanceId);
+      if (!verify) {
+        logger.error('DATA_INTEGRITY: 祝福成功后装备实例消失', { uid, instanceId, newLevel });
+      } else if ((verify.blessing_level ?? 0) !== newLevel) {
+        logger.error('DATA_INTEGRITY: 祝福成功后 blessing_level 不匹配', { uid, instanceId, expected: newLevel, actual: verify.blessing_level });
+      }
+
       logger.info('祝福成功', { uid, instanceId, newLevel });
       await this.pushBlessUpdate(uid);
       return { success: true, blessing_level: newLevel, message: `祝福成功！祝福 +${newLevel}` };
@@ -118,24 +103,7 @@ export class EquipBlessingService {
     return { success: false, blessing_level: currentLevel, message: '祝福失败，无变化' };
   }
 
-  private async pushBlessUpdate(uid: Uid): Promise<void> {
-    try {
-      const BagService = (await import('./bag.service')).BagService;
-      const PlayerService = (await import('./player.service')).PlayerService;
-      const EquipService = (await import('./equip.service')).EquipService;
-      const bagService = new BagService();
-      const playerService = new PlayerService();
-      const equipService = new EquipService();
-      const [bagPayload, players, equips] = await Promise.all([
-        bagService.getListPayload(uid),
-        playerService.list(uid),
-        equipService.list(uid),
-      ]);
-      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-      if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
-      wsManager.sendToUser(uid, { type: 'equip', data: equips });
-    } catch (e) {
-      logger.error('祝福推送失败', { uid, error: e });
-    }
+  private pushBlessUpdate(uid: Uid): Promise<void> {
+    return pushPlayerFullUpdate(uid);
   }
 }

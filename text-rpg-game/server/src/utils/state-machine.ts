@@ -85,14 +85,14 @@ export class BattleStateMachine {
     const nextState = validTransitions[this.currentState][event];
     
     if (nextState === null) {
-      console.log(`Invalid transition: ${this.currentState} -> ${event}`);
+      require('./logger').logger.debug(`Invalid transition: ${this.currentState} -> ${event}`);
       return false;
     }
 
     // 先更新状态，然后再调用事件处理器
     const previousState = this.currentState;
     this.currentState = nextState;
-    console.log(`State transition: ${event} -> ${nextState}`);
+    require('./logger').logger.debug(`State transition: ${event} -> ${nextState}`);
 
     // 如果传递了 data 参数，更新 stateData
     if (data) {

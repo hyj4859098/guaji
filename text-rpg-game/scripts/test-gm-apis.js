@@ -156,6 +156,83 @@ async function main() {
     fail('怪物掉落列表', e.message);
   }
 
+  console.log('\n6b. Boss 掉落 API');
+  try {
+    const bdRes = await fetch(`${BASE}/admin/boss_drop`, { headers: h() });
+    const bdData = await bdRes.json();
+    if (bdData.code === 0 && Array.isArray(bdData.data)) {
+      ok('Boss掉落列表', true, `${bdData.data.length} 条`);
+    } else {
+      fail('Boss掉落列表', bdData.msg || '非数组');
+    }
+  } catch (e) {
+    fail('Boss掉落列表', e.message);
+  }
+
+  console.log('\n6c. 怪物/地图/商店/等级 列表');
+  try {
+    const monRes = await fetch(`${BASE}/admin/monster`, { headers: h() });
+    const monData = await monRes.json();
+    if (monData.code === 0 && Array.isArray(monData.data)) ok('怪物管理列表', true, `${monData.data.length} 条`);
+    else fail('怪物管理列表', monData.msg);
+  } catch (e) { fail('怪物管理列表', e.message); }
+  try {
+    const mapRes = await fetch(`${BASE}/admin/map`, { headers: h() });
+    const mapData = await mapRes.json();
+    if (mapData.code === 0 && Array.isArray(mapData.data)) ok('地图管理列表', true, `${mapData.data.length} 条`);
+    else fail('地图管理列表', mapData.msg);
+  } catch (e) { fail('地图管理列表', e.message); }
+  try {
+    const shopRes = await fetch(`${BASE}/admin/shop`, { headers: h() });
+    const shopData = await shopRes.json();
+    if (shopData.code === 0 && Array.isArray(shopData.data)) ok('商店管理列表', true, `${shopData.data.length} 条`);
+    else fail('商店管理列表', shopData.msg);
+  } catch (e) { fail('商店管理列表', e.message); }
+  try {
+    const lvRes = await fetch(`${BASE}/admin/level`, { headers: h() });
+    const lvData = await lvRes.json();
+    if (lvData.code === 0 && Array.isArray(lvData.data)) ok('等级管理列表', true, `${lvData.data.length} 条`);
+    else fail('等级管理列表', lvData?.msg || '非数组');
+  } catch (e) { fail('等级管理列表', e.message); }
+
+  console.log('\n6d. 玩家发放（需有效 uid）');
+  let gmTestUsername = `_gm_test_${Date.now()}`;
+  try {
+    const regRes = await req('POST', '/user/register', { username: gmTestUsername, password: 'test123' });
+    if (regRes.code === 0 && regRes.data?.uid) {
+      const testUid = regRes.data.uid;
+      const userToken = regRes.data.token;
+      const addRes = await req('POST', '/player/add', { name: '_GM测试角色' }, userToken);
+      if (addRes.code === 0 || addRes.msg?.includes('已有')) {
+        const goldRes = await req('POST', '/admin/player/give-gold', { uid: testUid, amount: 1000 }, token);
+        if (goldRes.code === 0) ok('GM发放金币', true, '1000');
+        else fail('GM发放金币', goldRes.msg);
+        const itemRes = await req('POST', '/admin/player/give-item', { uid: testUid, item_id: 1, count: 5 }, token);
+        if (itemRes.code === 0) ok('GM发放物品', true, '小血瓶x5');
+        else fail('GM发放物品', itemRes.msg);
+      } else {
+        ok('GM发放', '跳过(无角色)');
+      }
+    } else {
+      ok('GM发放', '跳过');
+    }
+  } catch (e) {
+    fail('GM发放', e.message);
+  }
+
+  console.log('\n6e. 解绑 IP');
+  try {
+    if (gmTestUsername) {
+      const unbindRes = await req('POST', '/admin/user/unbind-ip', { username: gmTestUsername }, token);
+      if (unbindRes.code === 0) ok('解绑 IP', true);
+      else fail('解绑 IP', unbindRes.msg);
+    } else {
+      ok('解绑 IP', '跳过');
+    }
+  } catch (e) {
+    fail('解绑 IP', e.message);
+  }
+
   console.log('\n7. 装备一站式创建（物品管理 type=2 + equip_base）');
   let testEquipId = null;
   try {

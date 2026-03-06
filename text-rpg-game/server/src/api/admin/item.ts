@@ -4,6 +4,7 @@ import { SkillService } from '../../service/skill.service';
 import { dataStorageService } from '../../service/data-storage.service';
 import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
+import { isEquipment, getItemType } from '../../utils/item-type';
 import { adminHandler, adminGetById, adminDelete, parseIdParam } from './admin-utils';
 
 const router = Router();
@@ -37,6 +38,7 @@ router.post('/', adminHandler(async (req, res) => {
     const { id: bodyId, name, type, pos, hp_restore, mp_restore, vip_days, description, effect_type, effect_attr, effect_value, effect_max, effect_also_add_current, skill_name, skill_type, skill_damage, skill_cost, skill_probability, base_level, base_hp, base_mp, base_phy_atk, base_phy_def, base_mag_atk, base_mag_def, base_hit_rate, base_dodge_rate, base_crit_rate } = req.body;
     if (!name || type == null) return fail(res, ErrorCode.INVALID_PARAMS, '缺少名称或类型');
     const itemType = Number(type);
+    if (itemType < 1 || itemType > 6) return fail(res, ErrorCode.INVALID_PARAMS, 'type 必须在 1-6 之间');
     const id = await itemService.addItem({
       id: bodyId != null && Number.isInteger(Number(bodyId)) && Number(bodyId) > 0 ? Number(bodyId) : undefined,
       name,
@@ -47,8 +49,9 @@ router.post('/', adminHandler(async (req, res) => {
       vip_days: vip_days != null ? Number(vip_days) : undefined,
       description: description ?? ''
     });
-    await itemService.syncItemEffect(id, itemType, itemType === 4 ? { effect_type: effect_type || undefined, attr: effect_attr, value: effect_value, max: effect_max, also_add_current: !!effect_also_add_current } : undefined);
-    if (itemType === 2) {
+    const itemTypeObj = { type: itemType };
+    await itemService.syncItemEffect(id, itemType, getItemType(itemTypeObj) === 'tool' && itemType === 4 ? { effect_type: effect_type || undefined, attr: effect_attr, value: effect_value, max: effect_max, also_add_current: !!effect_also_add_current } : undefined);
+    if (isEquipment(itemTypeObj)) {
       await itemService.syncEquipBase(id, {
         pos: pos != null ? Number(pos) : 1,
         base_level: base_level != null ? Number(base_level) : 1,
@@ -63,7 +66,7 @@ router.post('/', adminHandler(async (req, res) => {
         base_crit_rate: base_crit_rate != null ? Number(base_crit_rate) : 0
       });
     }
-    if (itemType === 4 && effect_type === 'learn_skill' && skill_name) {
+    if (getItemType(itemTypeObj) === 'tool' && itemType === 4 && effect_type === 'learn_skill' && skill_name) {
       await skillService.add({
         uid: 0,
         name: String(skill_name),
@@ -84,6 +87,11 @@ router.put('/:id', adminHandler(async (req, res) => {
     const { name, type, pos, hp_restore, mp_restore, vip_days, description, effect_type, effect_attr, effect_value, effect_max, effect_also_add_current, skill_name, skill_type, skill_damage, skill_cost, skill_probability, base_level, base_hp, base_mp, base_phy_atk, base_phy_def, base_mag_atk, base_mag_def, base_hit_rate, base_dodge_rate, base_crit_rate } = req.body;
     if (!name || type == null) return fail(res, ErrorCode.INVALID_PARAMS, '缺少名称或类型');
     const itemType = Number(type);
+    if (itemType < 1 || itemType > 6) return fail(res, ErrorCode.INVALID_PARAMS, 'type 必须在 1-6 之间');
+    const existingItem = await dataStorageService.getByCondition('item', { id });
+    if (existingItem && isEquipment(existingItem) && !isEquipment({ type: itemType })) {
+      await itemService.deleteEquipBaseByItemId(id);
+    }
     const ok = await itemService.updateItem(id, {
       name,
       type: itemType,
@@ -94,8 +102,9 @@ router.put('/:id', adminHandler(async (req, res) => {
       description: description ?? ''
     });
     if (!ok) return fail(res, ErrorCode.NOT_FOUND, '物品不存在');
-    await itemService.syncItemEffect(id, itemType, itemType === 4 ? { effect_type: effect_type || undefined, attr: effect_attr, value: effect_value, max: effect_max, also_add_current: !!effect_also_add_current } : undefined);
-    if (itemType === 2) {
+    const updatedTypeObj = { type: itemType };
+    await itemService.syncItemEffect(id, itemType, getItemType(updatedTypeObj) === 'tool' && itemType === 4 ? { effect_type: effect_type || undefined, attr: effect_attr, value: effect_value, max: effect_max, also_add_current: !!effect_also_add_current } : undefined);
+    if (isEquipment(updatedTypeObj)) {
       await itemService.syncEquipBase(id, {
         pos: pos != null ? Number(pos) : 1,
         base_level: base_level != null ? Number(base_level) : 1,
@@ -110,7 +119,7 @@ router.put('/:id', adminHandler(async (req, res) => {
         base_crit_rate: base_crit_rate != null ? Number(base_crit_rate) : 0
       });
     }
-    if (itemType === 4 && effect_type === 'learn_skill' && skill_name) {
+    if (getItemType(updatedTypeObj) === 'tool' && itemType === 4 && effect_type === 'learn_skill' && skill_name) {
       const existingSkill = await dataStorageService.getByCondition('skill', { book_id: id });
       if (!existingSkill) {
         await skillService.add({

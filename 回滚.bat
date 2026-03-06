@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+if not defined DEPLOY_SERVER set DEPLOY_SERVER=root@120.26.0.177
 echo ========================================
 echo   回滚 - 恢复到部署前状态
 echo ========================================
@@ -14,6 +15,6 @@ if /i not "%confirm%"=="y" (
   exit /b
 )
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content '%~dp0scripts\rollback.sh' -Raw -Encoding UTF8 | ssh root@120.26.0.177 'bash -s'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$c=(Get-Content '%~dp0scripts\rollback.sh' -Raw -Encoding UTF8) -replace \"`r`n\",\"`n\" -replace \"`r\",\"`n\"; $c | ssh %DEPLOY_SERVER% 'bash -s'"
 echo.
 pause

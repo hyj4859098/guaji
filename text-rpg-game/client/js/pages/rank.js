@@ -12,60 +12,7 @@ const RankPage = {
   currentPage: 1,
   pageSize: 20,
 
-  style: `<style>
-    .rank-container { max-width: 700px; margin: 0 auto; color: #e2e8f0; display: flex; flex-direction: column; gap: 12px; padding: 16px; }
-    .rank-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-    .rank-title { font-size: 18px; color: #ecc94b; font-weight: bold; }
-    .rank-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
-    .rank-tab {
-      padding: 6px 16px; background: #2d3748; border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 16px; color: #a0aec0; cursor: pointer; font-size: 13px; transition: all .2s;
-    }
-    .rank-tab:hover { background: #4a5568; }
-    .rank-tab.active { background: #ecc94b; color: #1a202c; border-color: #ecc94b; }
-    .rank-table {
-      width: 100%; border-collapse: collapse; font-size: 13px;
-    }
-    .rank-table th, .rank-table td {
-      padding: 10px 12px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-    .rank-table th {
-      background: rgba(0,0,0,0.3); color: #a0aec0; font-weight: 600; font-size: 12px;
-    }
-    .rank-table tr:hover td { background: rgba(45,55,72,0.5); }
-    .rank-table .col-rank { width: 60px; text-align: center; }
-    .rank-table .col-name { min-width: 120px; }
-    .rank-table .col-value { width: 100px; color: #ecc94b; font-weight: 600; }
-    .rank-rank-1 td { color: #fbbf24; font-weight: bold; }
-    .rank-rank-2 td { color: #a0aec0; font-weight: bold; }
-    .rank-rank-3 td { color: #ed8936; font-weight: bold; }
-    .rank-title-1 { color: #ff4444 !important; font-weight: bold; animation: rank-glow-red 1.5s ease-in-out infinite alternate; }
-    .rank-title-2 { color: #ff8800 !important; font-weight: bold; animation: rank-glow-orange 1.5s ease-in-out infinite alternate; }
-    .rank-title-3 { color: #ffcc00 !important; font-weight: bold; animation: rank-glow-yellow 1.5s ease-in-out infinite alternate; }
-    @keyframes rank-glow-red { from { text-shadow: 0 0 4px #ff4444, 0 0 8px rgba(255,68,68,0.6); } to { text-shadow: 0 0 8px #ff6666, 0 0 16px rgba(255,68,68,0.8); } }
-    @keyframes rank-glow-orange { from { text-shadow: 0 0 4px #ff8800, 0 0 8px rgba(255,136,0,0.6); } to { text-shadow: 0 0 8px #ffaa44, 0 0 16px rgba(255,136,0,0.8); } }
-    @keyframes rank-glow-yellow { from { text-shadow: 0 0 4px #ffcc00, 0 0 8px rgba(255,204,0,0.6); } to { text-shadow: 0 0 8px #ffdd44, 0 0 16px rgba(255,204,0,0.8); } }
-    .rank-pager { display: flex; justify-content: center; gap: 4px; margin-top: 12px; flex-wrap: wrap; }
-    .rank-pager-btn {
-      padding: 4px 10px; background: #2d3748; border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 4px; color: #a0aec0; cursor: pointer; font-size: 12px;
-    }
-    .rank-pager-btn:hover { background: #4a5568; }
-    .rank-pager-btn.active { background: #ecc94b; color: #1a202c; }
-    .rank-pager-info { color: #718096; font-size: 12px; text-align: center; margin-top: 4px; }
-    .rank-empty { text-align: center; color: #a0aec0; padding: 40px 20px; font-size: 14px; }
-    .rank-main { display: flex; gap: 16px; align-items: flex-start; }
-    .rank-list-wrap { flex: 1; min-width: 0; }
-    .rank-desc {
-      width: 220px; flex-shrink: 0;
-      background: #1a202c; border-radius: 8px; padding: 12px;
-      border: 1px solid rgba(255,255,255,0.1); font-size: 12px; line-height: 1.6;
-      color: #a0aec0;
-    }
-    .rank-desc h4 { margin: 0 0 8px; color: #ecc94b; font-size: 13px; }
-    .rank-desc p { margin: 0 0 6px; }
-    .rank-title-tag { margin-left: 4px; }
-  </style>`,
+  style: '',
 
   async load() {
     this.currentPage = 1;

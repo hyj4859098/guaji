@@ -1,8 +1,9 @@
 # 上传部署：本地构建后打包上传到服务器
 # 适合：有本地修改但不想 push 时使用
-# 服务器: 120.26.0.177
+# 服务器: 使用 DEPLOY_SERVER 环境变量（见 .env.deploy.example）
 $ErrorActionPreference = "Stop"
-$SERVER = "root@120.26.0.177"
+if (-not $env:DEPLOY_SERVER) { $env:DEPLOY_SERVER = "root@120.26.0.177" }
+$SERVER = $env:DEPLOY_SERVER
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
@@ -35,11 +36,11 @@ if (-not (Test-Path server-deploy.tar.gz)) { Write-Host "FAILED: tar"; exit 1 }
 Write-Host "上传中（需输入服务器密码）..."
 scp server-deploy.tar.gz "${SERVER}:/opt/guaji/"
 Write-Host "服务器端：备份、解压、启动（需再次输入密码）..."
-$deployScript = Get-Content "$PSScriptRoot\deploy-remote.sh" -Raw -Encoding UTF8
+$deployScript = (Get-Content "$PSScriptRoot\deploy-remote.sh" -Raw -Encoding UTF8) -replace "`r`n", "`n" -replace "`r", "`n"
 $deployScript | ssh $SERVER "bash -s"
 Remove-Item server-deploy.tar.gz -ErrorAction SilentlyContinue
 
 Write-Host ""
 Write-Host "[4/4] 完成！" -ForegroundColor Green
-Write-Host "访问: http://120.26.0.177:3000" -ForegroundColor Yellow
-Read-Host "按回车退出"
+$hostPart = if ($SERVER -match '@(.+)$') { $Matches[1] } else { $SERVER }; Write-Host "访问: http://${hostPart}:3000" -ForegroundColor Yellow
+Read-Host "Press Enter to exit"

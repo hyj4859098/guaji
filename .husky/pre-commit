@@ -1,0 +1,4 @@
+#!/bin/sh
+# pre-commit: 快速反馈（lint + forbidden patterns + unit tests）
+cd text-rpg-game/server && npm run lint && npm run lint:forbidden && npx jest --selectProjects unit --forceExit
+cd .. && npm run lint:client

@@ -5,9 +5,26 @@ const WS = {
   reconnectTimer: null,
   reconnectBackoff: 0,
   _heartbeatTimer: null,
+  _clientConfig: null,
+  _serverReady: false,
   RECONNECT_BASE_MS: 3000,
   RECONNECT_MAX_MS: 30000,
   CLIENT_HEARTBEAT_MS: 25000,
+
+  async _getWsUrl() {
+    if (this._clientConfig?.wsUrl) return this._clientConfig.wsUrl;
+    try {
+      const base = `${location.protocol}//${location.host}/api`;
+      const res = await fetch(`${base}/config/client`);
+      const json = await res.json();
+      if (json?.code === 0 && json?.data?.wsUrl) {
+        this._clientConfig = json.data;
+        return json.data.wsUrl;
+      }
+    } catch (e) { /* 降级到本地推断 */ }
+    const wsPort = location.port === '3000' ? '3001' : (location.port || '3001');
+    return `ws://${location.hostname}:${wsPort}`;
+  },
 
   isConnected() {
     return this.ws && this.ws.readyState === WebSocket.OPEN;
@@ -23,16 +40,18 @@ const WS = {
     }, delay);
   },
 
-  connect() {
-    const token = localStorage.getItem('token');
+  async connect() {
+    const token = State.token || localStorage.getItem('token');
     if (!token) return;
-    const wsHost = location.hostname;
-    const wsPort = location.port === '3000' ? '3001' : (location.port || '3001');
-    const url = `ws://${wsHost}:${wsPort}?token=${token}`;
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
     if (this._connecting) return;
     this._connecting = true;
-    // 创建新连接前清理旧连接，避免僵尸引用和重复回调
+    this._serverReady = false;
+
+    const baseUrl = await this._getWsUrl();
+    const sep = baseUrl.includes('?') ? '&' : '?';
+    const url = `${baseUrl}${sep}token=${token}`;
+
     if (this.ws) {
       this.ws.onopen = null;
       this.ws.onclose = null;
@@ -52,16 +71,22 @@ const WS = {
       }
       if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
       this._heartbeatTimer = setInterval(() => this.send({ type: 'heartbeat' }), this.CLIENT_HEARTBEAT_MS);
+      this.send({ type: 'heartbeat' });
       console.log('WebSocket connected');
     };
 
     this.ws.onmessage = (event) => {
       try {
-        const message = JSON.parse(event.data);
-        const { type, data } = message;
+        const raw = event?.data;
+        if (raw == null || typeof raw !== 'string') return;
+        const message = JSON.parse(raw);
+        const { type, data } = message || {};
 
         if (type === 'heartbeat') {
-          this.send({ type: 'heartbeat' });
+          if (!this._serverReady) {
+            this._serverReady = true;
+            console.log('WebSocket server ready');
+          }
           return;
         }
 
@@ -78,33 +103,35 @@ const WS = {
 
     this.ws.onclose = () => {
       this._connecting = false;
+      this._serverReady = false;
       if (this._heartbeatTimer) {
         clearInterval(this._heartbeatTimer);
         this._heartbeatTimer = null;
       }
       console.log('WebSocket disconnected');
-      if (localStorage.getItem('token')) this.scheduleReconnect();
+      if (State.token) this.scheduleReconnect();
     };
 
     this.ws.onerror = (error) => {
       this._connecting = false;
+      this._serverReady = false;
       if (this._heartbeatTimer) {
         clearInterval(this._heartbeatTimer);
         this._heartbeatTimer = null;
       }
       console.error('WS Error:', error);
-      if (localStorage.getItem('token')) this.scheduleReconnect();
+      if (State.token) this.scheduleReconnect();
     };
   },
 
-  ensureConnected(maxWaitMs = 3000) {
-    if (this.isConnected()) return Promise.resolve(true);
-    if (!localStorage.getItem('token')) return Promise.resolve(false);
-    this.connect();
+  ensureConnected(maxWaitMs = 5000) {
+    if (this._serverReady) return Promise.resolve(true);
+    if (!State.token) return Promise.resolve(false);
+    if (!this._connecting && !this.isConnected()) this.connect();
     return new Promise((resolve) => {
       const start = Date.now();
       const check = () => {
-        if (this.isConnected()) return resolve(true);
+        if (this._serverReady) return resolve(true);
         if (Date.now() - start > maxWaitMs) return resolve(false);
         setTimeout(check, 100);
       };

@@ -46,11 +46,11 @@ export class PlayerSkillModel implements IBaseModel<PlayerSkill> {
         doc = await dataStorageService.getByCondition('player_skill', { uid: altUid, skill_id: skillId }, ctx);
       }
     }
-    return doc;
+    return doc as PlayerSkill | null;
   }
 
   async listByUid(uid: Uid, ctx?: any): Promise<PlayerSkill[]> {
-    let list = await dataStorageService.list('player_skill', { uid }, ctx);
+    let list: PlayerSkill[] = await dataStorageService.list('player_skill', { uid }, ctx);
     // 兼容 uid 存成字符串或数字不一致的情况
     if (list.length === 0 && uid != null) {
       if (typeof uid === 'number') {
@@ -59,7 +59,7 @@ export class PlayerSkillModel implements IBaseModel<PlayerSkill> {
         list = await dataStorageService.list('player_skill', { uid: Number(uid) }, ctx);
       }
     }
-    return list;
+    return list as PlayerSkill[];
   }
 
   async listEquippedByUid(uid: Uid, type: number, ctx?: any): Promise<PlayerSkill[]> {
@@ -78,10 +78,10 @@ export class PlayerSkillModel implements IBaseModel<PlayerSkill> {
     // 只返回类型匹配且能查到技能详情的记录，避免返回无 name 的占位导致前端显示 undefined
     return playerSkills
       .map(ps => {
-        const skill = skills.find(s => s.id === ps.skill_id);
+        const skill = (skills as PlayerSkill[]).find(s => s.id === ps.skill_id);
         return skill ? { ...ps, ...skill } : null;
       })
-      .filter(Boolean);
+      .filter((x): x is PlayerSkill => x !== null);
   }
 
   async insert(data: any, ctx?: any): Promise<Id> {

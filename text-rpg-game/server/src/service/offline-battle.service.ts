@@ -14,12 +14,15 @@ import { BagService } from './bag.service';
 import { EquipInstanceService } from './equip_instance.service';
 import { LevelExpService } from './level_exp.service';
 import { dataStorageService } from './data-storage.service';
+import { isEquipment, getHpRestore, getMpRestore } from '../utils/item-type';
 import { logger } from '../utils/logger';
 import { Uid } from '../types/index';
 import { AutoBattleConfig, isVipActive, BoostConfig, getDefaultBoostConfig } from '../types/player';
 import { BoostService } from './boost.service';
 import { WealthTitleService } from './wealth-title.service';
 import { LevelTitleService } from './level-title.service';
+import { applyBattleBonuses } from '../utils/combat-bonus';
+import { writeDropToDb } from '../utils/drop-handler';
 
 interface PotionInfo {
   count: number;
@@ -99,12 +102,14 @@ export class OfflineBattleService {
     const allItems = await dataStorageService.list('item', undefined);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
 
+    const buffed = applyBattleBonuses(player);
+
     const state: SimState = {
-      hp: player.hp, mp: player.mp,
-      max_hp: player.max_hp, max_mp: player.max_mp,
-      level: player.level, exp: player.exp,
-      phy_atk: player.phy_atk, mag_atk: player.mag_atk,
-      phy_def: player.phy_def, mag_def: player.mag_def,
+      hp: buffed.hp, mp: buffed.mp,
+      max_hp: buffed.max_hp, max_mp: buffed.max_mp,
+      level: buffed.level, exp: buffed.exp,
+      phy_atk: buffed.phy_atk, mag_atk: buffed.mag_atk,
+      phy_def: buffed.phy_def, mag_def: buffed.mag_def,
       hit_rate: player.hit_rate, dodge_rate: player.dodge_rate,
       crit_rate: player.crit_rate,
       gold: player.gold, reputation: player.reputation || 0,
@@ -119,8 +124,9 @@ export class OfflineBattleService {
     };
 
     for (const bag of bags) {
-      const hpR = bag.hp_restore || 0;
-      const mpR = bag.mp_restore || 0;
+      const itemDef = itemMap.get(bag.item_id);
+      const hpR = getHpRestore(itemDef);
+      const mpR = getMpRestore(itemDef);
       if ((hpR > 0 || mpR > 0) && !bag.equipment_uid) {
         const existing = state.potions.get(bag.item_id);
         const cnt = bag.count || 1;
@@ -277,7 +283,8 @@ export class OfflineBattleService {
       const qty = Math.max(1, Number(d.quantity) || 1) * dropTimes;
       if (!itemId) continue;
       const itemInfo = itemMap.get(itemId);
-      const isEquip = itemInfo?.type === 2;
+      if (!itemInfo) continue; // 物品不存在或已删除，跳过
+      const isEquip = isEquipment(itemInfo);
 
       const existing = state.pendingDrops.get(itemId);
       if (existing && !isEquip) {
@@ -318,22 +325,8 @@ export class OfflineBattleService {
 
     for (const [key, drop] of state.pendingDrops) {
       const itemId = drop.isEquip ? Math.floor(key / 100000) : key;
-      if (drop.isEquip) {
-        for (let i = 0; i < drop.count; i++) {
-          const canAdd = await this.bagService.canAddEquipment(uid);
-          if (!canAdd) continue;
-          const eqId = await this.equipInstanceService.createFromDrop(uid, itemId);
-          if (eqId) {
-            try {
-              await this.bagService.addEquipInstanceToBag(uid, itemId, String(eqId));
-            } catch {
-              await this.equipInstanceService.deleteInstance(eqId);
-            }
-          }
-        }
-      } else {
-        await this.bagService.addItem(uid, itemId, drop.count);
-      }
+      const itemInfo = drop.isEquip ? { type: 2 } : { type: 1 };
+      await writeDropToDb(uid, itemId, drop.count, itemInfo, this.bagService, this.equipInstanceService);
     }
 
     for (const [itemId, potion] of state.potions) {

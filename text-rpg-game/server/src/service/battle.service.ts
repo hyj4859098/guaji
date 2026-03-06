@@ -14,12 +14,12 @@ import { OfflineBattleService } from './offline-battle.service';
 import { Uid } from '../types/index';
 import { AutoBattleConfig, isVipActive } from '../types/player';
 import { BoostService } from './boost.service';
-import { WealthTitleService } from './wealth-title.service';
-import { LevelTitleService } from './level-title.service';
 import { BattleResultEnum } from '../types/enum';
 import { wsManager } from '../event/ws-manager';
 import { logger } from '../utils/logger';
-import { dataStorageService } from './data-storage.service';
+import { applyBattleBonuses } from '../utils/combat-bonus';
+import { createAutoHealHandler, processDropList, settleBattleRewards } from '../utils/battle-shared';
+import { toUidKey } from '../utils/uid-key';
 import { runBattle } from '../battle/runner';
 
 interface BattleResult {
@@ -37,10 +37,6 @@ const MAX_ROUNDS_PER_BATTLE = 100;
 
 const battleState = new Map<string, { running: boolean; stopRequested: boolean }>();
 
-function toKey(uid: Uid): string {
-  return String(uid);
-}
-
 export class BattleService {
   private playerService = new PlayerService();
   private monsterService = new MonsterService();
@@ -48,14 +44,12 @@ export class BattleService {
   private equipInstanceService = new EquipInstanceService();
   private bagService = new BagService();
   private offlineBattleService = new OfflineBattleService();
-  private wealthTitleService = new WealthTitleService();
-  private levelTitleService = new LevelTitleService();
   private _eventSeq = 0;
 
   // ==================== 单场战斗（不变） ====================
 
   async startBattle(uid: Uid, enemyId: number, autoHeal?: any): Promise<BattleResult> {
-    const key = toKey(uid);
+    const key = toUidKey(uid);
     if (battleState.get(key)?.running) {
       return this.createLoseResult();
     }
@@ -83,7 +77,7 @@ export class BattleService {
   // ==================== 自动战斗（后台持久循环） ====================
 
   async startAutoBattle(uid: Uid, enemyId: number, autoHeal?: any): Promise<boolean> {
-    const key = toKey(uid);
+    const key = toUidKey(uid);
     if (battleState.get(key)?.running) return false;
 
     await this.saveAutoBattleConfig(uid, enemyId, autoHeal);
@@ -97,9 +91,12 @@ export class BattleService {
   }
 
   private async _autoBattleLoop(uid: Uid, enemyId: number, autoHeal?: any): Promise<void> {
-    const key = toKey(uid);
+    const key = toUidKey(uid);
 
     try {
+      // 短暂延迟，给「自动战斗中再次 start」等 API 调用留出检测窗口（无 WS 的集成测试场景）
+      await this.delay(150);
+
       while (true) {
         if (battleState.get(key)?.stopRequested) {
           await this.clearAutoBattleConfig(uid);
@@ -182,14 +179,14 @@ export class BattleService {
   // ==================== 停止 & 状态 ====================
 
   async stopBattle(uid: Uid): Promise<boolean> {
-    const s = battleState.get(toKey(uid));
+    const s = battleState.get(toUidKey(uid));
     if (!s?.running) return false;
     s.stopRequested = true;
     return true;
   }
 
   async getBattleStatus(uid: Uid): Promise<{ isFighting: boolean; state: string; config?: any }> {
-    const s = battleState.get(toKey(uid));
+    const s = battleState.get(toUidKey(uid));
     if (s?.running) {
       return { isFighting: true, state: 'battle' };
     }
@@ -208,7 +205,7 @@ export class BattleService {
   // ==================== 单场战斗逻辑（在线版，有 WS 推送） ====================
 
   private async runOneBattle(uid: Uid, enemyId: number, autoHeal?: any): Promise<BattleResult> {
-    const key = toKey(uid);
+    const key = toUidKey(uid);
     const players = await this.playerService.list(uid);
     if (!players.length) return this.createLoseResult();
     let player = players[0];
@@ -216,15 +213,7 @@ export class BattleService {
     const monster = await this.monsterService.get(enemyId);
     if (!monster) return this.createLoseResult();
 
-    const phyDefPct = (player as any).phy_def_pct || 0;
-    const magDefPct = (player as any).mag_def_pct || 0;
-    const maxHpPct = (player as any).max_hp_pct || 0;
-    if (phyDefPct) player = { ...player, phy_def: Math.floor((player.phy_def || 0) * (1 + phyDefPct / 100)) };
-    if (magDefPct) player = { ...player, mag_def: Math.floor((player.mag_def || 0) * (1 + magDefPct / 100)) };
-    if (maxHpPct) {
-      const hpBonus = Math.floor((player.max_hp || player.hp) * maxHpPct / 100);
-      player = { ...player, hp: player.hp + hpBonus, max_hp: (player.max_hp || player.hp) + hpBonus };
-    }
+    player = applyBattleBonuses(player);
 
     const monsterCopy = { ...monster, max_hp: monster.hp };
     const maxHp = player.max_hp || player.hp;
@@ -237,39 +226,12 @@ export class BattleService {
       pushBatch: (events) => this.pushBatch(uid, events),
       shouldStop: () => !!battleState.get(key)?.stopRequested,
       delayMs: 1000,
-      beforeEachRound: autoHeal ? async (attacker) => {
-        const roundEvents: Array<{ event: string; message: string; [k: string]: any }> = [];
-        const hpPct = maxHp > 0 ? (attacker.hp / maxHp) * 100 : 100;
-        const mpPct = maxMp > 0 ? ((attacker.mp ?? 0) / maxMp) * 100 : 100;
-        let curPlayer = attacker;
-        let curHp = attacker.hp;
-        if (autoHeal.hp_enabled && autoHeal.hp_potion_bag_id && hpPct < (autoHeal.hp_threshold || 50)) {
-          try {
-            await this.bagService.useItem(uid, autoHeal.hp_potion_bag_id);
-            const pList = await this.playerService.list(uid);
-            if (pList.length) {
-              curPlayer = pList[0];
-              curHp = curPlayer.hp;
-              roundEvents.push({ event: 'auto_heal', message: `自动使用补血药水，HP: ${curHp}/${maxHp}`, player_hp: curHp, player_max_hp: maxHp, player_mp: curPlayer.mp, player_max_mp: maxMp });
-            }
-          } catch { logger.warn('自动补血失败', { uid }); }
-        }
-        if (autoHeal.mp_enabled && autoHeal.mp_potion_bag_id && mpPct < (autoHeal.mp_threshold || 50)) {
-          try {
-            await this.bagService.useItem(uid, autoHeal.mp_potion_bag_id);
-            const pList = await this.playerService.list(uid);
-            if (pList.length) {
-              curPlayer = pList[0];
-              curHp = curPlayer.hp;
-              roundEvents.push({ event: 'auto_heal', message: `自动使用补蓝药水，MP: ${curPlayer.mp}/${maxMp}`, player_hp: curHp, player_max_hp: maxHp, player_mp: curPlayer.mp, player_max_mp: maxMp });
-            }
-          } catch { logger.warn('自动补蓝失败', { uid }); }
-        }
-        return { attacker: curPlayer, attackerHp: curHp, roundEvents };
-      } : undefined,
+      beforeEachRound: autoHeal
+        ? createAutoHealHandler(uid, autoHeal, { bagService: this.bagService, playerService: this.playerService })
+        : undefined,
       getAttackerSkills: () => this.skillService.getEquippedSkills(uid),
       consumeAttackerMp: async (attacker, amount) => {
-        await this.playerService.update(attacker.id, { mp: (attacker.mp ?? 0) - amount });
+        await this.playerService.update(player.id, { mp: (attacker.mp ?? 0) - amount });
       },
     });
 
@@ -301,99 +263,21 @@ export class BattleService {
 
   // ==================== 结算 ====================
 
-  private async settle(uid: Uid, result: BattleResult): Promise<void> {
-    const boostService = new BoostService();
-    const boostConfig = await boostService.getBoostConfig(uid);
-    const mult = BoostService.calcMultipliers(boostConfig);
-
-    const players = await this.playerService.list(uid);
-    const vipMult = (players.length && isVipActive(players[0])) ? 2 : 1;
-
-    let finalExp = result.exp * mult.exp * vipMult;
-    let finalGold = result.gold * mult.gold * vipMult;
-    const [wealthBonus, expBonus] = await Promise.all([
-      this.wealthTitleService.getGoldBonus(uid),
-      this.levelTitleService.getExpBonus(uid),
-    ]);
-    finalExp = Math.floor(finalExp * expBonus);
-    finalGold = Math.floor(finalGold * wealthBonus);
-    const finalReputation = result.reputation * mult.reputation * vipMult;
-
-    try {
-      await this.playerService.addExp(uid, finalExp);
-      await this.playerService.addGold(uid, finalGold);
-      await this.playerService.addReputation(uid, finalReputation);
-      await boostService.consumeCharges(uid);
-    } catch { logger.warn('结算失败', { uid }); }
-
-    this.pushEvent(uid, 'battle_reward', '战斗奖励结算', {
-      exp: finalExp, gold: finalGold,
-      reputation: finalReputation, items: result.items || [],
-      boost: { exp: mult.exp * vipMult, gold: mult.gold * vipMult, drop: mult.drop * vipMult, reputation: mult.reputation * vipMult },
+  private settle(uid: Uid, result: BattleResult): Promise<void> {
+    return settleBattleRewards(uid, result, {
+      playerService: this.playerService,
+      bagService: this.bagService,
+      pushEvent: (u, ev, msg, data) => this.pushEvent(u, ev, msg, data),
     });
-
-    try {
-      const [players, bagPayload] = await Promise.all([
-        this.playerService.list(uid),
-        this.bagService.getListPayload(uid),
-      ]);
-      if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
-      wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-    } catch { logger.warn('推送 player/bag 失败', { uid }); }
   }
 
   // ==================== 掉落 ====================
 
-  private async processDrop(uid: Uid, monster: any, dropMultiplier: number = 1): Promise<any[]> {
-    let dropList = monster?.drops;
-    if (!dropList?.length) {
-      const monsterId = monster?.id;
-      if (!monsterId) return [];
-      dropList = await dataStorageService.list('monster_drop', { monster_id: Number(monsterId) });
-      const items = await dataStorageService.list('item', undefined);
-      const itemMap = new Map(items.map((i: any) => [i.id, i]));
-      dropList = dropList.map((d: any) => ({
-        item_id: d.item_id,
-        item_name: itemMap.get(d.item_id)?.name || `物品${d.item_id}`,
-        quantity: d.quantity ?? 1,
-        probability: d.probability ?? 0,
-      }));
-    }
-    const result: any[] = [];
-    for (const d of dropList) {
-      const baseProb = Number(d.probability ?? 0) || 0;
-      if (baseProb <= 0) continue;
-      const effectiveProb = baseProb * dropMultiplier;
-      let dropTimes = Math.floor(effectiveProb / 100);
-      const remainProb = effectiveProb % 100;
-      if (remainProb > 0 && Math.random() * 100 < remainProb) dropTimes++;
-      if (dropTimes <= 0) continue;
-      const itemId = Number(d.item_id);
-      const baseQty = Math.max(1, Number(d.quantity) || 1);
-      const qty = baseQty * dropTimes;
-      if (!itemId) continue;
-      const itemInfo = await dataStorageService.getByCondition('item', { id: itemId }, undefined);
-      const itemType = itemInfo?.type ?? 2;
-      if (itemType === 2) {
-        for (let i = 0; i < qty; i++) {
-          const canAdd = await this.bagService.canAddEquipment(uid);
-          if (!canAdd) continue;
-          const equipId = await this.equipInstanceService.createFromDrop(uid, itemId);
-          if (equipId) {
-            try {
-              await this.bagService.addEquipInstanceToBag(uid, itemId, String(equipId));
-              result.push({ item_id: itemId, name: itemInfo?.name || `物品${itemId}`, count: 1, equipment_uid: String(equipId) });
-            } catch {
-              await this.equipInstanceService.deleteInstance(equipId);
-            }
-          }
-        }
-      } else {
-        await this.bagService.addItem(uid, itemId, qty);
-        result.push({ item_id: itemId, name: itemInfo?.name || `物品${itemId}`, count: qty });
-      }
-    }
-    return result;
+  private processDrop(uid: Uid, monster: any, dropMultiplier: number = 1): Promise<any[]> {
+    return processDropList(uid, monster, dropMultiplier, {
+      bagService: this.bagService,
+      equipInstanceService: this.equipInstanceService,
+    });
   }
 
   // ==================== 持久化配置 ====================

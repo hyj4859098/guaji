@@ -1,21 +1,19 @@
 import { Router, Response, NextFunction } from 'express';
 import { BattleService } from '../service/battle.service';
 import { auth, AuthRequest } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { BattleResultEnum } from '../types/enum';
 import { success, fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
+import { battleStartBody, battleAutoBody } from './schemas';
 
 const router = Router();
 const battleService = new BattleService();
 
-router.post('/start', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/start', auth, validate(battleStartBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { enemy_id, auto_heal } = req.body;
-    if (!enemy_id) {
-      logger.warn(`开始战斗失败 - uid: ${req.uid}, 缺少敌人ID`);
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少敌人ID');
-    }
 
     logger.info(`开始战斗 - uid: ${req.uid}, 敌人ID: ${enemy_id}`);
     const battleResult = await battleService.startBattle(req.uid!, enemy_id, auto_heal);
@@ -33,13 +31,9 @@ router.post('/start', auth, async (req: AuthRequest, res: Response, next: NextFu
   }
 });
 
-router.post('/auto', auth, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/auto', auth, validate(battleAutoBody), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { enemy_id, auto_heal } = req.body;
-    if (!enemy_id) {
-      logger.warn(`自动战斗失败 - uid: ${req.uid}, 缺少敌人ID`);
-      return fail(res, ErrorCode.INVALID_PARAMS, '缺少敌人ID');
-    }
 
     logger.info(`自动战斗 - uid: ${req.uid}, 敌人ID: ${enemy_id}`);
     const started = await battleService.startAutoBattle(req.uid!, enemy_id, auto_heal);

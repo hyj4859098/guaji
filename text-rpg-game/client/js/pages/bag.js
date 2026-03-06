@@ -23,37 +23,6 @@ const BagPage = {
     if (!backpack) return;
 
     backpack.innerHTML = `
-      <style>
-        .bag-item {
-          position: relative; margin: 3px 0; padding: 6px 10px;
-          background: rgba(0, 0, 0, 0.7); border-radius: 6px;
-          display: flex; align-items: center; transition: all 0.3s ease;
-        }
-        .bag-item:hover { background: rgba(20, 20, 40, 0.8); }
-        .bag-item-icon {
-          width: 34px; height: 34px;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          border-radius: 5px; display: flex; align-items: center; justify-content: center;
-          font-size: 14px; font-weight: bold; color: white; margin-right: 10px; cursor: pointer;
-        }
-        .bag-item-info { flex: 1; line-height: 1.3; }
-        .bag-item-name { font-size: 13px; font-weight: bold; color: #fff; }
-        .bag-item-meta { font-size: 11px; color: #48bb78; }
-        .bag-item-actions { display: flex; gap: 6px; }
-        .bag-item-btn {
-          padding: 5px 12px; border: none; border-radius: 4px;
-          cursor: pointer; font-size: 12px; transition: all 0.3s ease;
-        }
-        .bag-item-btn.use { background: #4CAF50; color: white; }
-        .bag-item-btn.wear { background: #2196F3; color: white; }
-        .bag-item-btn.list { background: #ed8936; color: white; }
-        .bag-item-btn.drop { background: #f44336; color: white; }
-        .bag-page-info { color: #718096; font-size: 12px; text-align: center; margin-top: 4px; }
-        .bag-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-        .bag-header-left { display: flex; align-items: center; gap: 12px; }
-        .bag-capacity { font-size: 12px; color: #a0aec0; }
-        .bag-page-title { margin: 0 10px 0 0; font-size: 18px; color: #3b82f6; }
-      </style>
       <div class="bag-header">
         <div class="bag-header-left">
           <h2 class="bag-page-title">背包</h2>

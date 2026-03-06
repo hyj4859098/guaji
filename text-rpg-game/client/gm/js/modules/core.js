@@ -50,6 +50,13 @@ export function hideFormModal() {
   document.getElementById('gm-modal-box')?.classList.add('hidden');
 }
 
+/** HTML 特殊字符转义，防止 XSS */
+export function escapeHtml(str) {
+  if (typeof str !== 'string' && str != null) str = String(str);
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch);
+}
+
 /**
  * 验证 Token，成功返回 true，失败则跳转登录页
  */

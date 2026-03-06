@@ -1,0 +1,121 @@
+body:has(.trade-lobby), body:has(.trade-container) { background: var(--bg-battle); }
+#app:has(.trade-lobby), #app:has(.trade-container) { background: var(--bg-battle); padding: 10px 15px; }
+.trade-container { max-width: 960px; margin: 0 auto; color: var(--text-primary); }
+.trade-container h2 { text-align: center; color: var(--accent-blue); margin-bottom: 12px; font-size: var(--font-xl); }
+.trade-hint { text-align: center; color: var(--text-muted); font-size: var(--font-sm); margin-bottom: 12px; }
+
+.player-cards { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+.player-card {
+  background: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-md);
+  padding: 16px; width: 160px; text-align: center;
+}
+.player-card .avatar {
+  width: 44px; height: 44px; border-radius: 50%; background: var(--bg-card); margin: 0 auto 8px;
+  display: flex; align-items: center; justify-content: center; font-size: var(--font-xl); font-weight: bold;
+}
+.player-card .name { font-weight: bold; margin-bottom: 3px; font-size: var(--font-base); }
+.player-card .level { font-size: var(--font-sm); color: var(--text-secondary); margin-bottom: 8px; }
+.player-card .invite-btn {
+  background: var(--accent-blue); color: var(--text-white); border: none; padding: 5px 14px;
+  border-radius: var(--radius-sm); cursor: pointer; font-size: var(--font-sm);
+}
+.player-card .invite-btn:hover { background: var(--accent-blue-hover); }
+.empty-lobby { text-align: center; color: var(--text-muted); padding: 30px; font-size: var(--font-base); }
+
+.invite-popup {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: var(--bg-secondary); border: 2px solid var(--accent-blue); border-radius: var(--radius-lg);
+  padding: 20px; z-index: 100; text-align: center; min-width: 260px; color: var(--text-primary);
+}
+.invite-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-overlay); z-index: 99; }
+.invite-popup .btn { padding: 7px 18px; border: none; border-radius: var(--radius-sm); cursor: pointer; margin: 0 6px; font-size: var(--font-md); }
+.invite-popup .btn-accept { background: var(--accent-green); color: var(--text-white); }
+.invite-popup .btn-reject { background: var(--accent-red); color: var(--text-white); }
+
+.trade-panel { display: flex; gap: 12px; }
+.trade-side {
+  flex: 1; background: var(--bg-secondary); border-radius: var(--radius-md); padding: 12px;
+  border: 1px solid var(--border-light); display: flex; flex-direction: column;
+}
+.trade-side h3 { margin: 0 0 8px 0; font-size: var(--font-base); color: var(--accent-blue); display: flex; align-items: center; gap: 8px; }
+.trade-side.partner h3 { color: var(--accent-orange); }
+
+.t-tabs { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.t-tab {
+  padding: 3px 10px; background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: 12px; color: var(--text-secondary); cursor: pointer; font-size: var(--font-xs);
+}
+.t-tab.active { background: var(--accent-blue); color: var(--text-white); border-color: var(--accent-blue); }
+
+.t-item-list { flex: 1; overflow-y: auto; min-height: 80px; max-height: 220px; }
+.t-item {
+  display: flex; align-items: center; padding: 5px 8px; background: var(--bg-card);
+  border-radius: 5px; margin-bottom: 3px; font-size: var(--font-sm); gap: 8px;
+}
+.t-item:hover { background: var(--bg-hover); }
+.t-item-icon {
+  width: 30px; height: 30px; border-radius: 5px; display: flex; align-items: center;
+  justify-content: center; font-size: var(--font-md); font-weight: bold; color: var(--text-white); flex-shrink: 0;
+  background: var(--accent-purple-gradient);
+  cursor: pointer;
+}
+.t-item-name { flex: 1; color: var(--text-primary); font-size: var(--font-sm); }
+.t-item-count { color: var(--accent-blue-light); font-size: var(--font-xs); margin-right: 4px; }
+.t-item .add-btn {
+  background: var(--accent-green); color: var(--text-white); border: none; padding: 2px 8px;
+  border-radius: 3px; cursor: pointer; font-size: var(--font-xs);
+}
+.t-item .remove-btn {
+  background: var(--accent-red); color: var(--text-white); border: none; padding: 2px 8px;
+  border-radius: 3px; cursor: pointer; font-size: var(--font-xs);
+}
+.t-empty { color: var(--text-muted); text-align: center; padding: 12px; font-size: var(--font-sm); }
+
+.t-pager { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+.t-pager-btn {
+  padding: 2px 8px; background: var(--bg-card); border: 1px solid var(--border-light);
+  border-radius: 3px; color: var(--text-secondary); cursor: pointer; font-size: var(--font-xs);
+}
+.t-pager-btn.active { background: var(--accent-blue); color: var(--text-white); }
+
+.gold-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+.gold-row label { font-size: var(--font-md); }
+.gold-row input {
+  width: 100px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm); color: var(--text-primary); font-size: var(--font-md);
+}
+.gold-row .gold-display { font-size: var(--font-base); color: var(--accent-yellow); font-weight: bold; }
+
+.status-tag { display: inline-block; padding: 2px 8px; border-radius: var(--radius-sm); font-size: var(--font-xs); }
+.status-tag.waiting { background: var(--bg-card); color: var(--text-secondary); }
+.status-tag.confirmed { background: var(--accent-green-dark); color: var(--accent-green-light); }
+
+.trade-actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.trade-actions .btn {
+  padding: 8px 20px; border: none; border-radius: 6px; font-size: var(--font-md);
+  font-weight: bold; cursor: pointer;
+}
+.trade-actions .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-confirm-items { background: var(--accent-blue); color: var(--text-white); }
+.btn-confirm-trade { background: var(--accent-green); color: var(--text-white); }
+.btn-cancel { background: var(--accent-red); color: var(--text-white); }
+
+.qty-popup {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: var(--bg-secondary); border: 2px solid var(--accent-blue); border-radius: var(--radius-lg);
+  padding: 20px; z-index: 100; text-align: center; min-width: 260px; color: var(--text-primary);
+}
+.qty-popup .qty-title { font-size: var(--font-base); margin-bottom: 10px; }
+.qty-popup .qty-input {
+  width: 100px; padding: 6px; background: var(--bg-card); border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm); color: var(--text-primary); font-size: 15px; text-align: center; margin-bottom: 4px;
+}
+.qty-popup .qty-hint { font-size: var(--font-xs); color: var(--text-muted); margin-bottom: 10px; }
+.qty-popup .qty-btns { display: flex; justify-content: center; gap: 8px; }
+.qty-popup .qty-btns .btn { padding: 6px 16px; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: var(--font-md); }
+.qty-popup .btn-ok { background: var(--accent-green); color: var(--text-white); }
+.qty-popup .btn-no { background: var(--text-muted); color: var(--text-white); }
+.qty-popup .btn-all { background: var(--accent-blue); color: var(--text-white); }
+
+.trade-bag-section { margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 8px; }
+.trade-bag-section h4 { margin: 0 0 6px; font-size: var(--font-sm); color: var(--text-secondary); }

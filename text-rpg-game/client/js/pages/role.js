@@ -1,68 +1,6 @@
-// 角色信息页面样式
-const style = document.createElement('style');
-style.textContent = `
-  .role-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  
-  .role-header h2 {
-    font-size: 20px;
-    font-weight: bold;
-    color: #4a90e2;
-  }
-  
-  .role-level {
-    background: linear-gradient(135deg, #4a90e2, #50e3c2);
-    color: white;
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 14px;
-    font-weight: bold;
-  }
-  
-  .stats-list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  
-  .stat-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
-    background: none;
-    border-radius: 0;
-    backdrop-filter: none;
-    border: none;
-    transition: all 0.3s ease;
-  }
-  
-  .stat-item:hover {
-    background: none;
-    border-color: transparent;
-  }
-  
-  .stat-item span:first-child {
-    font-size: 14px;
-    color: #ccc;
-  }
-  
-  .stat-item span:last-child {
-    font-size: 14px;
-    font-weight: bold;
-    color: #fff;
-  }
-`;
-document.head.appendChild(style);
-
 const RolePage = {
   levelExp: 0,
+  isMaxLevel: false,
 
   async load() {
     await EquipPage.load();
@@ -117,7 +55,7 @@ const RolePage = {
         </div>
         <div class="stat-item">
           <span>经验</span>
-          <span>${State.player?.exp || 0} / ${this.levelExp || 100}</span>
+          <span>${this.isMaxLevel ? (State.player?.exp || 0) + '（已满级）' : (State.player?.exp || 0) + ' / ' + (this.levelExp || 100)}</span>
         </div>
         <div class="stat-item">
           <span>金币</span>
@@ -145,8 +83,10 @@ const RolePage = {
       const levelExpResult = await API.get('/level_exp/get', { level: player.level });
       if (levelExpResult.code === 0 && levelExpResult.data) {
         this.levelExp = levelExpResult.data.exp;
+        this.isMaxLevel = !!levelExpResult.data.is_max_level;
       } else {
-        this.levelExp = 100;
+        this.levelExp = 0;
+        this.isMaxLevel = true;
       }
       
       this.render();

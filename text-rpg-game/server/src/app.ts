@@ -1,47 +1,28 @@
-import express from 'express';
+import './load-env';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import * as path from 'path';
-import { config } from './config';
-import { errorHandler } from './middleware/error';
-import { cors } from './middleware/cors';
-import { connect } from './config/db';
+import { config, validateConfig } from './config';
+import { connect, close } from './config/db';
 import { logger } from './utils/logger';
 import { wsManager } from './event/ws-manager';
 import { wealthTitleService } from './service/wealth-title.service';
 import { levelTitleService } from './service/level-title.service';
 import { PlayerService } from './service/player.service';
-import playerRouter from './api/player';
-import userRouter from './api/user';
-import equipRouter from './api/equip';
-import bagRouter from './api/bag';
-import monsterRouter from './api/monster';
-import itemRouter from './api/item';
-import levelExpRouter from './api/level_exp';
-import mapRouter from './api/map';
-import battleRouter from './api/battle';
-import boostRouter from './api/boost';
-import skillRouter from './api/skill';
-import shopRouter from './api/shop';
-import auctionRouter from './api/auction';
-import bossRouter from './api/boss';
-import rankRouter from './api/rank';
-import pvpRouter from './api/pvp';
-import configRouter from './api/config';
 import { setOnMapSubscribeChange, setSendToUser } from './event/boss-subscription';
 import { pvpService } from './service/pvp.service';
 import { tradeService } from './service/trade.service';
+import jwt from 'jsonwebtoken';
+import { createApp } from './create-app';
 
-const app = express();
+const app = createApp();
 
 // 注入回调，打破 ws-manager 与 trade/boss-subscription 的循环依赖
 wsManager.registerDisconnectHandler((uid) => tradeService.handleDisconnect(uid));
 wsManager.registerMessageHandler('trade', (uid, data) => tradeService.handleMessage(uid, data));
 setSendToUser(wsManager.sendToUser.bind(wsManager));
-// 生产环境在 Nginx 后，需信任代理以正确获取 X-Forwarded-For
-app.set('trust proxy', 1);
+
 const server = createServer(app);
-const wss = new WebSocketServer({ port: config.ws_port });
 
 // 设置日志目录
 const logDir = path.join(__dirname, '../logs');
@@ -50,17 +31,15 @@ logger.setLogDir(logDir);
 // 全局异常捕获，崩溃时记录日志便于排查
 process.on('uncaughtException', (err) => {
   logger.error('未捕获异常导致服务器退出', { error: err?.message, stack: err?.stack });
-  console.error('Uncaught Exception:', err);
   process.exit(1);
 });
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason) => {
   logger.error('未处理的 Promise 拒绝导致服务器退出', { reason: String(reason) });
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });
 
-// 处理WebSocket连接
-wss.on('connection', (ws: WebSocket, req) => {
+function setupWebSocket(wss: WebSocketServer) {
+  wss.on('connection', (ws: WebSocket, req) => {
   // 从URL参数中获取token
   const urlParams = new URLSearchParams(req.url?.split('?')[1] || '');
   const token = urlParams.get('token');
@@ -69,8 +48,7 @@ wss.on('connection', (ws: WebSocket, req) => {
   if (token) {
       try {
         // 验证token
-        const jwt = require('jsonwebtoken');
-        const decoded = jwt.verify(token, config.jwt_secret) as { uid: number | string };
+        const decoded = jwt.verify(token, config.jwt_secret, { algorithms: ['HS256'] }) as { uid: number | string };
         uid = decoded.uid;
         
         // 添加连接到管理器
@@ -106,86 +84,57 @@ wss.on('connection', (ws: WebSocket, req) => {
       logger.error('WebSocket connection without token');
       ws.close();
     }
-  
-});
-
-
-
-
-
-app.use(cors);
-app.use(express.json());
-
-// 静态文件服务
-// 主游戏前端
-app.use('/', express.static(path.join(__dirname, '../../client')));
-// GM 工具前端
-app.use('/gm', express.static(path.join(__dirname, '../../client/gm')));
-
-app.use('/api/player', playerRouter);
-app.use('/api/user', userRouter);
-app.use('/api/equip', equipRouter);
-app.use('/api/bag', bagRouter);
-app.use('/api/monster', monsterRouter);
-app.use('/api/item', itemRouter);
-app.use('/api/level_exp', levelExpRouter);
-app.use('/api/map', mapRouter);
-app.use('/api/battle', battleRouter);
-app.use('/api/boost', boostRouter);
-app.use('/api/skill', skillRouter);
-app.use('/api/shop', shopRouter);
-app.use('/api/auction', auctionRouter);
-app.use('/api/boss', bossRouter);
-app.use('/api/rank', rankRouter);
-app.use('/api/pvp', pvpRouter);
-app.use('/api/config', configRouter);
+  });
+}
 
 setOnMapSubscribeChange((mapId) => pvpService.notifyMapPlayersChanged(mapId));
 
-// 管理接口路由配置
-const adminRouter = require('./api/admin/index').default;
-
-// 其他管理接口（需要认证）
-app.use('/api/admin', adminRouter);
-
-// 错误处理中间件
-app.use(errorHandler);
-
-app.use((req, res) => {
-  res.header('Content-Type', 'application/json');
-  errorHandler(new Error('Not Found'), req, res, () => {});
-});
-
-
-
-// 启动服务器
 async function startServer() {
   try {
-    // 连接MongoDB
+    validateConfig();
     await connect();
+
+    const wss = new WebSocketServer({ port: config.ws_port });
+    wssRef = wss;
+    setupWebSocket(wss);
     
-    console.log('Starting server...');
-    console.log('Config:', {
+    logger.info('Starting server...', {
       port: config.port,
       ws_port: config.ws_port,
-      mongodb: {
-        url: config.mongodb.url,
-        database: config.mongodb.database
-      }
+      mongodb_db: config.mongodb.database,
     });
 
-    // 启动服务器
     server.listen(config.port, () => {
-      console.log(`HTTP Server running on port ${config.port}`);
-      console.log(`WebSocket Server running on port ${config.ws_port}`);
       logger.info(`HTTP Server running on port ${config.port}`);
       logger.info(`WebSocket Server running on port ${config.ws_port}`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    logger.error('Failed to start server', { error: error instanceof Error ? error.message : String(error) });
     process.exit(1);
   }
 }
+
+// Graceful shutdown
+let wssRef: WebSocketServer | null = null;
+function gracefulShutdown(signal: string) {
+  logger.info(`Received ${signal}, shutting down gracefully...`);
+  wsManager.stopHeartbeat();
+  if (wssRef) {
+    wssRef.clients.forEach((ws) => ws.close());
+    wssRef.close();
+  }
+  server.close(async () => {
+    try { await close(); } catch { /* ignore */ }
+    logger.info('Server shut down complete');
+    process.exit(0);
+  });
+  setTimeout(() => {
+    logger.warn('Forceful shutdown after timeout');
+    process.exit(1);
+  }, 10_000).unref();
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // 启动服务器
 startServer();

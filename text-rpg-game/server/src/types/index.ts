@@ -36,7 +36,7 @@ export interface IBaseService<T extends IBase> {
 export interface IBaseModel<T extends IBase> {
   get(id: Id): Promise<T | null>;
   listByUid?(uid: Uid): Promise<T[]>;
-  insert(data: any): Promise<Id>;
+  insert(data: Partial<Omit<T, 'id' | 'create_time' | 'update_time'>> & Record<string, unknown>): Promise<Id>;
   update(id: Id, data: Partial<T>): Promise<boolean>;
   delete(id: Id): Promise<boolean>;
 }

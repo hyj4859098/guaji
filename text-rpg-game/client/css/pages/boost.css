@@ -1,0 +1,128 @@
+/* Boost page styles - body/#app overrides only when boost page is active */
+body:has(.boost-container) {
+  background: var(--bg-battle);
+}
+#app:has(.boost-container) {
+  background: var(--bg-battle);
+  min-height: calc(100vh - 140px);
+  padding: 20px;
+}
+.boost-container {
+  max-width: 700px;
+  margin: 0 auto;
+  color: var(--text-primary);
+}
+.boost-container h2 {
+  text-align: center;
+  color: var(--accent-blue);
+  margin-bottom: 24px;
+  font-size: 22px;
+}
+
+.vip-panel {
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-light);
+}
+.vip-panel h3 {
+  margin: 0 0 12px 0;
+  color: var(--accent-yellow);
+  font-size: var(--font-xl);
+}
+.vip-status {
+  font-size: var(--font-lg);
+  margin-bottom: 8px;
+}
+.vip-active {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+.vip-expired {
+  color: #fc8181;
+  font-weight: bold;
+}
+.vip-benefits {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+  margin-top: 10px;
+  line-height: 1.8;
+  padding: 10px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+}
+.vip-benefits span {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+
+.boost-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-light);
+}
+.boost-table th,
+.boost-table td {
+  padding: 12px 16px;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.boost-table th {
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: var(--font-base);
+  font-weight: bold;
+}
+.boost-table td {
+  font-size: var(--font-base);
+}
+.boost-table tr:hover {
+  background: rgba(66, 153, 225, 0.06);
+}
+.cat-label {
+  text-align: left !important;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+.boost-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.boost-cell input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--accent-green);
+}
+.boost-charges {
+  font-size: var(--font-md);
+  color: var(--text-secondary);
+}
+.boost-charges.active {
+  color: var(--accent-green);
+  font-weight: bold;
+}
+.mult-value {
+  font-size: 16px;
+  font-weight: bold;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+.mult-value.boosted {
+  background: var(--accent-green-dark);
+  color: var(--accent-green-light);
+}
+.boost-hint {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--font-md);
+  margin-top: 16px;
+  line-height: 1.8;
+}

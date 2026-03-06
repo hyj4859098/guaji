@@ -3,10 +3,7 @@
  * Boss 复活时只推送给已订阅的玩家
  */
 import { Uid } from '../types/index';
-
-function toKey(uid: Uid): string {
-  return String(uid);
-}
+import { toUidKey } from '../utils/uid-key';
 
 // map_id -> Set<uid>
 const mapSubscribers = new Map<number, Set<string>>();
@@ -26,7 +23,7 @@ export function setSendToUser(fn: SendToUserFn): void {
 }
 
 export function subscribeBoss(uid: Uid, mapId: number): void {
-  const key = toKey(uid);
+  const key = toUidKey(uid);
   let set = mapSubscribers.get(mapId);
   if (!set) {
     set = new Set();
@@ -37,7 +34,7 @@ export function subscribeBoss(uid: Uid, mapId: number): void {
 }
 
 export function unsubscribeBoss(uid: Uid): void {
-  const key = toKey(uid);
+  const key = toUidKey(uid);
   const affectedMaps: number[] = [];
   mapSubscribers.forEach((set, mapId) => {
     if (set.has(key)) affectedMaps.push(mapId);

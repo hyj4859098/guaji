@@ -9,6 +9,8 @@ import { Player } from '../types/player';
 import { IBaseService, Id, Uid } from '../types/index';
 import { LevelExpService } from './level_exp.service';
 import { cacheService } from './cache.service';
+import { dataStorageService } from './data-storage.service';
+import { logger } from '../utils/logger';
 
 export class PlayerService implements IBaseService<Player> {
   private model: PlayerModel;
@@ -89,8 +91,40 @@ export class PlayerService implements IBaseService<Player> {
    * @returns 是否删除成功
    */
   async delete(id: Id): Promise<boolean> {
-    // 直接从数据库删除
-    return await this.model.delete(id);
+    const player = await this.model.get(id);
+    if (!player) return false;
+    const uid = player.uid;
+
+    const ok = await this.model.delete(id);
+    if (!ok) return false;
+
+    cacheService.player.invalidateByPlayerId(id);
+
+    try {
+      const equipInstances = await dataStorageService.list('bag', { uid });
+      const instanceIds = equipInstances
+        .filter((b: any) => b.equipment_uid)
+        .map((b: any) => Number(b.equipment_uid))
+        .filter((n: number) => !isNaN(n));
+
+      await dataStorageService.deleteMany('bag', { uid });
+      await dataStorageService.deleteMany('user_equip', { uid });
+      await dataStorageService.deleteMany('player_skill', { uid });
+      await dataStorageService.deleteMany('auction', { seller_uid: uid });
+
+      for (const instId of instanceIds) {
+        await dataStorageService.delete('equip_instance', instId).catch(e => {
+          logger.warn('删除装备实例失败', { instId, error: e instanceof Error ? e.message : String(e) });
+        });
+      }
+
+      await dataStorageService.deleteMany('boost_config', { uid });
+      logger.info('玩家关联数据已清理', { id, uid, bags: equipInstances.length, equipInstances: instanceIds.length });
+    } catch (e) {
+      logger.error('玩家关联数据清理异常（玩家已删除）', { id, uid, error: e instanceof Error ? e.message : String(e) });
+    }
+
+    return true;
   }
 
   /**

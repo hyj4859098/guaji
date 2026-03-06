@@ -1,0 +1,149 @@
+# CI：push/PR 时自动跑 Lint + 测试 + E2E，确保每次提交质量
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            text-rpg-game/server/package-lock.json
+            text-rpg-game/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: text-rpg-game/server
+        run: npm ci
+
+      - name: Install client dependencies
+        working-directory: text-rpg-game
+        run: npm ci
+
+      - name: 依赖安全扫描 (npm audit)
+        working-directory: text-rpg-game/server
+        run: npm audit --audit-level=high --omit=dev || true
+
+      - name: ESLint
+        working-directory: text-rpg-game/server
+        run: npm run lint
+
+      - name: 数据通道规范检查
+        working-directory: text-rpg-game/server
+        run: npm run lint:channel
+
+      - name: 禁止模式检查 (forbidden patterns)
+        working-directory: text-rpg-game/server
+        run: npm run lint:forbidden
+
+      - name: 重复代码检查 (jscpd)
+        working-directory: text-rpg-game/server
+        run: npm run lint:dup
+
+      - name: 依赖循环检查 (depcruise)
+        working-directory: text-rpg-game/server
+        run: npm run lint:dep
+
+      - name: 前端 ESLint
+        working-directory: text-rpg-game
+        run: npm run lint:client
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      mongodb:
+        image: mongo:6
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping:1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            text-rpg-game/server/package-lock.json
+            text-rpg-game/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: text-rpg-game/server
+        run: npm ci
+
+      - name: Install client dependencies
+        working-directory: text-rpg-game
+        run: npm ci
+
+      - name: Build
+        working-directory: text-rpg-game/server
+        run: npm run build
+
+      - name: Init MongoDB (测试库)
+        working-directory: text-rpg-game/server
+        run: node init-mongodb.js
+        env:
+          MONGODB_DATABASE: turn-based-game-test
+
+      - name: Seed E2E test data
+        working-directory: text-rpg-game/server
+        run: node seed-e2e.js
+        env:
+          MONGODB_DATABASE: turn-based-game-test
+
+      - name: Create test admin
+        working-directory: text-rpg-game/server
+        run: node ../scripts/create-test-admin.js
+        env:
+          MONGODB_DATABASE: turn-based-game-test
+
+      - name: Unit + Integration Tests (with coverage gate)
+        working-directory: text-rpg-game/server
+        run: npm run test:coverage
+
+      - name: Verify init-mongodb
+        working-directory: text-rpg-game/server
+        run: npm run test:verify-db
+
+      - name: Start server for E2E
+        working-directory: text-rpg-game/server
+        run: |
+          node dist/app.js &
+          echo "等待服务启动..."
+          for i in $(seq 1 20); do
+            if curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+              echo "服务已就绪"
+              break
+            fi
+            sleep 2
+          done
+        env:
+          MONGODB_DATABASE: turn-based-game-test
+
+      - name: Install Playwright browsers
+        working-directory: text-rpg-game
+        run: npx playwright install chromium --with-deps
+
+      - name: E2E Full Suite
+        working-directory: text-rpg-game
+        run: npx playwright test
+        env:
+          CI: true
+          BASE_URL: http://localhost:3000

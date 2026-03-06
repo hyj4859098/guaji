@@ -1,0 +1,109 @@
+[
+  {
+    "id": "no-raw-item-type",
+    "description": "禁止直接比较 item.type 数字，必须使用 item-type.ts 工具函数（后端）或 Helper（前端）",
+    "pattern": "\\.type\\s*[!=]==?\\s*[1-6]\\b",
+    "scan": [
+      "server/src/**/*.ts",
+      "client/js/**/*.js"
+    ],
+    "whitelist": [
+      "utils/item-type.ts",
+      "core/helper.js",
+      "init-mongodb.js",
+      "__tests__/",
+      "__test-utils__/",
+      "server/src/utils/item-type.test.ts",
+      "pages/skill.js"
+    ],
+    "suggestion": "后端使用 isEquipment() / getItemType() / isBoostCard()（from utils/item-type），前端使用 Helper.isEquipment() / Helper.getItemType()（注：skill.type 属于技能域，已白名单）"
+  },
+  {
+    "id": "no-raw-item-type-reverse",
+    "description": "禁止反向比较 数字 === item.type",
+    "pattern": "[1-6]\\s*[!=]==?\\s*\\S+\\.type\\b",
+    "scan": [
+      "server/src/**/*.ts",
+      "client/js/**/*.js"
+    ],
+    "whitelist": [
+      "utils/item-type.ts",
+      "core/helper.js",
+      "init-mongodb.js",
+      "__tests__/",
+      "__test-utils__/"
+    ],
+    "suggestion": "后端使用 isEquipment() / getItemType() / isBoostCard()（from utils/item-type），前端使用 Helper.isEquipment() / Helper.getItemType()"
+  },
+  {
+    "id": "no-raw-hp-restore-server",
+    "description": "后端禁止直接访问 .hp_restore / .mp_restore，必须使用 getHpRestore() / getMpRestore()",
+    "pattern": "\\.(hp_restore|mp_restore)\\b",
+    "scan": [
+      "server/src/**/*.ts"
+    ],
+    "whitelist": [
+      "utils/item-type.ts",
+      "api/admin/item.ts",
+      "service/item.service.ts",
+      "service/offline-battle.service.ts",
+      "__tests__/",
+      "__test-utils__/",
+      "server/src/utils/item-type.test.ts"
+    ],
+    "suggestion": "使用 getHpRestore(item) / getMpRestore(item)（from utils/item-type）。注：item.service.ts（admin 写入路径）和 offline-battle.service.ts（内部 PotionInfo 结构，已通过 getHpRestore 构建）已白名单"
+  },
+  {
+    "id": "no-raw-hp-restore-client",
+    "description": "前端禁止直接访问 .hp_restore / .mp_restore，必须使用 Helper.getHpRestore() / Helper.getMpRestore()",
+    "pattern": "\\.(hp_restore|mp_restore)\\b",
+    "scan": [
+      "client/js/**/*.js"
+    ],
+    "whitelist": [
+      "core/helper.js"
+    ],
+    "suggestion": "使用 Helper.getHpRestore(item) / Helper.getMpRestore(item)"
+  },
+  {
+    "id": "no-then-chain",
+    "description": "禁止使用 .then() 链，必须使用 async/await",
+    "pattern": "\\.then\\s*\\(",
+    "scan": [
+      "server/src/**/*.ts"
+    ],
+    "whitelist": [
+      "__tests__/",
+      "__test-utils__/"
+    ],
+    "suggestion": "使用 async/await 替代 .then() 链（代码规范要求）"
+  },
+  {
+    "id": "no-magic-error-code",
+    "description": "API 层禁止 fail(res, 数字, ...) 魔法数字，必须使用 ErrorCode 枚举",
+    "pattern": "fail\\(res,\\s*\\d+,",
+    "scan": [
+      "server/src/api/**/*.ts"
+    ],
+    "whitelist": [
+      "__tests__/",
+      "__test-utils__/"
+    ],
+    "suggestion": "使用 fail(res, ErrorCode.XXX, msg) 或直接 throw createError() + next(error) 走中间件"
+  },
+  {
+    "id": "no-require-in-service",
+    "description": "Service/Utils 中禁止 require()，必须使用 await import() 或顶层 import",
+    "pattern": "\\brequire\\s*\\(",
+    "scan": [
+      "server/src/service/**/*.ts",
+      "server/src/utils/**/*.ts"
+    ],
+    "whitelist": [
+      "__tests__/",
+      "__test-utils__/",
+      "server/src/utils/item-type.test.ts"
+    ],
+    "suggestion": "使用 const { Xxx } = await import('./xxx') 替代 require()，避免循环依赖且保持 TS 类型安全"
+  }
+]

@@ -1,5 +1,6 @@
 import { PlayerService } from './player.service';
 import { dataStorageService } from './data-storage.service';
+import { isBoostCard } from '../utils/item-type';
 import { logger } from '../utils/logger';
 import { Uid } from '../types/index';
 import {
@@ -28,7 +29,7 @@ export class BoostService {
 
   async useBoostCard(uid: Uid, itemId: number, count: number = 1): Promise<boolean> {
     const itemInfo = await dataStorageService.getByCondition('item', { id: itemId });
-    if (!itemInfo || itemInfo.type !== 5) return false;
+    if (!itemInfo || !isBoostCard(itemInfo)) return false;
 
     const category = itemInfo.boost_category as BoostCategoryKey;
     const mult = itemInfo.boost_multiplier as number;

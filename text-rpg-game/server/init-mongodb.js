@@ -2,8 +2,15 @@
  * 数据库初始化：创建集合 + 插入功能性道具
  * 所有功能性道具 ID 从 config 读取，无硬编码。修改 config 表即可调整 ID。
  * 装备、药水、技能书、怪物、地图、等级经验、商店等由 GM 工具创建。
+ *
+ * 支持环境变量：MONGODB_URI、MONGODB_DATABASE
+ * - 测试/E2E 使用 turn-based-game-test，需设置 MONGODB_DATABASE=turn-based-game-test
+ * - 正式环境默认 turn-based-game
  */
 const { MongoClient } = require('mongodb');
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017';
+const MONGODB_DATABASE = process.env.MONGODB_DATABASE || 'turn-based-game';
 
 const DEFAULT_FUNCTIONAL_ITEMS = {
   enhance_materials: { stone: 6, lucky: 8, anti_explode: 7, blessing_oil: 10 },
@@ -14,13 +21,13 @@ const DEFAULT_FUNCTIONAL_ITEMS = {
 };
 
 async function initMongoDB() {
-  const client = new MongoClient('mongodb://localhost:27017');
+  const client = new MongoClient(MONGODB_URI);
 
   try {
     await client.connect();
     console.log('MongoDB connected successfully');
 
-    const db = client.db('turn-based-game');
+    const db = client.db(MONGODB_DATABASE);
 
     const collections = [
       'user',
@@ -54,6 +61,40 @@ async function initMongoDB() {
         console.log(`Created collection: ${name}`);
       }
     }
+
+    // 创建索引（幂等操作，已有则跳过）
+    const indexDefs = [
+      { coll: 'user', indexes: [{ key: { username: 1 }, unique: true }] },
+      { coll: 'player', indexes: [{ key: { uid: 1 } }, { key: { level: -1 } }, { key: { gold: -1 } }] },
+      { coll: 'bag', indexes: [{ key: { uid: 1 } }, { key: { uid: 1, item_id: 1 } }] },
+      { coll: 'equip_instance', indexes: [{ key: { uid: 1 } }, { key: { id: 1 }, unique: true }] },
+      { coll: 'user_equip', indexes: [{ key: { uid: 1 } }] },
+      { coll: 'player_skill', indexes: [{ key: { uid: 1 } }, { key: { uid: 1, skill_id: 1 } }] },
+      { coll: 'item', indexes: [{ key: { id: 1 }, unique: true }] },
+      { coll: 'equip_base', indexes: [{ key: { item_id: 1 } }] },
+      { coll: 'item_effect', indexes: [{ key: { item_id: 1 } }] },
+      { coll: 'skill', indexes: [{ key: { id: 1 }, unique: true }, { key: { book_id: 1 } }] },
+      { coll: 'monster', indexes: [{ key: { map_id: 1 } }] },
+      { coll: 'boss', indexes: [{ key: { id: 1 }, unique: true }] },
+      { coll: 'boss_state', indexes: [{ key: { boss_id: 1 }, unique: true }] },
+      { coll: 'shop', indexes: [{ key: { shop_type: 1, enabled: 1 } }] },
+      { coll: 'auction', indexes: [{ key: { seller_uid: 1 } }, { key: { create_time: -1 } }] },
+      { coll: 'auction_record', indexes: [{ key: { uid: 1 } }, { key: { uid: 1, create_time: -1 } }] },
+      { coll: 'config', indexes: [{ key: { name: 1 }, unique: true }] },
+      { coll: 'level_exp', indexes: [{ key: { level: 1 }, unique: true }] },
+      { coll: 'counter', indexes: [{ key: { name: 1 }, unique: true }] },
+    ];
+    for (const { coll, indexes } of indexDefs) {
+      for (const idx of indexes) {
+        try {
+          await db.collection(coll).createIndex(idx.key, { unique: idx.unique || false, background: true });
+        } catch (e) {
+          // 索引已存在或冲突时不阻断
+          console.warn(`Index warning on ${coll}:`, e.message);
+        }
+      }
+    }
+    console.log('Database indexes ensured.');
 
     const equipExists = await db.listCollections({ name: 'equip' }).hasNext();
     if (equipExists) {
@@ -93,6 +134,41 @@ async function initMongoDB() {
 
     const em = funcCfg.enhance_materials || DEFAULT_FUNCTIONAL_ITEMS.enhance_materials;
     await upsertConfig(configColl, counterColl, 'enhance_materials', em, now);
+
+    // 0. 测试用装备（供集成测试）
+    const TEST_WEAPON_ID = 13;
+    const testWeapon = { id: TEST_WEAPON_ID, name: '测试木剑', type: 2, pos: 1, description: '测试用武器' };
+    const exWeapon = await itemColl.findOne({ id: TEST_WEAPON_ID });
+    if (!exWeapon) {
+      await itemColl.insertOne({ ...testWeapon, create_time: now, update_time: now });
+      const ebColl = db.collection('equip_base');
+      const exEb = await ebColl.findOne({ item_id: TEST_WEAPON_ID });
+      if (!exEb) {
+        const ebId = await nextId(counterColl, 'equip_base');
+        await ebColl.insertOne({ id: ebId, item_id: TEST_WEAPON_ID, pos: 1, base_level: 1, base_phy_atk: 10, base_phy_def: 0, base_mag_atk: 0, base_mag_def: 0, base_hp: 0, base_mp: 0, base_hit_rate: 90, base_dodge_rate: 0, base_crit_rate: 10, create_time: now, update_time: now });
+      }
+      console.log('Inserted test weapon (id=13)');
+    }
+
+    // 0b. 消耗品（测试与游戏基础）
+    const CONSUMABLES = [
+      { id: 1, name: '小血瓶', type: 1, hp_restore: 50, mp_restore: 0, description: '恢复50点生命' },
+      { id: 2, name: '小蓝瓶', type: 1, hp_restore: 0, mp_restore: 30, description: '恢复30点魔法' }
+    ];
+    for (const it of CONSUMABLES) {
+      const ex = await itemColl.findOne({ id: it.id });
+      if (!ex) {
+        await itemColl.insertOne({ ...it, create_time: now, update_time: now });
+        console.log(`Inserted consumable: ${it.name} (id=${it.id})`);
+      } else {
+        await itemColl.updateOne({ id: it.id }, { $set: { ...it, update_time: now } });
+      }
+      if (!(await effectColl.findOne({ item_id: it.id }))) {
+        const effId = await nextId(counterColl, 'item_effect');
+        await effectColl.insertOne({ id: effId, item_id: it.id, effect_type: 'restore', create_time: now, update_time: now });
+        console.log(`Inserted item_effect: restore for ${it.name}`);
+      }
+    }
 
     // 1. 强化材料
     const MATERIAL_ITEMS = [
@@ -208,6 +284,7 @@ async function initMongoDB() {
 
     // 更新 item counter，确保 GM 不填 ID 时自增不会与功能性道具冲突
     const maxItemId = Math.max(
+      1, 2, 13, // 消耗品、测试武器
       em.stone, em.anti_explode, em.lucky, em.blessing_oil,
       expandBagId, vipId,
       ...(boostIds || []),
@@ -220,7 +297,8 @@ async function initMongoDB() {
     );
     console.log(`Updated item counter: seq >= ${maxItemId}`);
 
-    console.log('MongoDB initialization completed.');
+    console.log('MongoDB initialization completed (production data only).');
+    console.log('For E2E/test seed data, run: node seed-e2e.js');
   } catch (error) {
     console.error('Error initializing MongoDB:', error);
   } finally {

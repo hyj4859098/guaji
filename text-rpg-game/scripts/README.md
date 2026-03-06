@@ -2,15 +2,17 @@
 
 ## 完整测试体系（发布前必跑）
 
+所有测试使用**独立测试库** `turn-based-game-test`，不污染正式库。
+
 | 命令 | 说明 | 前置条件 |
 |------|------|----------|
 | `cd server && npm run test` | 单元测试（Jest） | 无 |
-| `cd server && npm run test:verify-db` | 验证 init-mongodb 结果 | MongoDB 已启动 |
-| `cd server && npm run test:api` | GM + 玩家 API 集成测试 | MongoDB + 服务器已启动 |
+| `cd server && npm run test:verify-db` | 验证 init-mongodb 结果 | MongoDB 已启动，且已对测试库执行 init-mongodb |
+| `cd server && npm run test:api` | GM + 玩家 API 集成测试 | MongoDB + 服务器已启动（可用 `npm run dev:test` 连接测试库） |
 | `cd server && npm run test:ws` | WebSocket 连接与消息测试 | MongoDB + 服务器已启动 |
-| `cd server && npm run test:full` | **全量测试**（单元+DB+GM+玩家+WS） | MongoDB + 服务器已启动 |
+| `cd server && npm run test:full` | **全量测试**（单元+init+验证+db层+API+WS） | 仅需 MongoDB 已启动，会自动初始化测试库并启动服务器 |
 
-**一键全量测试**（服务器已启动时）：
+**一键全量测试**（自动初始化测试库、启动测试服务器）：
 ```bash
 cd text-rpg-game/server
 npm run test:full
@@ -21,7 +23,7 @@ npm run test:full
 node scripts/test-all.js --skip-api
 ```
 
-详细测试方案见 `docs/测试方案.md`。
+详细测试规范见 `docs/测试规范.md`。
 
 ---
 
@@ -74,13 +76,14 @@ node scripts/test-player-apis.js
 
 ### verify-init-mongodb.js
 
-验证 init-mongodb 初始化结果（集合、配置、功能性道具）。
+验证 init-mongodb 初始化结果（集合、配置、功能性道具）。默认使用测试库 `turn-based-game-test`。
 
-**前置条件**：MongoDB 已启动，且已执行过 `node server/init-mongodb.js`。
+**前置条件**：MongoDB 已启动，且已对目标库执行过 `MONGODB_DATABASE=xxx node server/init-mongodb.js`。
 
 **用法**：
 ```bash
 node scripts/verify-init-mongodb.js
+# 或指定库：MONGODB_DATABASE=turn-based-game node scripts/verify-init-mongodb.js
 ```
 
 ---

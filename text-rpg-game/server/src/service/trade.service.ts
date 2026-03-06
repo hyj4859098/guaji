@@ -8,6 +8,7 @@
  * - 交易执行（服务端校验 + 物品/金币转移）
  */
 import { Uid } from '../types/index';
+import { isEquipment } from '../utils/item-type';
 import { PlayerService } from './player.service';
 import { BagService } from './bag.service';
 import { EquipInstanceService } from './equip_instance.service';
@@ -15,6 +16,8 @@ import { BattleService } from './battle.service';
 import { dataStorageService } from './data-storage.service';
 import { wsManager } from '../event/ws-manager';
 import { logger } from '../utils/logger';
+import { createError, ErrorCode } from '../utils/error';
+import { tryWithTransaction } from '../config/db';
 
 interface PlayerInfo {
   uid: string;
@@ -73,6 +76,33 @@ class TradeService {
   private battleService = new BattleService();
 
   private inviteTimeout = 30000;
+  private sessionTimeout = 10 * 60_000; // 10 min auto-cancel stale sessions
+  private cleanupTimer: ReturnType<typeof setInterval>;
+
+  constructor() {
+    this.cleanupTimer = setInterval(() => this.cleanupStale(), 60_000);
+    if (this.cleanupTimer.unref) this.cleanupTimer.unref();
+  }
+
+  private cleanupStale(): void {
+    const now = Date.now();
+    // 清理过期邀请
+    for (const [toUid, inv] of this.pendingInvites) {
+      if (now - inv.timestamp > this.inviteTimeout * 2) {
+        this.pendingInvites.delete(toUid);
+      }
+    }
+    // 清理长时间未完成的交易会话
+    for (const [sid, session] of this.sessions) {
+      const ts = parseInt(sid.split('_')[1] || '0', 10);
+      if (ts > 0 && now - ts > this.sessionTimeout && session.state === 'selecting') {
+        session.state = 'cancelled';
+        this.sendTrade(session.player1.uid, 'trade_cancelled', { reason: '交易超时自动取消' });
+        this.sendTrade(session.player2.uid, 'trade_cancelled', { reason: '交易超时自动取消' });
+        this.cleanupSession(sid);
+      }
+    }
+  }
 
   async handleMessage(uid: Uid, data: any): Promise<void> {
     const action = data?.action;
@@ -147,13 +177,14 @@ class TradeService {
 
     this.sendTrade(toUid, 'invite_received', { from_uid: fromUid, from_name: fromInfo.name });
 
-    setTimeout(() => {
+    const t = setTimeout(() => {
       const inv = this.pendingInvites.get(toUid);
       if (inv && inv.from_uid === fromUid) {
         this.pendingInvites.delete(toUid);
         this.sendTrade(fromUid, 'invite_result', { accepted: false, target_name: this.lobbyPlayers.get(toUid)?.name || '', reason: '邀请超时' });
       }
     }, this.inviteTimeout);
+    (t as NodeJS.Timeout).unref();
   }
 
   async respondInvite(toUid: string, fromUid: string, accepted: boolean): Promise<void> {
@@ -275,29 +306,31 @@ class TradeService {
         this.playerService.list(p1Uid),
         this.playerService.list(p2Uid),
       ]);
-      if (!p1List.length || !p2List.length) throw new Error('玩家数据不存在');
+      if (!p1List.length || !p2List.length) throw createError(ErrorCode.TRADE_PARTNER_UNAVAILABLE, '玩家数据不存在');
       const p1 = p1List[0];
       const p2 = p2List[0];
 
-      if (offer1.gold > 0 && p1.gold < offer1.gold) throw new Error(`${p1.name} 金币不足`);
-      if (offer2.gold > 0 && p2.gold < offer2.gold) throw new Error(`${p2.name} 金币不足`);
+      if (offer1.gold > 0 && p1.gold < offer1.gold) throw createError(ErrorCode.TRADE_INSUFFICIENT_FUNDS, `${p1.name} 金币不足`);
+      if (offer2.gold > 0 && p2.gold < offer2.gold) throw createError(ErrorCode.TRADE_INSUFFICIENT_FUNDS, `${p2.name} 金币不足`);
 
       const p1Bags = await this.bagService.list(p1Uid);
       const p2Bags = await this.bagService.list(p2Uid);
       this.validateItems(offer1.items, p1Bags, p1.name);
       this.validateItems(offer2.items, p2Bags, p2.name);
 
-      await this.transferItems(p1Uid, p2Uid, offer1.items);
-      await this.transferItems(p2Uid, p1Uid, offer2.items);
+      await tryWithTransaction(async (session) => {
+        await this.transferItems(p1Uid, p2Uid, offer1.items);
+        await this.transferItems(p2Uid, p1Uid, offer2.items);
 
-      if (offer1.gold > 0) {
-        await this.playerService.addGold(p1Uid, -offer1.gold);
-        await this.playerService.addGold(p2Uid, offer1.gold);
-      }
-      if (offer2.gold > 0) {
-        await this.playerService.addGold(p2Uid, -offer2.gold);
-        await this.playerService.addGold(p1Uid, offer2.gold);
-      }
+        if (offer1.gold > 0) {
+          await this.playerService.addGold(p1Uid, -offer1.gold, session);
+          await this.playerService.addGold(p2Uid, offer1.gold, session);
+        }
+        if (offer2.gold > 0) {
+          await this.playerService.addGold(p2Uid, -offer2.gold, session);
+          await this.playerService.addGold(p1Uid, offer2.gold, session);
+        }
+      });
 
       session.state = 'completed';
 
@@ -325,37 +358,36 @@ class TradeService {
       const bag = bags.find((b: any) => String(b.original_id || b.id) === String(ti.bag_id));
       if (!bag) {
         logger.warn('交易校验失败：物品不存在', { playerName, bag_id: ti.bag_id, item_name: ti.name, bagIds: bags.map((b: any) => b.original_id || b.id).slice(0, 20) });
-        throw new Error(`${playerName} 的物品 ${ti.name} 不存在`);
+        throw createError(ErrorCode.TRADE_ITEM_MISSING, `${playerName} 的物品 ${ti.name} 不存在`);
       }
-      if ((bag.count || 1) < ti.count) throw new Error(`${playerName} 的物品 ${ti.name} 数量不足`);
+      if ((bag.count || 1) < ti.count) throw createError(ErrorCode.TRADE_ITEM_MISSING, `${playerName} 的物品 ${ti.name} 数量不足`);
     }
   }
 
   private async transferItems(fromUid: Uid, toUid: Uid, items: TradeItem[]): Promise<void> {
     for (const ti of items) {
       const itemInfo = await dataStorageService.getByCondition('item', { id: ti.item_id });
-      const isEquip = itemInfo?.type === 2;
+      const isEquip = isEquipment(itemInfo);
 
       if (isEquip && ti.equipment_uid) {
         const canAdd = await this.bagService.canAddEquipment(toUid);
         if (!canAdd) {
-          throw new Error('对方背包装备已满，无法完成交易');
+          throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '对方背包装备已满，无法完成交易');
         }
         const instanceId = parseInt(ti.equipment_uid, 10);
         if (!isNaN(instanceId)) {
           await this.equipInstanceService.tradeToUser(fromUid, toUid, instanceId);
-        }
-      } else {
-        const rawBags = await dataStorageService.list('bag', { uid: toDbUid(String(fromUid)), item_id: ti.item_id });
-        const bagRecord = rawBags.find((b: any) => !b.equipment_uid);
-        if (bagRecord) {
-          const newCount = (bagRecord.count || 0) - ti.count;
-          if (newCount <= 0) {
-            await dataStorageService.delete('bag', bagRecord.id);
-          } else {
-            await dataStorageService.update('bag', bagRecord.id, { count: newCount });
+
+          // 数据不变式：交易后装备实例归属必须变更为接收方
+          const verify = await this.equipInstanceService.get(instanceId);
+          if (!verify) {
+            logger.error('DATA_INTEGRITY: 交易后装备实例消失', { fromUid, toUid, instanceId, item_id: ti.item_id });
+          } else if (String(verify.uid) !== String(toUid)) {
+            logger.error('DATA_INTEGRITY: 交易后装备实例归属未变更', { fromUid, toUid, instanceId, actualUid: verify.uid });
           }
         }
+      } else {
+        await this.bagService.reduceBagItemCount(ti.bag_id, ti.count);
         await this.bagService.addItem(toUid, ti.item_id, ti.count);
       }
     }
@@ -369,7 +401,7 @@ class TradeService {
       ]);
       if (players.length) wsManager.sendToUser(uid, { type: 'player', data: players[0] });
       wsManager.sendToUser(uid, { type: 'bag', data: bagPayload });
-    } catch { /* ignore */ }
+    } catch (e) { logger.warn('交易后推送更新失败', { uid, error: e instanceof Error ? e.message : String(e) }); }
   }
 
   // ==================== 工具 ====================
