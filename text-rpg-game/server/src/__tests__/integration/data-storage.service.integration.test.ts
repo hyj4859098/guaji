@@ -18,12 +18,14 @@ describe('DataStorageService 集成测试', () => {
   it('updateByFilter 按条件更新', async () => {
     const id = await dataStorageService.insert(TEST_COL, { name: 'a', val: 1 });
     const before = await dataStorageService.getById(TEST_COL, id);
-    expect(before.val).toBe(1);
+    expect(before).not.toBeNull();
+    expect(before!.val).toBe(1);
 
     const ok = await dataStorageService.updateByFilter(TEST_COL, { id }, { val: 2 });
     expect(ok).toBe(true);
     const after = await dataStorageService.getById(TEST_COL, id);
-    expect(after.val).toBe(2);
+    expect(after).not.toBeNull();
+    expect(after!.val).toBe(2);
   });
 
   it('batchInsert 批量插入返回 ID 列表', async () => {
