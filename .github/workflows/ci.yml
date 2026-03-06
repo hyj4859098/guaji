@@ -118,6 +118,15 @@ jobs:
         working-directory: text-rpg-game/server
         run: npm run test:coverage
 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: text-rpg-game/server/coverage
+          flags: server
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
       - name: Verify init-mongodb
         working-directory: text-rpg-game/server
         run: npm run test:verify-db

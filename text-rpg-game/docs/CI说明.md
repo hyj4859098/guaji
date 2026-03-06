@@ -1,5 +1,15 @@
 # CI 说明
 
+## 0. 已接入的 GitHub 工具
+
+| 工具 | 用途 | 配置 |
+|------|------|------|
+| **Dependabot** | 依赖更新、安全漏洞 PR | `.github/dependabot.yml`，每周一检查 |
+| **CodeQL** | 代码安全扫描（SQL 注入、XSS 等） | `.github/workflows/codeql.yml` |
+| **Codecov** | 覆盖率报告 | CI 中自动上传，公开仓库免费；私有仓库需在 [codecov.io](https://codecov.io) 添加仓库并配置 `CODECOV_TOKEN` |
+
+---
+
 ## 一、当前 CI 覆盖范围
 
 | 阶段 | 检查项 | 说明 |
