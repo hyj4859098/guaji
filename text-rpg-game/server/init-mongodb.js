@@ -234,6 +234,15 @@ async function initMongoDB() {
     }
     console.log('Boost items initialized.');
 
+    // 3b. 等级经验（集成测试依赖，GM 可后续覆盖）
+    const levelExpColl = db.collection('level_exp');
+    if (!(await levelExpColl.findOne({ level: 1 }))) {
+      await levelExpColl.insertOne({ id: 1, level: 1, exp: 100, create_time: now, update_time: now });
+      await levelExpColl.insertOne({ id: 2, level: 2, exp: 200, create_time: now, update_time: now });
+      await counterColl.updateOne({ name: 'level_exp' }, { $max: { seq: 2 } }, { upsert: true });
+      console.log('Inserted level_exp: 1, 2');
+    }
+
     // 4. 永久属性果实
     const statIds = funcCfg.stat_fruit_ids || DEFAULT_FUNCTIONAL_ITEMS.stat_fruit_ids;
     const STAT_DEFS = [
