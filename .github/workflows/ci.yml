@@ -58,6 +58,10 @@ jobs:
         working-directory: text-rpg-game
         run: npm run lint:client
 
+      - name: 死代码检查 (knip)
+        working-directory: text-rpg-game/server
+        run: npm run lint:knip
+
   test:
     runs-on: ubuntu-latest
     needs: lint

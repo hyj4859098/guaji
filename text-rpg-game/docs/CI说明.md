@@ -7,6 +7,8 @@
 | **Dependabot** | 依赖更新、安全漏洞 PR | `.github/dependabot.yml`，每周一检查 |
 | **CodeQL** | 代码安全扫描（SQL 注入、XSS 等） | `.github/workflows/codeql.yml` |
 | **Codecov** | 覆盖率报告 | CI 中自动上传，公开仓库免费；私有仓库需在 [codecov.io](https://codecov.io) 添加仓库并配置 `CODECOV_TOKEN` |
+| **SonarCloud** | Bug、漏洞、坏味道、重复代码 | `.github/workflows/sonarcloud.yml`，需在 [sonarcloud.io](https://sonarcloud.io) 导入仓库并配置 `SONAR_TOKEN` |
+| **knip** | 死代码、未用依赖、未用导出 | `npm run lint:knip`，仅报告不阻断 CI |
 
 ---
 

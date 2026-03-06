@@ -1,0 +1,8 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["init-mongodb.js", "seed-e2e.js"],
+  "ignoreFiles": ["src/__test-utils__/**"],
+  "ignoreDependencies": ["axios"],
+  "ignoreExportsUsedInFile": { "interface": true, "type": true },
+  "exclude": ["enumMembers"]
+}
