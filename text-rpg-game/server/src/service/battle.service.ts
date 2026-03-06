@@ -216,8 +216,8 @@ export class BattleService {
     player = applyBattleBonuses(player);
 
     const monsterCopy = { ...monster, max_hp: monster.hp };
-    const maxHp = player.max_hp || player.hp;
-    const maxMp = player.max_mp || player.mp;
+    const _maxHp = player.max_hp || player.hp;
+    const _maxMp = player.max_mp || player.mp;
 
     const runResult = await runBattle(player, monsterCopy, {
       maxRounds: MAX_ROUNDS_PER_BATTLE,

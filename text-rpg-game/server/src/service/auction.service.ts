@@ -59,7 +59,7 @@ export class AuctionService {
 
     // 批量预加载所有相关 item 和 equip_base
     const auctionItemIds = [...new Set(allAuctions.map((a: any) => a.item_id))];
-    const [allItems, allEquipBases] = await Promise.all([
+    const [allItems, _allEquipBases] = await Promise.all([
       dataStorageService.getByIds('item', auctionItemIds),
       dataStorageService.getByIds('equip_base', []),
     ]);

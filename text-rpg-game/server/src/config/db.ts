@@ -32,13 +32,13 @@ export function getCollection<T extends Document>(name: string): Collection<T> {
   return getDB().collection<T>(name);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- MongoDB Filter types are complex; keeping permissive at DB boundary
+ 
 export async function query<T extends Document = Document>(collectionName: string, filter?: any, projection?: Record<string, unknown>, session?: ClientSession): Promise<T[]> {
   const collection = getCollection<T>(collectionName);
   return await collection.find(filter || {}, { projection, session }).toArray() as T[];
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export async function queryWithSort<T extends Document = Document>(
   collectionName: string,
   filter: any,
@@ -80,7 +80,7 @@ export async function insert(collectionName: string, data: Record<string, unknow
   return { insertId: id };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export async function update(collectionName: string, filter: any, updateData: Record<string, unknown>, session?: ClientSession): Promise<{ affectedRows: number }> {
   const collection = getCollection(collectionName);
   const opts = session ? { session } : {};
@@ -88,7 +88,7 @@ export async function update(collectionName: string, filter: any, updateData: Re
   return { affectedRows: result.modifiedCount };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export async function deleteOne(collectionName: string, filter: any, session?: ClientSession): Promise<{ affectedRows: number }> {
   const collection = getCollection(collectionName);
   const opts = session ? { session } : {};
@@ -96,7 +96,7 @@ export async function deleteOne(collectionName: string, filter: any, session?: C
   return { affectedRows: result.deletedCount };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export async function findOneAndUpdate<T extends Document = Document>(
   collectionName: string,
   filter: any,

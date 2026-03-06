@@ -23,8 +23,8 @@ describe('TradeService 集成测试', () => {
     uid2 = user2.uid;
   }, 10000);
 
-  const u1 = () => String(uid1);
-  const u2 = () => String(uid2);
+  const _u1 = () => String(uid1);
+  const _u2 = () => String(uid2);
 
   it('join 进入大厅', async () => {
     await tradeService.handleMessage(uid1, { action: 'join' });

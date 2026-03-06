@@ -112,7 +112,7 @@ export async function loadMonsterList() {
         tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
       });
     };
-  } catch (e) {
+  } catch {
     showToast('加载怪物列表失败', 'error');
   }
 }
@@ -139,7 +139,7 @@ export async function saveMonster() {
     const result = await res.json();
     if (result.code === 0) { showToast('怪物新增成功'); hideFormModal(); loadMonsterList(); }
     else showToast(result.msg || '新增失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export function cancelAddMonster() { hideFormModal(); }
@@ -153,7 +153,7 @@ export async function editMonster(id) {
     if (result.code !== 0) { showToast(result.msg || '获取失败', 'error'); return; }
     const monster = result.data;
     showFormModal('编辑怪物', `<input type="hidden" id="monster-id" value="${monster.id}">${buildFormHtml(monster)}`, updateMonster);
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export function cancelEditMonster() { hideFormModal(); }
@@ -172,7 +172,7 @@ export async function updateMonster() {
     const result = await res.json();
     if (result.code === 0) { showToast('怪物更新成功'); hideFormModal(); loadMonsterList(); }
     else showToast(result.msg || '更新失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteMonster(id) {
@@ -185,7 +185,7 @@ export async function deleteMonster(id) {
     const result = await res.json();
     if (result.code === 0) { showToast('怪物删除成功'); loadMonsterList(); }
     else showToast(result.msg || '删除失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export default {

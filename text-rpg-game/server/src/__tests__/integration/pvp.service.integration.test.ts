@@ -11,16 +11,16 @@ import { createTestUser } from '../../__test-utils__/integration-helpers';
 const app = createApp();
 
 describe('PvpService 集成测试', () => {
-  let token1: string;
+  let _token1: string;
   let uid1: number;
-  let token2: string;
+  let _token2: string;
   let uid2: number;
 
   beforeAll(async () => {
     const user1 = await createTestUser(app, { prefix: 'pvp', suffix: '1', charName: 'PVP测试1' });
     const user2 = await createTestUser(app, { prefix: 'pvp', suffix: '2', charName: 'PVP测试2' });
-    token1 = user1.token; uid1 = user1.uid;
-    token2 = user2.token; uid2 = user2.uid;
+    _token1 = user1.token; uid1 = user1.uid;
+    _token2 = user2.token; uid2 = user2.uid;
   }, 10000);
 
   describe('getOpponentForDisplay', () => {

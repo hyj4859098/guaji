@@ -5,7 +5,7 @@
  * 不逐个写场景，而是验证数据不变式在各种操作循环后依然成立。
  */
 import { createApp } from '../../create-app';
-import { createTestUser, giveItem, giveGold } from '../../__test-utils__/integration-helpers';
+import { createTestUser, giveItem as _giveItem, giveGold } from '../../__test-utils__/integration-helpers';
 import { EquipService } from '../../service/equip.service';
 import { BagService } from '../../service/bag.service';
 import { PlayerService } from '../../service/player.service';

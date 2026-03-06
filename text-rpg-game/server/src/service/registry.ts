@@ -18,7 +18,7 @@ class ServiceRegistry {
 
   get player(): PlayerService {
     if (!this._player) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       const { PlayerService } = require('./player.service');
       this._player = new PlayerService();
     }
@@ -27,7 +27,7 @@ class ServiceRegistry {
 
   get bag(): BagService {
     if (!this._bag) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       const { BagService } = require('./bag.service');
       this._bag = new BagService();
     }
@@ -36,7 +36,7 @@ class ServiceRegistry {
 
   get equip(): EquipService {
     if (!this._equip) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       const { EquipService } = require('./equip.service');
       this._equip = new EquipService();
     }
@@ -45,7 +45,7 @@ class ServiceRegistry {
 
   get equipInstance(): EquipInstanceService {
     if (!this._equipInstance) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
+       
       const { EquipInstanceService } = require('./equip_instance.service');
       this._equipInstance = new EquipInstanceService();
     }

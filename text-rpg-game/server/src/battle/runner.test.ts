@@ -87,7 +87,7 @@ describe('battle/runner', () => {
       delayMs: 0,
       pushEvent,
       pushBatch,
-      beforeEachRound: async (a, round) => ({
+      beforeEachRound: async (a, _round) => ({
         attacker: { ...a, hp: a.hp + 10 },
         attackerHp: a.hp + 10,
       }),

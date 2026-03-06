@@ -9,13 +9,13 @@ const app = createApp();
 const UNIQUE = `_level_exp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 describe('LevelExpService 集成测试', () => {
-  let token: string;
+  let _token: string;
   const levelExpService = new LevelExpService();
 
   beforeAll(async () => {
     const reg = await request(app).post('/api/user/register').send({ username: UNIQUE, password: 'test123456' });
     if (reg.body.code !== 0) throw new Error('注册失败');
-    token = reg.body.data.token;
+    _token = reg.body.data.token;
   }, 10000);
 
   it('getExpByLevel 存在的等级返回数据', async () => {

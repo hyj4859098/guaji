@@ -59,7 +59,7 @@ export async function loadMapList() {
           </td>
         </tr>`).join('')}</tbody>
       </table>`;
-  } catch (e) {
+  } catch {
     showToast('加载地图列表失败', 'error');
   }
 }
@@ -85,7 +85,7 @@ export async function saveMap() {
     const result = await r.json();
     if (result.code === 0) { showToast('地图新增成功'); hideFormModal(); loadMapList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function editMap(id) {
@@ -95,7 +95,7 @@ export async function editMap(id) {
     if (result.code !== 0) { showToast(result.msg || '获取失败', 'error'); return; }
     const d = result.data;
     showFormModal('编辑地图', formHtml(d), () => updateMap(d.id));
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function updateMap(id) {
@@ -108,7 +108,7 @@ export async function updateMap(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('地图更新成功'); hideFormModal(); loadMapList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteMap(id) {
@@ -118,7 +118,7 @@ export async function deleteMap(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('地图删除成功'); loadMapList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 window.filterMapTable = filterMapTable;

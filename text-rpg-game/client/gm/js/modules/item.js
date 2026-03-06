@@ -236,7 +236,7 @@ export async function loadItemList(page = 1) {
         tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
       });
     };
-  } catch (e) {
+  } catch {
     showToast('加载物品列表失败', 'error');
   }
 }
@@ -264,7 +264,7 @@ export async function saveItem() {
     const result = await res.json();
     if (result.code === 0) { showToast('物品新增成功'); hideFormModal(); loadItemList(); }
     else showToast(result.msg || '新增失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function editItem(id) {
@@ -277,7 +277,7 @@ export async function editItem(id) {
     const item = result.data;
     showFormModal('编辑物品', `<input type="hidden" id="item-id" value="${item.id}">${buildFormHtml(item)}`, updateItem);
     setTimeout(() => bindItemFormTypeChange(), 0);
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function updateItem() {
@@ -294,7 +294,7 @@ export async function updateItem() {
     const result = await res.json();
     if (result.code === 0) { showToast('物品更新成功'); hideFormModal(); loadItemList(); }
     else showToast(result.msg || '更新失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteItem(id) {
@@ -307,7 +307,7 @@ export async function deleteItem(id) {
     const result = await res.json();
     if (result.code === 0) { showToast('物品删除成功'); loadItemList(); }
     else showToast(result.msg || '删除失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export default {

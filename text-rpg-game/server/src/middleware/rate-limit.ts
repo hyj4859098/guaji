@@ -12,7 +12,7 @@ let authLimiter: Middleware;
 let apiLimiter: Middleware;
 
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   const mod = require('express-rate-limit');
   const rateLimit = (typeof mod === 'function' ? mod : mod.default) as (opts: object) => Middleware;
 

@@ -8,8 +8,6 @@ import type { Express } from 'express';
 import request from 'supertest';
 import { BagService } from '../service/bag.service';
 import { PlayerService } from '../service/player.service';
-import { dataStorageService } from '../service/data-storage.service';
-
 const TEST_PASSWORD = 'test123456';
 
 function uniqueName(prefix: string, suffix?: string): string {

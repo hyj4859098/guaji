@@ -114,7 +114,7 @@ export async function loadBossList() {
         tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
       });
     };
-  } catch (e) {
+  } catch {
     showToast('加载Boss列表失败', 'error');
   }
 }
@@ -141,7 +141,7 @@ export async function saveBoss() {
     const result = await res.json();
     if (result.code === 0) { showToast('Boss新增成功'); hideFormModal(); loadBossList(); }
     else showToast(result.msg || '新增失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export function cancelAddBoss() { hideFormModal(); }
@@ -155,7 +155,7 @@ export async function editBoss(id) {
     if (result.code !== 0) { showToast(result.msg || '获取失败', 'error'); return; }
     const boss = result.data;
     showFormModal('编辑Boss', `<input type="hidden" id="boss-id" value="${boss.id}">${buildFormHtml(boss)}`, updateBoss);
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export function cancelEditBoss() { hideFormModal(); }
@@ -174,7 +174,7 @@ export async function updateBoss() {
     const result = await res.json();
     if (result.code === 0) { showToast('Boss更新成功'); hideFormModal(); loadBossList(); }
     else showToast(result.msg || '更新失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteBoss(id) {
@@ -187,7 +187,7 @@ export async function deleteBoss(id) {
     const result = await res.json();
     if (result.code === 0) { showToast('Boss删除成功'); loadBossList(); }
     else showToast(result.msg || '删除失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export default {

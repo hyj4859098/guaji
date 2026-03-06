@@ -80,7 +80,7 @@ export async function loadSkillList() {
         tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
       });
     };
-  } catch (e) {
+  } catch {
     showToast('加载技能列表失败', 'error');
   }
 }
@@ -94,7 +94,7 @@ export async function editSkill(id) {
     if (result.code !== 0) { showToast(result.msg || '获取失败', 'error'); return; }
     const skill = result.data;
     showFormModal('编辑技能', `<input type="hidden" id="skill-id" value="${skill.id}">${buildFormHtml(skill)}`, updateSkill);
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export function cancelEditSkill() { hideFormModal(); }
@@ -113,7 +113,7 @@ export async function updateSkill() {
     const result = await res.json();
     if (result.code === 0) { showToast('技能更新成功'); hideFormModal(); loadSkillList(); }
     else showToast(result.msg || '更新失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteSkill(id) {
@@ -126,7 +126,7 @@ export async function deleteSkill(id) {
     const result = await res.json();
     if (result.code === 0) { showToast('技能删除成功'); loadSkillList(); }
     else showToast(result.msg || '删除失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export default {

@@ -3,7 +3,6 @@
  * bag.service、auction.service、equip.service 共用，避免重复实现。
  */
 import { EquipInstanceService } from '../service/equip_instance.service';
-import { dataStorageService } from '../service/data-storage.service';
 
 export interface EquipDetail {
   equip_attributes: Record<string, number>;

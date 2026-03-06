@@ -20,7 +20,7 @@ describe('EquipUpgradeService 集成测试', () => {
   let adminToken: string;
   const equipUpgradeService = new EquipUpgradeService();
   const bagService = new BagService();
-  const equipInstanceService = new EquipInstanceService();
+  const _equipInstanceService = new EquipInstanceService();
 
   beforeAll(async () => {
     const adminRes = await request(app).post('/api/admin/login').send({ username: 'admin', password: 'admin123' }).expect(200);

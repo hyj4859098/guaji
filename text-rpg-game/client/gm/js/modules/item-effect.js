@@ -130,7 +130,7 @@ export async function loadItemEffectList() {
         tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
       });
     };
-  } catch (e) {
+  } catch {
     showToast('加载道具效果列表失败', 'error');
   }
 }
@@ -140,7 +140,7 @@ export async function loadItemsForSelect() {
     const r = await fetch(`${API_BASE_URL}/admin/item`, { headers: authHeaders() });
     const result = await r.json();
     return result.code === 0 ? (result.data || []) : [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -161,7 +161,7 @@ export async function editItemEffect(id) {
     const items = itemsResult.code === 0 ? (itemsResult.data || []) : [];
     showFormModal('编辑道具效果', `<input type="hidden" id="ie-id" value="${eff.id}">${buildFormHtml(eff, items)}`, () => updateItemEffect(eff.id));
     bindEffectTypeChange();
-  } catch (e) {
+  } catch {
     showToast('网络错误', 'error');
   }
 }
@@ -182,7 +182,7 @@ export async function updateItemEffect(id) {
     } else {
       showToast(result.msg || '更新失败', 'error');
     }
-  } catch (e) {
+  } catch {
     showToast('网络错误', 'error');
   }
 }
@@ -201,7 +201,7 @@ export async function deleteItemEffect(id) {
     } else {
       showToast(result.msg || '删除失败', 'error');
     }
-  } catch (e) {
+  } catch {
     showToast('网络错误', 'error');
   }
 }

@@ -8,9 +8,8 @@ import { dataStorageService } from './data-storage.service';
 import { EquipEffectUtil } from '../utils/equip-effect';
 import { isEquipment } from '../utils/item-type';
 import { logger } from '../utils/logger';
-import { createError, ErrorCode, AppError } from '../utils/error';
+import { createError, ErrorCode } from '../utils/error';
 import { enrichEquipDetail } from '../utils/enrich-equip';
-import { wsManager } from '../event/ws-manager';
 import { pushPlayerFullUpdate } from '../utils/push-update';
 
 export class EquipService {

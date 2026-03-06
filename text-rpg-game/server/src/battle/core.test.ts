@@ -67,14 +67,14 @@ describe('battle/core', () => {
       const attacker = { phy_atk: 7, phy_def: 0, crit_rate: 100 };
       const defender = { phy_def: 5 };
       let critCount = 0;
-      let normalCount = 0;
+      let _normalCount = 0;
       for (let i = 0; i < 50; i++) {
         const result = calcPhysicalDamage(attacker, defender);
         if (result.isCrit) {
           critCount++;
           expect(result.damage).toBeGreaterThanOrEqual(3); // base=2, crit>=3
         } else {
-          normalCount++;
+          _normalCount++;
         }
       }
       expect(critCount).toBe(50);

@@ -15,7 +15,7 @@ import { getMaterialCount, consumeMaterial } from '../../utils/material';
 const app = createApp();
 
 describe('BagService 集成测试', () => {
-  let token: string;
+  let _token: string;
   let uid: number;
   const bagService = new BagService();
   const equipInstanceService = new EquipInstanceService();
@@ -23,7 +23,7 @@ describe('BagService 集成测试', () => {
   beforeAll(async () => {
     const user = await createTestUser(app, { prefix: 'bag', charName: '背包测试角色' });
     uid = user.uid;
-    token = user.token;
+    _token = user.token;
   }, 10000);
 
   describe('getEquipmentCount / getEquipmentCapacity / canAddEquipment', () => {

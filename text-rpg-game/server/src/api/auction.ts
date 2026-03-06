@@ -2,9 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { auth, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { auctionService } from '../service/auction.service';
-import { success, fail } from '../utils/response';
-import { ErrorCode } from '../utils/error';
-import { logger } from '../utils/logger';
+import { success } from '../utils/response';
 import { sanitizeKeyword } from '../utils/input-sanitize';
 import { auctionListQuery, auctionListBody, auctionBuyBody, auctionOffShelfBody } from './schemas';
 

@@ -14,7 +14,7 @@ async function loadItemOptions() {
     });
     const result = await res.json();
     if (result.code === 0) cachedItems = result.data || [];
-  } catch (e) { /* ignore */ }
+  } catch { /* ignore */ }
   return cachedItems;
 }
 
@@ -116,7 +116,7 @@ export async function loadShopList() {
         tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
       });
     };
-  } catch (e) {
+  } catch {
     showToast('加载商店列表失败', 'error');
   }
 }
@@ -140,7 +140,7 @@ export async function saveShopItem() {
     const result = await res.json();
     if (result.code === 0) { showToast('新增成功'); hideFormModal(); loadShopList(); }
     else showToast(result.msg || '新增失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function editShopItem(id) {
@@ -153,7 +153,7 @@ export async function editShopItem(id) {
     const si = result.data;
     showFormModal('编辑商店商品', `<input type="hidden" id="shop-edit-id" value="${si.id}">${buildFormHtml(si)}`, updateShopItem);
     populateItemSelect(si.item_id);
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function updateShopItem() {
@@ -171,7 +171,7 @@ export async function updateShopItem() {
     const result = await res.json();
     if (result.code === 0) { showToast('更新成功'); hideFormModal(); loadShopList(); }
     else showToast(result.msg || '更新失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteShopItem(id) {
@@ -184,7 +184,7 @@ export async function deleteShopItem(id) {
     const result = await res.json();
     if (result.code === 0) { showToast('删除成功'); loadShopList(); }
     else showToast(result.msg || '删除失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export default {

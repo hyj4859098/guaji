@@ -75,7 +75,7 @@ export async function verifyToken() {
     localStorage.removeItem('gm_token');
     window.location.href = 'login.html';
     return false;
-  } catch (e) {
+  } catch {
     localStorage.removeItem('gm_token');
     window.location.href = 'login.html';
     return false;

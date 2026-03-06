@@ -83,7 +83,7 @@ describe('关键路径/深度分支', () => {
   });
 
   it('开关切换生效', async () => {
-    const { uid, token } = await createTestUser(app, { prefix: 'p0', suffix: 'boost_toggle' });
+    const { uid: _uid, token } = await createTestUser(app, { prefix: 'p0', suffix: 'boost_toggle' });
 
     const res = await request(app)
       .post('/api/boost/toggle')

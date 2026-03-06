@@ -13,7 +13,7 @@ import { dataStorageService } from '../../service/data-storage.service';
 const app = createApp();
 
 describe('SkillService 集成测试', () => {
-  let token: string;
+  let _token: string;
   let uid: number;
   const skillService = new SkillService();
   const playerSkillModel = new PlayerSkillModel();
@@ -21,7 +21,7 @@ describe('SkillService 集成测试', () => {
   beforeAll(async () => {
     const user = await createTestUser(app, { prefix: 'skl', charName: '技能测试' });
     uid = user.uid;
-    token = user.token;
+    _token = user.token;
   }, 10000);
 
   describe('learnSkill / equipSkill / unequipSkill', () => {

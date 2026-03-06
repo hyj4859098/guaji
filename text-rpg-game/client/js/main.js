@@ -297,7 +297,7 @@ WS.on('kick', (data) => {
   if (WS.ws) {
     WS.ws.onclose = null;
     WS.ws.onerror = null;
-    try { WS.ws.close(); } catch (e) {}
+    try { WS.ws.close(); } catch {}
     WS.ws = null;
   }
   // 使用原生 alert 提示框，确保在所有设备上都能明显显示
@@ -554,7 +554,7 @@ function resetToLogin() {
   if (typeof WS !== 'undefined' && WS.ws) {
     WS.ws.onclose = null;
     WS.ws.onerror = null;
-    try { WS.ws.close(); } catch (e) {}
+    try { WS.ws.close(); } catch {}
     WS.ws = null;
   }
   UI.hideLoading();

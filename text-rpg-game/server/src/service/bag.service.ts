@@ -5,7 +5,6 @@ import { IBaseService, Id, Uid } from '../types/index';
 import { dataStorageService } from './data-storage.service';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
-import { EquipEffectUtil } from '../utils/equip-effect';
 import { getHpRestore, getMpRestore, isEquipment } from '../utils/item-type';
 import { enrichEquipDetail } from '../utils/enrich-equip';
 import { wsManager } from '../event/ws-manager';

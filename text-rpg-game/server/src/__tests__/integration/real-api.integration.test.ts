@@ -7,7 +7,7 @@ import { createApp } from '../../create-app';
 import { EquipEffectUtil } from '../../utils/equip-effect';
 import { PlayerService } from '../../service/player.service';
 import { BagService } from '../../service/bag.service';
-import { createTestUser, giveItem, giveGold } from '../../__test-utils__/integration-helpers';
+import { createTestUser, giveItem, giveGold as _giveGold } from '../../__test-utils__/integration-helpers';
 import { getMaterialCount, consumeMaterial } from '../../utils/material';
 import { enrichEquipDetail, enrichEquipFromBase } from '../../utils/enrich-equip';
 import { EquipInstanceService } from '../../service/equip_instance.service';

@@ -81,7 +81,7 @@ export async function loadEquipList() {
           </tr>`;
         }).join('')}</tbody>
       </table>`;
-  } catch (e) {
+  } catch {
     showToast('加载装备列表失败', 'error');
   }
 }
@@ -100,7 +100,7 @@ export async function editEquip(id) {
     if (result.code !== 0) { showToast(result.msg || '获取失败', 'error'); return; }
     const d = result.data;
     showFormModal('编辑装备', formHtml(d), () => updateEquip(d.item_id));
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function updateEquip(id) {
@@ -113,7 +113,7 @@ export async function updateEquip(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('装备更新成功'); hideFormModal(); loadEquipList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteEquip(id) {
@@ -123,7 +123,7 @@ export async function deleteEquip(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('装备删除成功'); loadEquipList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 window.filterEquipTable = filterEquipTable;

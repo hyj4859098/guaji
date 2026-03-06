@@ -49,7 +49,7 @@ const BattlePage = {
         mp_threshold: Math.min(90, Math.max(10, parseInt(data.mp_threshold, 10) || 50)),
         mp_potion_bag_id: data.mp_potion_bag_id ? parseInt(data.mp_potion_bag_id, 10) : null
       };
-    } catch (e) {
+    } catch {
       return null;
     }
   },
@@ -65,7 +65,7 @@ const BattlePage = {
     };
     try {
       localStorage.setItem(this.getAutoHealStorageKey(), JSON.stringify(data));
-    } catch (e) {}
+    } catch {}
   },
 
   getThresholdOptions(selected) {

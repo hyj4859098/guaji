@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Logger, LogLevel, logger } from './logger';
+import { Logger, logger } from './logger';
 
 describe('logger', () => {
   let consoleSpy: { log: jest.SpyInstance; info: jest.SpyInstance; warn: jest.SpyInstance; error: jest.SpyInstance };

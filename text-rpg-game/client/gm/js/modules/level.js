@@ -47,7 +47,7 @@ export async function loadLevelList() {
           </tr>` : `<tr><td>${l.level}</td><td>${l.exp}</td><td><span style="color:#999">无ID</span></td></tr>`;
         }).join('')}</tbody>
       </table>`;
-  } catch (e) {
+  } catch {
     showToast('加载等级经验列表失败', 'error');
   }
 }
@@ -74,7 +74,7 @@ export async function saveLevelExp() {
     const result = await r.json();
     if (result.code === 0) { showToast('等级经验新增成功'); hideFormModal(); loadLevelList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export function editLevel(id, level, exp) {
@@ -92,7 +92,7 @@ export async function updateLevelExp(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('等级经验更新成功'); hideFormModal(); loadLevelList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteLevel(id) {
@@ -102,7 +102,7 @@ export async function deleteLevel(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('等级经验删除成功'); loadLevelList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 window.filterLevelTable = filterLevelTable;

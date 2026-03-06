@@ -11,13 +11,13 @@ const app = createApp();
 const UNIQUE = `_lt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 describe('LevelTitleService 集成测试', () => {
-  let uid: number;
+  let _uid: number;
   let token: string;
 
   beforeAll(async () => {
     const reg = await request(app).post('/api/user/register').send({ username: UNIQUE, password: 'test123456' });
     if (reg.body.code !== 0) throw new Error('注册失败');
-    uid = reg.body.data.uid;
+    _uid = reg.body.data.uid;
     token = reg.body.data.token;
     await request(app).post('/api/player/add').set({ Authorization: `Bearer ${token}` }).send({ name: '称号测试' });
   }, 10000);

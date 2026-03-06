@@ -15,7 +15,7 @@ import { createTestUserOnly } from '../../__test-utils__/integration-helpers';
 const app = createApp();
 let httpServer: ReturnType<typeof createServer>;
 let wss: WebSocketServer;
-let httpPort: number;
+let _httpPort: number;
 let wsPort: number;
 
 function setupWebSocket(server: WebSocketServer) {
@@ -44,7 +44,7 @@ beforeAll(async () => {
 
   httpServer = createServer(app);
   await new Promise<void>((r) => httpServer.listen(0, () => r()));
-  httpPort = (httpServer.address() as any).port;
+  _httpPort = (httpServer.address() as any).port;
   wss = new WebSocketServer({ port: 0 });
   wsPort = (wss.address() as any).port;
   setupWebSocket(wss);
@@ -151,7 +151,7 @@ describe('WebSocket 集成测试', () => {
   it('重复登录踢掉旧连接', async () => {
     const token = await getToken();
     const url = `ws://localhost:${wsPort}?token=${token}`;
-    await new Promise<void>((resolve, reject) => {
+    await new Promise<void>((resolve, _reject) => {
       const ws1 = new WebSocket(url);
       ws1.on('open', () => {
         const ws2 = new WebSocket(url);

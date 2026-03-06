@@ -15,7 +15,7 @@ export async function clearCache(type) {
     const result = await r.json();
     if (result.code === 0) showToast('缓存清除成功');
     else showToast(result.msg || '清除失败', 'error');
-  } catch (e) {
+  } catch {
     showToast('网络错误', 'error');
   }
 }
@@ -30,7 +30,7 @@ export async function loadItemSelect() {
     if (!sel || result.code !== 0) return;
     sel.innerHTML = '<option value="">请选择物品</option>' +
       result.data.map(i => `<option value="${escapeHtml(i.id)}">${escapeHtml(i.name)} (id=${escapeHtml(i.id)}, type=${escapeHtml(i.type)})</option>`).join('');
-  } catch (e) { /* ignore */ }
+  } catch { /* ignore */ }
 }
 
 export async function giveItemToPlayer() {
@@ -47,7 +47,7 @@ export async function giveItemToPlayer() {
     const result = await r.json();
     if (result.code === 0) showToast(`发放成功: ${result.data.item_name} ×${result.data.count}`);
     else showToast(result.msg || '发放失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function giveGoldToPlayer() {
@@ -63,7 +63,7 @@ export async function giveGoldToPlayer() {
     const result = await r.json();
     if (result.code === 0) showToast(`发放成功: +${result.data.amount} 金币，当前: ${result.data.gold}`);
     else showToast(result.msg || '发放失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function givePointsToPlayer() {
@@ -79,7 +79,7 @@ export async function givePointsToPlayer() {
     const result = await r.json();
     if (result.code === 0) showToast(`发放成功: +${result.data.amount} 积分，当前: ${result.data.points}`);
     else showToast(result.msg || '发放失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function setPlayerVip() {
@@ -98,7 +98,7 @@ export async function setPlayerVip() {
       const info = expire > 0 ? new Date(expire * 1000).toLocaleDateString() + ' 到期' : '已取消';
       showToast(`VIP设置成功: ${info}`);
     } else showToast(result.msg || '设置失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function unbindUserIp() {
@@ -113,7 +113,7 @@ export async function unbindUserIp() {
     const result = await r.json();
     if (result.code === 0) showToast(result.data?.message || '解绑成功');
     else showToast(result.msg || '解绑失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function getPlayerInfo() {
@@ -145,7 +145,7 @@ export async function getPlayerInfo() {
     } else {
       showToast(result.msg || '查询失败', 'error');
     }
-  } catch (e) {
+  } catch {
     showToast('网络错误', 'error');
   }
 }

@@ -76,6 +76,7 @@ module.exports = [
       sourceType: 'script',
       globals: {
         window: 'readonly', document: 'readonly', localStorage: 'readonly',
+        navigator: 'readonly', AbortController: 'readonly',
         fetch: 'readonly', WebSocket: 'readonly', console: 'readonly',
         setTimeout: 'readonly', clearTimeout: 'readonly',
         setInterval: 'readonly', clearInterval: 'readonly',

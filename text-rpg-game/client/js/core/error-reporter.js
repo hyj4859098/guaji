@@ -19,7 +19,7 @@
         time: new Date().toISOString(),
       };
       navigator.sendBeacon(REPORT_URL, JSON.stringify(payload));
-    } catch (_) { /* 上报本身不能报错 */ }
+    } catch { /* 上报本身不能报错 */ }
   }
 
   window.addEventListener('error', function (e) {

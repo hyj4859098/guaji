@@ -102,7 +102,10 @@
     "whitelist": [
       "__tests__/",
       "__test-utils__/",
-      "server/src/utils/item-type.test.ts"
+      "utils/item-type.test.ts",
+      "utils/logger.test.ts",
+      "utils/state-machine.ts",
+      "service/registry.ts"
     ],
     "suggestion": "使用 const { Xxx } = await import('./xxx') 替代 require()，避免循环依赖且保持 TS 类型安全"
   }

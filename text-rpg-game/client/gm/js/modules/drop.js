@@ -76,7 +76,7 @@ export async function loadDropList() {
           </td>
         </tr>`).join('')}</tbody>
       </table>`;
-  } catch (e) {
+  } catch {
     showToast('加载掉落列表失败', 'error');
   }
 }
@@ -105,7 +105,7 @@ export async function saveDrop() {
     const result = await r.json();
     if (result.code === 0) { showToast('掉落新增成功'); hideFormModal(); loadDropList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function editDrop(id) {
@@ -116,7 +116,7 @@ export async function editDrop(id) {
     if (result.code !== 0) { showToast('获取失败', 'error'); return; }
     const d = result.data;
     showFormModal(dropType === 'boss' ? '编辑Boss掉落' : '编辑怪物掉落', formHtml(d), () => updateDrop(d.id));
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function updateDrop(id) {
@@ -129,7 +129,7 @@ export async function updateDrop(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('掉落更新成功'); hideFormModal(); loadDropList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 export async function deleteDrop(id) {
@@ -140,7 +140,7 @@ export async function deleteDrop(id) {
     const result = await r.json();
     if (result.code === 0) { showToast('掉落删除成功'); loadDropList(); }
     else showToast(result.msg || '失败', 'error');
-  } catch (e) { showToast('网络错误', 'error'); }
+  } catch { showToast('网络错误', 'error'); }
 }
 
 window.filterDropTable = filterDropTable;

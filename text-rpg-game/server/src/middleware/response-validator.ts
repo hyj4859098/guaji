@@ -62,7 +62,7 @@ const RESPONSE_RULES: Record<string, RuleChecker> = {
     return errors;
   },
 
-  '/api/shop/buy': (data) => {
+  '/api/shop/buy': (_data) => {
     const errors: string[] = [];
     // buy 成功后 data 为 null，不需要特殊校验
     return errors;
@@ -113,7 +113,7 @@ export function responseValidator(req: Request, res: Response, next: NextFunctio
             );
           }
         }
-      } catch (e) {
+      } catch {
         // 校验器自身不应阻断请求
       }
     }

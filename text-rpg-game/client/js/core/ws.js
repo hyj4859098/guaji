@@ -21,7 +21,7 @@ const WS = {
         this._clientConfig = json.data;
         return json.data.wsUrl;
       }
-    } catch (e) { /* 降级到本地推断 */ }
+    } catch { /* 降级到本地推断 */ }
     const wsPort = location.port === '3000' ? '3001' : (location.port || '3001');
     return `ws://${location.hostname}:${wsPort}`;
   },
@@ -57,7 +57,7 @@ const WS = {
       this.ws.onclose = null;
       this.ws.onerror = null;
       this.ws.onmessage = null;
-      try { this.ws.close(); } catch (e) {}
+      try { this.ws.close(); } catch {}
       this.ws = null;
     }
     this.ws = new WebSocket(url);

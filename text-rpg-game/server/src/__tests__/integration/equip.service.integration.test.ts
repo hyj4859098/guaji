@@ -11,14 +11,14 @@ const app = createApp();
 
 describe('EquipService 集成测试', () => {
   let uid: number;
-  let token: string;
+  let _token: string;
   const equipService = new EquipService();
   const bagService = new BagService();
 
   beforeAll(async () => {
     const user = await createTestUser(app, { prefix: 'eqp', charName: '装备测试' });
     uid = user.uid;
-    token = user.token;
+    _token = user.token;
   }, 10000);
 
   it('list 空装备栏返回空数组', async () => {

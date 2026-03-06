@@ -2,8 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { auth, AuthRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { ShopService } from '../service/shop.service';
-import { success, fail } from '../utils/response';
-import { ErrorCode } from '../utils/error';
+import { success } from '../utils/response';
 import { logger } from '../utils/logger';
 import { shopListQuery, shopBuyBody } from './schemas';
 

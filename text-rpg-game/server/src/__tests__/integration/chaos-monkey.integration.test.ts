@@ -7,7 +7,7 @@
  * 每次运行走不同路径，跑 N 次 = 测 N×200 种组合。
  */
 import { createApp } from '../../create-app';
-import { createTestUser, giveItem, giveGold } from '../../__test-utils__/integration-helpers';
+import { createTestUser, giveItem as _giveItem, giveGold } from '../../__test-utils__/integration-helpers';
 import { BagService } from '../../service/bag.service';
 import { EquipService } from '../../service/equip.service';
 import { PlayerService } from '../../service/player.service';
@@ -22,11 +22,11 @@ const app = createApp();
 const bagService = new BagService();
 const equipService = new EquipService();
 const playerService = new PlayerService();
-const equipInstanceService = new EquipInstanceService();
+const _equipInstanceService = new EquipInstanceService();
 const upgradeService = new EquipUpgradeService();
 const blessingService = new EquipBlessingService();
 const auctionService = new AuctionService();
-const shopService = new ShopService();
+const _shopService = new ShopService();
 
 const TEST_WEAPON_ID = 13;
 const POTION_ID = 1;
