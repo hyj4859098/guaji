@@ -57,6 +57,15 @@ export function escapeHtml(str) {
   return str.replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch);
 }
 
+/** 通用表格搜索过滤（注册到 window 供 oninput 调用） */
+export function gmFilterTable(input, tableId) {
+  const kw = (input?.value || '').toLowerCase();
+  document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
+  });
+}
+window._gmFilterTable = gmFilterTable;
+
 /**
  * 验证 Token，成功返回 true，失败则跳转登录页
  */

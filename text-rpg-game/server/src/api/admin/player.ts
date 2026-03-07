@@ -6,13 +6,14 @@ import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
 import { logger } from '../../utils/logger';
 import { adminHandler } from './admin-utils';
+import { Collections } from '../../config/collections';
 
 const router = Router();
 const playerService = new PlayerService();
 const bagService = new BagService();
 
 router.get('/items', adminHandler(async (req, res) => {
-  const items = await dataStorageService.list('item', undefined);
+  const items = await dataStorageService.list(Collections.ITEM, undefined);
   success(res, items);
 }, '获取物品列表失败'));
 
@@ -96,7 +97,7 @@ router.post('/give-item', adminHandler(async (req, res) => {
       return fail(res, ErrorCode.NOT_FOUND, '玩家不存在');
     }
 
-    const itemInfo = await dataStorageService.getByCondition('item', { id: Number(item_id) });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: Number(item_id) });
     if (!itemInfo) {
       return fail(res, ErrorCode.NOT_FOUND, '物品不存在');
     }

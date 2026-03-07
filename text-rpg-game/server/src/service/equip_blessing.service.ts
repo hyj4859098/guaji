@@ -13,6 +13,7 @@ import { createError, ErrorCode } from '../utils/error';
 import { getMaterialCount as getMaterialCountUtil, consumeMaterial as consumeMaterialUtil } from '../utils/material';
 import { withUserLock } from '../utils/per-user-lock';
 import { pushPlayerFullUpdate } from '../utils/push-update';
+import { Collections } from '../config/collections';
 const BLESSING_GOLD_COST = 1000000;
 const BLESSING_SUCCESS_RATE = 50;
 const MAX_BLESSING_LEVEL = 30;
@@ -48,7 +49,7 @@ export class EquipBlessingService {
     }
 
     const equipmentUid = String(instanceId);
-    const inBag = await dataStorageService.list('bag', { uid, equipment_uid: equipmentUid });
+    const inBag = await dataStorageService.list(Collections.BAG, { uid, equipment_uid: equipmentUid });
     if (inBag.length === 0) {
       throw createError(ErrorCode.INVALID_PARAMS, '只能祝福背包中的装备，请先卸下');
     }

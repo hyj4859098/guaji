@@ -6,6 +6,7 @@ import { fail } from '../utils/response';
 import { ErrorCode } from '../utils/error';
 import { dataStorageService } from '../service/data-storage.service';
 import { logger } from '../utils/logger';
+import { Collections } from '../config/collections';
 
 // 扩展Request类型（uid 支持数字与字符串，老用户可能用 _id 字符串）
 export interface AuthRequest extends Request {
@@ -53,9 +54,9 @@ export async function adminAuth(req: AuthRequest, res: Response, next: NextFunct
 
     let user = null;
     if (typeof decoded.uid === 'string' && /^[a-f0-9]{24}$/i.test(decoded.uid)) {
-      user = await dataStorageService.getByCondition('user', { _id: new ObjectId(decoded.uid) });
+      user = await dataStorageService.getByCondition(Collections.USER, { _id: new ObjectId(decoded.uid) });
     } else if (typeof decoded.uid === 'number') {
-      user = await dataStorageService.getByCondition('user', { id: decoded.uid });
+      user = await dataStorageService.getByCondition(Collections.USER, { id: decoded.uid });
     }
 
     if (!user || !user.is_admin) {

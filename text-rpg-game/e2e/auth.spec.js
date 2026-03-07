@@ -87,7 +87,7 @@ test.describe('认证流程', () => {
     await page2.locator('#authSubmitBtn').click();
     await expect(page2.locator('.top-nav')).toBeVisible({ timeout: 5000 });
 
-    await expect(page1).toHaveURL(/\//, { timeout: 10000 });
+    await expect(page1.locator('.auth-title')).toBeVisible({ timeout: 10000 });
     await ctx1.close();
     await ctx2.close();
   });

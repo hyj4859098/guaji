@@ -8,6 +8,7 @@ import { createError, ErrorCode } from '../utils/error';
 import { logger } from '../utils/logger';
 import { cacheService } from './cache.service';
 import { wsManager } from '../event/ws-manager';
+import { Collections } from '../config/collections';
 
 const DEFAULT_EQUIPMENT_CAPACITY = 100;
 
@@ -20,7 +21,7 @@ export class ItemEffectService {
     itemInfo?: any,
     options?: { bagService?: { list: (u: Uid) => Promise<any[]>; delete: (id: number, opts?: any) => Promise<boolean> } }
   ): Promise<{ ok: boolean; consumedByEffect?: boolean }> {
-    const effect = await dataStorageService.getByCondition('item_effect', { item_id: itemId });
+    const effect = await dataStorageService.getByCondition(Collections.ITEM_EFFECT, { item_id: itemId });
     if (!effect) return { ok: false };
 
     const { services } = await import('./registry');
@@ -130,7 +131,7 @@ export class ItemEffectService {
 
   /** 是否有配置（可使用的道具） */
   static async hasConfig(itemId: number): Promise<boolean> {
-    const effect = await dataStorageService.getByCondition('item_effect', { item_id: itemId });
+    const effect = await dataStorageService.getByCondition(Collections.ITEM_EFFECT, { item_id: itemId });
     return !!effect;
   }
 }

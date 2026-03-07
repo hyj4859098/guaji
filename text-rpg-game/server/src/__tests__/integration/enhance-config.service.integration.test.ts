@@ -3,6 +3,7 @@
  */
 import { getEnhanceMaterialIds, getEnhanceMaterialIdList } from '../../service/enhance-config.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 describe('EnhanceConfigService 集成测试', () => {
   it('getEnhanceMaterialIds 返回有效配置', async () => {
@@ -21,16 +22,16 @@ describe('EnhanceConfigService 集成测试', () => {
   });
 
   it('getEnhanceMaterialIds 配置无效时返回 DEFAULT', async () => {
-    const row = await dataStorageService.getByCondition('config', { name: 'enhance_materials' });
+    const row = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'enhance_materials' });
     if (!row) return;
     const orig = row.value;
     try {
-      await dataStorageService.update('config', row.id, { value: 'invalid json {{{' });
+      await dataStorageService.update(Collections.CONFIG, row.id, { value: 'invalid json {{{' });
       const ids = await getEnhanceMaterialIds();
       expect(ids.stone).toBe(6);
       expect(ids.lucky).toBe(8);
     } finally {
-      await dataStorageService.update('config', row.id, { value: orig });
+      await dataStorageService.update(Collections.CONFIG, row.id, { value: orig });
     }
   });
 
@@ -46,32 +47,32 @@ describe('EnhanceConfigService 集成测试', () => {
 
 describe('关键路径/深度分支', () => {
   it('getEnhanceMaterialIds 无效 JSON 返回默认值', async () => {
-    const existing = await dataStorageService.getByCondition('config', { name: 'enhance_materials' });
+    const existing = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'enhance_materials' });
     const origValue = existing?.value;
     if (existing) {
-      await dataStorageService.update('config', existing.id, { value: 'not-json{{' });
+      await dataStorageService.update(Collections.CONFIG, existing.id, { value: 'not-json{{' });
     } else {
-      await dataStorageService.insert('config', { name: 'enhance_materials', value: 'not-json{{' });
+      await dataStorageService.insert(Collections.CONFIG, { name: 'enhance_materials', value: 'not-json{{' });
     }
     const ids = await getEnhanceMaterialIds();
     expect(ids.stone).toBe(6);
     expect(ids.lucky).toBe(8);
     if (existing) {
-      await dataStorageService.update('config', existing.id, { value: origValue });
+      await dataStorageService.update(Collections.CONFIG, existing.id, { value: origValue });
     } else {
-      const row = await dataStorageService.getByCondition('config', { name: 'enhance_materials' });
-      if (row) await dataStorageService.delete('config', row.id);
+      const row = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'enhance_materials' });
+      if (row) await dataStorageService.delete(Collections.CONFIG, row.id);
     }
   });
 
   it('getEnhanceMaterialIds 部分字段缺失用默认', async () => {
-    const existing = await dataStorageService.getByCondition('config', { name: 'enhance_materials' });
+    const existing = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'enhance_materials' });
     const origValue = existing?.value;
     const partial = JSON.stringify({ stone: 99 });
     if (existing) {
-      await dataStorageService.update('config', existing.id, { value: partial });
+      await dataStorageService.update(Collections.CONFIG, existing.id, { value: partial });
     } else {
-      await dataStorageService.insert('config', { name: 'enhance_materials', value: partial });
+      await dataStorageService.insert(Collections.CONFIG, { name: 'enhance_materials', value: partial });
     }
     const ids = await getEnhanceMaterialIds();
     expect(ids.stone).toBe(99);
@@ -79,10 +80,10 @@ describe('关键路径/深度分支', () => {
     expect(ids.anti_explode).toBe(7);
     expect(ids.blessing_oil).toBe(10);
     if (existing) {
-      await dataStorageService.update('config', existing.id, { value: origValue });
+      await dataStorageService.update(Collections.CONFIG, existing.id, { value: origValue });
     } else {
-      const row = await dataStorageService.getByCondition('config', { name: 'enhance_materials' });
-      if (row) await dataStorageService.delete('config', row.id);
+      const row = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'enhance_materials' });
+      if (row) await dataStorageService.delete(Collections.CONFIG, row.id);
     }
   });
 });

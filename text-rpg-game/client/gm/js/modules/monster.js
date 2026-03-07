@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
 const ELEM_NAMES = ['金', '木', '水', '火', '土'];
@@ -93,7 +93,7 @@ export async function loadMonsterList() {
           <th>五行(金/木/水/火/土)</th><th>操作</th>
         </tr></thead>
         <tbody>${result.data.map(m => `<tr>
-          <td>${m.id}</td><td>${m.name}</td><td>${m.level}</td><td>${m.hp}</td><td>${m.mp ?? 0}</td>
+          <td>${m.id}</td><td>${escapeHtml(m.name)}</td><td>${m.level}</td><td>${m.hp}</td><td>${m.mp ?? 0}</td>
           <td>${m.phy_atk ?? 0}/${m.phy_def ?? 0}</td>
           <td>${m.mag_atk ?? 0}/${m.mag_def ?? 0}</td>
           <td>${m.hit_rate ?? 0}</td><td>${m.dodge_rate ?? 0}</td><td>${m.crit_rate ?? 0}</td>
@@ -106,12 +106,6 @@ export async function loadMonsterList() {
         </tr>`).join('')}</tbody>
       </table>`;
 
-    window._gmFilterTable = (input, tableId) => {
-      const kw = input.value.toLowerCase();
-      document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-      });
-    };
   } catch {
     showToast('加载怪物列表失败', 'error');
   }
@@ -142,8 +136,6 @@ export async function saveMonster() {
   } catch { showToast('网络错误', 'error'); }
 }
 
-export function cancelAddMonster() { hideFormModal(); }
-
 export async function editMonster(id) {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/monster/${id}`, {
@@ -155,8 +147,6 @@ export async function editMonster(id) {
     showFormModal('编辑怪物', `<input type="hidden" id="monster-id" value="${monster.id}">${buildFormHtml(monster)}`, updateMonster);
   } catch { showToast('网络错误', 'error'); }
 }
-
-export function cancelEditMonster() { hideFormModal(); }
 
 export async function updateMonster() {
   const id = parseInt(document.getElementById('monster-id')?.value);
@@ -189,6 +179,6 @@ export async function deleteMonster(id) {
 }
 
 export default {
-  loadMonsterList, addMonster, saveMonster, cancelAddMonster,
-  editMonster, cancelEditMonster, updateMonster, deleteMonster
+  loadMonsterList, addMonster, saveMonster,
+  editMonster, updateMonster, deleteMonster
 };

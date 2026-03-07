@@ -9,6 +9,7 @@ import { PlayerService } from '../../service/player.service';
 import { BagService } from '../../service/bag.service';
 import { SkillService } from '../../service/skill.service';
 import { LevelExpService } from '../../service/level_exp.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -376,7 +377,7 @@ describe('BattleService 集成测试', () => {
     } as any);
     monsterService.get(monsterId);
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('monster_drop', {
+    await dataStorageService.insert(Collections.MONSTER_DROP, {
       monster_id: monsterId,
       item_id: 1,
       quantity: 1,

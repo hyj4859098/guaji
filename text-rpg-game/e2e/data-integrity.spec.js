@@ -117,9 +117,9 @@ test.describe('战斗数据同步', () => {
 
     // HP 必须变化
     const hpAfter = await page.locator('#monsterHpText').textContent().catch(() => '');
-    if (hpBefore && hpAfter && hpBefore !== '' && hpAfter !== '') {
-      expect(hpAfter).not.toBe(hpBefore);
-    }
+    expect(hpBefore).toBeTruthy();
+    expect(hpAfter).toBeTruthy();
+    expect(hpAfter).not.toBe(hpBefore);
 
     // HP bar 宽度不应该还是 100%
     const barWidth = await page.locator('#monsterHpBar').evaluate(

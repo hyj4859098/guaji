@@ -11,6 +11,7 @@ import { EquipInstanceService } from '../../service/equip_instance.service';
 import { ErrorCode } from '../../utils/error';
 import { dataStorageService } from '../../service/data-storage.service';
 import { getMaterialCount, consumeMaterial } from '../../utils/material';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -21,7 +22,7 @@ describe('BagService 集成测试', () => {
   const equipInstanceService = new EquipInstanceService();
 
   beforeAll(async () => {
-    const user = await createTestUser(app, { prefix: 'bag', charName: '背包测试角色' });
+    const user = await createTestUser(app, { prefix: Collections.BAG, charName: '背包测试角色' });
     uid = user.uid;
     _token = user.token;
   }, 10000);
@@ -224,7 +225,7 @@ describe('BagService 集成测试', () => {
 
     it('useItem 无 item_effect 配置抛错', async () => {
       const TEST_ITEM_ID = 900001;
-      await dataStorageService.insert('item', {
+      await dataStorageService.insert(Collections.ITEM, {
         id: TEST_ITEM_ID,
         name: '_bag_test_no_effect_',
         type: 1,
@@ -241,24 +242,23 @@ describe('BagService 集成测试', () => {
           code: ErrorCode.INVALID_PARAMS,
         });
       } finally {
-        const bagRows = await dataStorageService.list('bag', { uid, item_id: TEST_ITEM_ID });
+        const bagRows = await dataStorageService.list(Collections.BAG, { uid, item_id: TEST_ITEM_ID });
         for (const row of bagRows) {
-          await dataStorageService.delete('bag', row.id);
+          await dataStorageService.delete(Collections.BAG, row.id);
         }
-        await dataStorageService.delete('item', TEST_ITEM_ID);
+        await dataStorageService.delete(Collections.ITEM, TEST_ITEM_ID);
       }
     });
   });
 
   describe('wearItem', () => {
-    it('wearItem 无 equipService 抛错', async () => {
+    it('wearItem 无 equipService 自动从 registry 加载', async () => {
       await bagService.addItem(uid, 13, 1);
       const list = await bagService.list(uid);
       const equip = list.find((i: any) => i.item_id === 13 && i.equipment_uid);
       if (equip) {
-        await expect(bagService.wearItem(uid, equip.original_id ?? equip.id, undefined as any)).rejects.toMatchObject({
-          code: ErrorCode.SYSTEM_ERROR,
-        });
+        const ok = await bagService.wearItem(uid, equip.original_id ?? equip.id, undefined as any);
+        expect(ok).toBe(true);
       }
     });
 
@@ -357,7 +357,7 @@ describe('BagService 集成测试', () => {
     });
 
     it('list 装备 instance uid 不匹配时跳过', async () => {
-      const user2 = await createTestUser(app, { prefix: 'bag', suffix: 'u2', charName: '背包U2' });
+      const user2 = await createTestUser(app, { prefix: Collections.BAG, suffix: 'u2', charName: '背包U2' });
 
       await bagService.addItem(user2.uid, 13, 1);
       const list2 = await bagService.list(user2.uid);
@@ -380,7 +380,7 @@ describe('BagService 集成测试', () => {
   describe('useItem 额外分支', () => {
     it('useItem 物品类型不存在抛错', async () => {
       const FAKE_ITEM_ID = 900099;
-      await dataStorageService.insert('item', {
+      await dataStorageService.insert(Collections.ITEM, {
         id: FAKE_ITEM_ID,
         name: '_bag_fake_item_',
         type: 1,
@@ -396,14 +396,14 @@ describe('BagService 集成测试', () => {
           bagService.useItem(uid, item!.original_id ?? item!.id, 1)
         ).rejects.toMatchObject({ code: ErrorCode.INVALID_PARAMS });
       } finally {
-        const rows = await dataStorageService.list('bag', { uid, item_id: FAKE_ITEM_ID });
-        for (const r of rows) await dataStorageService.delete('bag', r.id);
-        await dataStorageService.delete('item', FAKE_ITEM_ID);
+        const rows = await dataStorageService.list(Collections.BAG, { uid, item_id: FAKE_ITEM_ID });
+        for (const r of rows) await dataStorageService.delete(Collections.BAG, r.id);
+        await dataStorageService.delete(Collections.ITEM, FAKE_ITEM_ID);
       }
     });
 
     it('useItem consumedByEffect 分支 - 技能书由效果内部扣减', async () => {
-      const user3 = await createTestUser(app, { prefix: 'bag', suffix: 'sk', charName: '技能书测试' });
+      const user3 = await createTestUser(app, { prefix: Collections.BAG, suffix: 'sk', charName: '技能书测试' });
       await giveItem(user3.uid, 14, 1);
       const list = await bagService.list(user3.uid);
       const book = list.find((i: any) => i.item_id === 14 && !i.equipment_uid);
@@ -428,7 +428,7 @@ describe('关键路径/深度分支', () => {
     if (!item) return;
     try {
       await _bagService.delete(item.original_id ?? item.id, { uid: uidB });
-      fail('should throw FORBIDDEN');
+      throw new Error('should throw FORBIDDEN');
     } catch (e: any) {
       expect(e.code).toBe(40003);
     }
@@ -436,7 +436,7 @@ describe('关键路径/深度分支', () => {
 
   it('useItem consumedByEffect 分支（技能书）', async () => {
     const { uid } = await createTestUser(app, { prefix: 'ds', suffix: 'skill' });
-    const skillBooks = await dataStorageService.list('item_effect', { effect_type: 'learn_skill' });
+    const skillBooks = await dataStorageService.list(Collections.ITEM_EFFECT, { effect_type: 'learn_skill' });
     if (!skillBooks.length) return;
     const bookItemId = skillBooks[0].item_id;
     await giveItem(uid, bookItemId, 1);
@@ -454,8 +454,9 @@ describe('关键路径/深度分支', () => {
     const { uid } = await createTestUser(app, { prefix: 'ds', suffix: 'badIt' });
     try {
       await _bagService.addItem(uid, 999999, 1);
-      fail('should throw');
+      throw new Error('should throw');
     } catch (e: any) {
+      if (e.message === 'should throw') throw e;
       expect(e.code).toBe(40004);
     }
   });
@@ -468,24 +469,21 @@ describe('关键路径/深度分支', () => {
     if (!potion) return;
     try {
       await _bagService.wearItem(uid, potion.original_id ?? potion.id, _equipService);
-      fail('should throw');
+      throw new Error('should throw');
     } catch (e: any) {
+      if (e.message === 'should throw') throw e;
       expect(e.message).toMatch(/装备/);
     }
   });
 
-  it('wearItem 无 equipService 抛 SYSTEM_ERROR', async () => {
+  it('wearItem 无 equipService 自动从 registry 加载成功', async () => {
     const { uid } = await createTestUser(app, { prefix: 'ds', suffix: 'noEqs' });
     await giveItem(uid, 13, 1);
     const bags = await _bagService.list(uid);
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     if (!equip) return;
-    try {
-      await _bagService.wearItem(uid, equip.original_id ?? equip.id);
-      fail('should throw');
-    } catch (e: any) {
-      expect(e.message).toMatch(/失败|服务/);
-    }
+    const ok = await _bagService.wearItem(uid, equip.original_id ?? equip.id);
+    expect(ok).toBe(true);
   });
 
   it('getMaterialCount 无材料返回 0', async () => {

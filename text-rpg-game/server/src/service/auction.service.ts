@@ -8,6 +8,7 @@ import { EquipInstanceService } from './equip_instance.service';
 import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { wsManager } from '../event/ws-manager';
+import { Collections } from '../config/collections';
 import { Uid } from '../types';
 import { getHpRestore, getMpRestore, isEquipment } from '../utils/item-type';
 import { enrichEquipDetail, enrichEquipFromBase } from '../utils/enrich-equip';
@@ -54,18 +55,18 @@ export class AuctionService {
   }): Promise<{ items: any[]; total: number }> {
     const { type, keyword, pos, min_level, max_level, page = 1, pageSize = 15 } = params;
 
-    const allAuctions = await dataStorageService.list('auction');
+    const allAuctions = await dataStorageService.list(Collections.AUCTION);
     if (allAuctions.length === 0) return { items: [], total: 0 };
 
     // 批量预加载所有相关 item 和 equip_base
     const auctionItemIds = [...new Set(allAuctions.map((a: any) => a.item_id))];
     const [allItems, _allEquipBases] = await Promise.all([
-      dataStorageService.getByIds('item', auctionItemIds),
-      dataStorageService.getByIds('equip_base', []),
+      dataStorageService.getByIds(Collections.ITEM, auctionItemIds),
+      dataStorageService.getByIds(Collections.EQUIP_BASE, []),
     ]);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
     // equip_base 按 item_id 索引
-    const equipBaseList = await dataStorageService.list('equip_base');
+    const equipBaseList = await dataStorageService.list(Collections.EQUIP_BASE);
     const equipBaseMap = new Map(equipBaseList.map((eb: any) => [eb.item_id, eb]));
 
     const keywordLower = keyword?.trim()?.toLowerCase();
@@ -205,7 +206,7 @@ export class AuctionService {
           await this.bagService.reduceBagItemCount(realBagId, count);
         }
       }
-      return await dataStorageService.insert('auction', auctionData, session);
+      return await dataStorageService.insert(Collections.AUCTION, auctionData, session);
     });
 
     const payload = await this.bagService.getListPayload(uid);
@@ -226,7 +227,7 @@ export class AuctionService {
     otherName: string | null
   ): Promise<void> {
     const total = price * count;
-    await dataStorageService.insert('auction_record', {
+    await dataStorageService.insert(Collections.AUCTION_RECORD, {
       uid,
       type,
       item_id: itemId,
@@ -241,17 +242,17 @@ export class AuctionService {
   }
 
   private async _trimRecords(uid: Uid): Promise<void> {
-    const all = await dataStorageService.list('auction_record', { uid });
+    const all = await dataStorageService.list(Collections.AUCTION_RECORD, { uid });
     all.sort((a: any, b: any) => (b.create_time ?? 0) - (a.create_time ?? 0));
     if (all.length <= AUCTION_RECORD_MAX) return;
     const toDelete = all.slice(AUCTION_RECORD_MAX);
     for (const r of toDelete) {
-      await dataStorageService.delete('auction_record', r.id);
+      await dataStorageService.delete(Collections.AUCTION_RECORD, r.id);
     }
   }
 
   async getRecords(uid: Uid): Promise<any[]> {
-    const all = await dataStorageService.list('auction_record', { uid });
+    const all = await dataStorageService.list(Collections.AUCTION_RECORD, { uid });
     all.sort((a: any, b: any) => (b.create_time ?? 0) - (a.create_time ?? 0));
     return all.slice(0, AUCTION_RECORD_MAX);
   }
@@ -268,7 +269,7 @@ export class AuctionService {
   }
 
   private async _doBuy(uid: Uid, auctionId: number, count: number): Promise<void> {
-    const auction = await dataStorageService.getById('auction', auctionId);
+    const auction = await dataStorageService.getById(Collections.AUCTION, auctionId);
     if (!auction) {
       throw createError(ErrorCode.NOT_FOUND, '拍卖物品不存在或已售出');
     }
@@ -317,9 +318,9 @@ export class AuctionService {
       }
 
       if (auction.count === buyCount) {
-        await dataStorageService.delete('auction', auctionId, session);
+        await dataStorageService.delete(Collections.AUCTION, auctionId, session);
       } else {
-        await dataStorageService.update('auction', auctionId, { count: auction.count - buyCount }, session);
+        await dataStorageService.update(Collections.AUCTION, auctionId, { count: auction.count - buyCount }, session);
       }
     });
 
@@ -335,7 +336,7 @@ export class AuctionService {
       wsManager.sendToUser(auction.seller_uid, { type: 'player', data: sellerPlayers[0] });
     }
 
-    const itemInfo = await dataStorageService.getByCondition('item', { id: auction.item_id });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: auction.item_id });
     const itemName = itemInfo?.name || '未知';
     const sellerName = sellerPlayers.length ? (sellerPlayers[0] as any).name || '' : '';
     const buyerName = buyerPlayers.length ? (buyerPlayers[0] as any).name || '' : '';
@@ -349,7 +350,7 @@ export class AuctionService {
    * 下架
    */
   async offShelf(uid: Uid, auctionId: number): Promise<void> {
-    const auction = await dataStorageService.getById('auction', auctionId);
+    const auction = await dataStorageService.getById(Collections.AUCTION, auctionId);
     if (!auction) {
       throw createError(ErrorCode.NOT_FOUND, '拍卖物品不存在');
     }
@@ -368,7 +369,7 @@ export class AuctionService {
       await this.bagService.addItem(uid, auction.item_id, auction.count);
     }
 
-    await dataStorageService.delete('auction', auctionId);
+    await dataStorageService.delete(Collections.AUCTION, auctionId);
 
     const payload = await this.bagService.getListPayload(uid);
     wsManager.sendToUser(uid, { type: 'bag', data: payload });

@@ -5,6 +5,7 @@ import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
 import { isEquipment } from '../../utils/item-type';
 import { adminHandler, parseIdParam } from './admin-utils';
+import { Collections } from '../../config/collections';
 
 const router = Router();
 
@@ -14,8 +15,8 @@ function getEquipBaseFilter(eb: any, id: number) {
 }
 
 router.get('/', adminHandler(async (req, res) => {
-    const list = await dataStorageService.list('equip_base', undefined);
-    const items = await dataStorageService.list('item', undefined);
+    const list = await dataStorageService.list(Collections.EQUIP_BASE, undefined);
+    const items = await dataStorageService.list(Collections.ITEM, undefined);
     const itemMap = new Map(items.map((i: any) => [i.id, i]));
     const result = list.map((eb: any) => ({
       ...eb,
@@ -27,10 +28,10 @@ router.get('/', adminHandler(async (req, res) => {
 router.get('/:id', adminHandler(async (req, res) => {
     const id = parseIdParam(req, res, 'ID');
     if (id == null) return;
-    let eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
-    if (!eb) eb = await dataStorageService.getByCondition('equip_base', { id });
+    let eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: id });
+    if (!eb) eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { id });
     if (!eb) return fail(res, ErrorCode.NOT_FOUND, '装备基础不存在');
-    const item = await dataStorageService.getByCondition('item', { id: eb.item_id });
+    const item = await dataStorageService.getByCondition(Collections.ITEM, { id: eb.item_id });
     success(res, { ...eb, item_name: item?.name });
 }, '获取装备基础失败'));
 
@@ -41,9 +42,9 @@ router.post('/', adminHandler(async (req, res) => {
       base_hit_rate, base_dodge_rate, base_crit_rate
     } = req.body;
     if (item_id == null) return fail(res, ErrorCode.INVALID_PARAMS, '缺少 item_id');
-    const existing = await dataStorageService.getByCondition('equip_base', { item_id: Number(item_id) });
+    const existing = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: Number(item_id) });
     if (existing) return fail(res, ErrorCode.INVALID_PARAMS, '该物品已有装备基础配置');
-    const item = await dataStorageService.getByCondition('item', { id: Number(item_id) });
+    const item = await dataStorageService.getByCondition(Collections.ITEM, { id: Number(item_id) });
     if (!item) return fail(res, ErrorCode.NOT_FOUND, '物品不存在');
     if (!isEquipment(item)) return fail(res, ErrorCode.INVALID_PARAMS, '仅装备类型(type=2)可配置 equip_base');
     const pos = (item as any).pos != null && (item as any).pos > 0 ? Number((item as any).pos) : 1;
@@ -61,15 +62,15 @@ router.post('/', adminHandler(async (req, res) => {
       base_dodge_rate: base_dodge_rate != null ? Number(base_dodge_rate) : 0,
       base_crit_rate: base_crit_rate != null ? Number(base_crit_rate) : 0
     };
-    const insertId = await dataStorageService.insert('equip_base', data);
+    const insertId = await dataStorageService.insert(Collections.EQUIP_BASE, data);
     success(res, { id: insertId });
 }, '新增装备基础失败'));
 
 router.put('/:id', adminHandler(async (req, res) => {
     const id = parseIdParam(req, res, 'ID');
     if (id == null) return;
-    let eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
-    if (!eb) eb = await dataStorageService.getByCondition('equip_base', { id });
+    let eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: id });
+    if (!eb) eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { id });
     if (!eb) return fail(res, ErrorCode.NOT_FOUND, '装备基础不存在');
     const filter = getEquipBaseFilter(eb, id);
     const {
@@ -90,7 +91,7 @@ router.put('/:id', adminHandler(async (req, res) => {
     if (base_dodge_rate != null) updateData.base_dodge_rate = Number(base_dodge_rate);
     if (base_crit_rate != null) updateData.base_crit_rate = Number(base_crit_rate);
     if (Object.keys(updateData).length === 1) return fail(res, ErrorCode.INVALID_PARAMS, '无更新字段');
-    const coll = getCollection('equip_base');
+    const coll = getCollection(Collections.EQUIP_BASE);
     await coll.updateOne(filter, { $set: updateData });
     success(res, { message: '更新成功' });
 }, '更新装备基础失败'));
@@ -98,11 +99,11 @@ router.put('/:id', adminHandler(async (req, res) => {
 router.delete('/:id', adminHandler(async (req, res) => {
     const id = parseIdParam(req, res, 'ID');
     if (id == null) return;
-    let eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
-    if (!eb) eb = await dataStorageService.getByCondition('equip_base', { id });
+    let eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: id });
+    if (!eb) eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { id });
     if (!eb) return fail(res, ErrorCode.NOT_FOUND, '装备基础不存在');
     const filter = getEquipBaseFilter(eb, id);
-    const coll = getCollection('equip_base');
+    const coll = getCollection(Collections.EQUIP_BASE);
     const result = await coll.deleteOne(filter);
     if (result.deletedCount > 0) success(res, { message: '删除成功' });
     else fail(res, ErrorCode.NOT_FOUND, '删除失败');

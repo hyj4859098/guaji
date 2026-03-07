@@ -17,6 +17,7 @@ import { EquipBlessingService } from '../../service/equip_blessing.service';
 import { AuctionService } from '../../service/auction.service';
 import { ShopService } from '../../service/shop.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 const bagService = new BagService();
@@ -180,7 +181,7 @@ const enhance: Operation = async (uid) => {
 
   const { getEnhanceMaterialIds } = await import('../../service/enhance-config.service');
   const matIds = await getEnhanceMaterialIds();
-  await bagService.addItem(uid, matIds.stone, 10000);
+  await bagService.addItem(uid, matIds.stone, 9999);
 
   try {
     const result = await upgradeService.enhance(uid, instanceId, {
@@ -230,7 +231,7 @@ const auctionList: Operation = async (uid) => {
 };
 
 const auctionDelist: Operation = async (uid) => {
-  const listings = await dataStorageService.list('auction', { seller_uid: uid });
+  const listings = await dataStorageService.list(Collections.AUCTION, { seller_uid: uid });
   if (listings.length === 0) return 'auctionDelist(skip:none)';
   const target = randomPick(listings);
   try {

@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
 const ELEM_NAMES = ['金', '木', '水', '火', '土'];
@@ -83,7 +83,7 @@ export async function loadBossList() {
     const el = document.getElementById('boss-list');
     if (!el) return;
     el.innerHTML = `
-      <div class="gm-search"><input type="text" placeholder="搜索Boss..." oninput="window._gmFilterBossTable(this,'boss-table')"></div>
+      <div class="gm-search"><input type="text" placeholder="搜索Boss..." oninput="window._gmFilterTable(this,'boss-table')"></div>
       <table class="gm-table" id="boss-table">
         <thead><tr>
           <th>ID</th><th>名称</th><th>等级</th><th>HP</th><th>MP</th><th>当前HP</th><th>状态</th>
@@ -93,7 +93,7 @@ export async function loadBossList() {
           <th>五行</th><th>操作</th>
         </tr></thead>
         <tbody>${result.data.map(b => `<tr>
-          <td>${b.id}</td><td>${b.name}</td><td>${b.level}</td><td>${b.hp}</td><td>${b.mp ?? 0}</td>
+          <td>${b.id}</td><td>${escapeHtml(b.name)}</td><td>${b.level}</td><td>${b.hp}</td><td>${b.mp ?? 0}</td>
           <td>${b.current_hp ?? b.hp}</td>
           <td>${b.can_fight ? '<span style="color:green">可挑战</span>' : (b.respawn_remain > 0 ? `${b.respawn_remain}s后刷新` : '死亡')}</td>
           <td>${b.phy_atk ?? 0}/${b.phy_def ?? 0}</td>
@@ -108,12 +108,6 @@ export async function loadBossList() {
         </tr>`).join('')}</tbody>
       </table>`;
 
-    window._gmFilterBossTable = (input, tableId) => {
-      const kw = input.value.toLowerCase();
-      document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-      });
-    };
   } catch {
     showToast('加载Boss列表失败', 'error');
   }
@@ -144,8 +138,6 @@ export async function saveBoss() {
   } catch { showToast('网络错误', 'error'); }
 }
 
-export function cancelAddBoss() { hideFormModal(); }
-
 export async function editBoss(id) {
   try {
     const res = await fetch(`${API_BASE_URL}/admin/boss/${id}`, {
@@ -157,8 +149,6 @@ export async function editBoss(id) {
     showFormModal('编辑Boss', `<input type="hidden" id="boss-id" value="${boss.id}">${buildFormHtml(boss)}`, updateBoss);
   } catch { showToast('网络错误', 'error'); }
 }
-
-export function cancelEditBoss() { hideFormModal(); }
 
 export async function updateBoss() {
   const id = parseInt(document.getElementById('boss-id')?.value);
@@ -191,6 +181,6 @@ export async function deleteBoss(id) {
 }
 
 export default {
-  loadBossList, addBoss, saveBoss, cancelAddBoss,
-  editBoss, cancelEditBoss, updateBoss, deleteBoss
+  loadBossList, addBoss, saveBoss,
+  editBoss, updateBoss, deleteBoss
 };

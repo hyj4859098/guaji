@@ -8,6 +8,7 @@ import { BossService } from '../../service/boss.service';
 import { BagService } from '../../service/bag.service';
 import { PlayerService } from '../../service/player.service';
 import { dataStorageService as _dsService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -95,14 +96,14 @@ describe('BossService 集成测试', () => {
 
   it('getBossList Boss 死亡超 30 秒后复活', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(states.length).toBeGreaterThan(0);
     const s = states[0];
     const origHp = s.current_hp;
     const origDeath = s.last_death_time;
     try {
       const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: 0,
         last_death_time: now - 35,
       });
@@ -111,7 +112,7 @@ describe('BossService 集成测试', () => {
       expect(b1).toBeDefined();
       expect(b1?.can_fight).toBe(true);
     } finally {
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: origHp ?? s.max_hp ?? 100,
         last_death_time: origDeath ?? 0,
       });
@@ -120,14 +121,14 @@ describe('BossService 集成测试', () => {
 
   it('challenge Boss 死亡未满 30 秒返回 lose', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(states.length).toBeGreaterThan(0);
     const s = states[0];
     const origHp = s.current_hp;
     const origDeath = s.last_death_time;
     try {
       const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: 0,
         last_death_time: now - 10,
       });
@@ -135,7 +136,7 @@ describe('BossService 集成测试', () => {
       expect(result.result).toBe(1);
       expect(result.rounds).toBe(0);
     } finally {
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: origHp ?? s.max_hp ?? 100,
         last_death_time: origDeath ?? 0,
       });
@@ -204,14 +205,14 @@ describe('BossService 集成测试', () => {
 
   it('challenge Boss 死亡未满 30 秒时错误消息含「秒后刷新」', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(states.length).toBeGreaterThan(0);
     const s = states[0];
     const origHp = s.current_hp;
     const origDeath = s.last_death_time;
     try {
       const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: 0,
         last_death_time: now - 5,
       });
@@ -219,7 +220,7 @@ describe('BossService 集成测试', () => {
       expect(result.result).toBe(1);
       expect(result.rounds).toBe(0);
     } finally {
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: origHp ?? s.max_hp ?? 100,
         last_death_time: origDeath ?? 0,
       });
@@ -343,7 +344,7 @@ describe('BossService 集成测试', () => {
     const bossId = await bossService.add({
       name: '_noDropBoss_', level: 1, hp: 10, map_id: 1, exp: 0, gold: 0, reputation: 0,
     } as any);
-    await dataStorageService.insert('boss_state', {
+    await dataStorageService.insert(Collections.BOSS_STATE, {
       boss_id: bossId,
       current_hp: 10,
       max_hp: 10,
@@ -363,7 +364,7 @@ describe('BossService 集成测试', () => {
     const bossId = await bossService.add({
       name: '_consumeDropBoss_', level: 1, hp: 10, map_id: 1, exp: 0, gold: 0, reputation: 0,
     } as any);
-    await dataStorageService.insert('boss_state', {
+    await dataStorageService.insert(Collections.BOSS_STATE, {
       boss_id: bossId,
       current_hp: 10,
       max_hp: 10,
@@ -371,7 +372,7 @@ describe('BossService 集成测试', () => {
       create_time: Math.floor(Date.now() / 1000),
       update_time: Math.floor(Date.now() / 1000),
     });
-    await dataStorageService.insert('boss_drop', {
+    await dataStorageService.insert(Collections.BOSS_DROP, {
       boss_id: bossId,
       item_id: 1,
       quantity: 2,
@@ -383,8 +384,8 @@ describe('BossService 集成测试', () => {
     expect(result).toHaveProperty('items');
     expect(Array.isArray(result.items)).toBe(true);
     await bossService.delete(bossId);
-    const drops = await dataStorageService.list('boss_drop', { boss_id: bossId });
-    for (const d of drops) await dataStorageService.delete('boss_drop', d.id);
+    const drops = await dataStorageService.list(Collections.BOSS_DROP, { boss_id: bossId });
+    for (const d of drops) await dataStorageService.delete(Collections.BOSS_DROP, d.id);
   }, 15000);
 
   it('getBoss drops 结构正确', async () => {
@@ -422,12 +423,12 @@ describe('BossService 集成测试', () => {
 
   it('challenge 失败时 pushEvent result 为 lose', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(states.length).toBeGreaterThan(0);
     const s = states[0];
     const orig = { hp: s.current_hp, death: s.last_death_time };
     try {
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: 0,
         last_death_time: Math.floor(Date.now() / 1000) - 5,
       });
@@ -435,7 +436,7 @@ describe('BossService 集成测试', () => {
       expect(result.result).toBe(1);
       expect(result.rounds).toBe(0);
     } finally {
-      await dataStorageService.update('boss_state', s.id, orig);
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, orig);
     }
   });
 
@@ -446,7 +447,7 @@ describe('BossService 集成测试', () => {
     const bossId = await bossService.add({
       name: '_monsterDropBoss_', level: 1, hp: 10, map_id: 1, exp: 0, gold: 0, reputation: 0,
     } as any);
-    await dataStorageService.insert('boss_state', {
+    await dataStorageService.insert(Collections.BOSS_STATE, {
       boss_id: bossId,
       current_hp: 10,
       max_hp: 10,
@@ -455,7 +456,7 @@ describe('BossService 集成测试', () => {
       update_time: Math.floor(Date.now() / 1000),
     });
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('monster_drop', {
+    await dataStorageService.insert(Collections.MONSTER_DROP, {
       monster_id: bossId,
       item_id: 1,
       quantity: 1,
@@ -466,8 +467,8 @@ describe('BossService 集成测试', () => {
     const result = await bossService.challenge(uid, bossId);
     expect(result).toHaveProperty('items');
     expect(Array.isArray(result.items)).toBe(true);
-    const drops = await dataStorageService.list('monster_drop', { monster_id: bossId });
-    for (const d of drops) await dataStorageService.delete('monster_drop', d.id);
+    const drops = await dataStorageService.list(Collections.MONSTER_DROP, { monster_id: bossId });
+    for (const d of drops) await dataStorageService.delete(Collections.MONSTER_DROP, d.id);
     await bossService.delete(bossId);
   }, 15000);
 
@@ -477,11 +478,11 @@ describe('BossService 集成测试', () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
     await bossService.challenge(uid, 1).catch(() => {});
     await new Promise(r => setTimeout(r, 300));
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     if (states.length === 0) {
-      await dataStorageService.insert('boss_state', { boss_id: 1, current_hp: 100, max_hp: 100, last_death_time: 0 });
+      await dataStorageService.insert(Collections.BOSS_STATE, { boss_id: 1, current_hp: 100, max_hp: 100, last_death_time: 0 });
     }
-    const statesAfter = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const statesAfter = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(statesAfter.length).toBeGreaterThan(0);
     const s = statesAfter[0];
     const origHp = s.current_hp;
@@ -489,7 +490,7 @@ describe('BossService 集成测试', () => {
 
     try {
       const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: 0,
         last_death_time: now,
       });
@@ -498,7 +499,7 @@ describe('BossService 集成测试', () => {
       expect(result.result).toBe(1);
       expect(result.rounds).toBe(0);
     } finally {
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: origHp ?? s.max_hp ?? 100,
         last_death_time: origDeath ?? 0,
       });
@@ -507,11 +508,11 @@ describe('BossService 集成测试', () => {
 
   it('getBossList Boss 复活后状态恢复（branch）', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     if (states.length === 0) {
-      await dataStorageService.insert('boss_state', { boss_id: 1, current_hp: 100, max_hp: 100, last_death_time: 0 });
+      await dataStorageService.insert(Collections.BOSS_STATE, { boss_id: 1, current_hp: 100, max_hp: 100, last_death_time: 0 });
     }
-    const statesAfter = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const statesAfter = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(statesAfter.length).toBeGreaterThan(0);
     const s = statesAfter[0];
     const origHp = s.current_hp;
@@ -519,7 +520,7 @@ describe('BossService 集成测试', () => {
 
     try {
       const now = Math.floor(Date.now() / 1000);
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: 0,
         last_death_time: now - 35,
       });
@@ -530,7 +531,7 @@ describe('BossService 集成测试', () => {
       expect(boss1!.can_fight).toBe(true);
       expect(boss1!.current_hp).toBeGreaterThan(0);
     } finally {
-      await dataStorageService.update('boss_state', s.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, s.id, {
         current_hp: origHp ?? s.max_hp ?? 100,
         last_death_time: origDeath ?? 0,
       });
@@ -544,10 +545,10 @@ describe('BossService 集成测试', () => {
     const players = await playerService.list(uid);
     await playerService.update(players[0].id, { hp: 9999, max_hp: 9999, phy_atk: 9999, mag_atk: 9999 } as any);
 
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     if (states.length) {
-      const boss = await dataStorageService.getById('boss', 1);
-      await dataStorageService.update('boss_state', states[0].id, {
+      const boss = await dataStorageService.getById(Collections.BOSS, 1);
+      await dataStorageService.update(Collections.BOSS_STATE, states[0].id, {
         current_hp: boss?.hp ?? 100,
         last_death_time: 0,
       });
@@ -572,10 +573,10 @@ describe('BossService 集成测试', () => {
     await playerService.update(players[0].id, { hp: 9999, max_hp: 9999, phy_atk: 9999, mag_atk: 9999 } as any);
     await bagService.addItem(uid, 1, 5);
 
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     if (states.length) {
-      const boss = await dataStorageService.getById('boss', 1);
-      await dataStorageService.update('boss_state', states[0].id, {
+      const boss = await dataStorageService.getById(Collections.BOSS, 1);
+      await dataStorageService.update(Collections.BOSS_STATE, states[0].id, {
         current_hp: boss?.hp ?? 100,
         last_death_time: 0,
       });
@@ -608,10 +609,10 @@ describe('BossService 集成测试', () => {
       vip_level: 1,
     } as any);
 
-    const states = await dataStorageService.list('boss_state', { boss_id: 1 });
+    const states = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: 1 });
     if (states.length) {
-      const boss = await dataStorageService.getById('boss', 1);
-      await dataStorageService.update('boss_state', states[0].id, {
+      const boss = await dataStorageService.getById(Collections.BOSS, 1);
+      await dataStorageService.update(Collections.BOSS_STATE, states[0].id, {
         current_hp: boss?.hp ?? 100,
         last_death_time: 0,
       });
@@ -649,10 +650,10 @@ describe('关键路径/深度分支', () => {
 
   it('ensureBossState 已存在时跳过（不创建重复）', async () => {
     const { uid } = await createTestUser(app, { prefix: 'ds', suffix: 'bsEns' });
-    const statesBefore = await _dsService.list('boss_state', { boss_id: 1 });
+    const statesBefore = await _dsService.list(Collections.BOSS_STATE, { boss_id: 1 });
     await _bossService.getBossList(uid, 1);
     await _bossService.getBossList(uid, 1);
-    const statesAfter = await _dsService.list('boss_state', { boss_id: 1 });
+    const statesAfter = await _dsService.list(Collections.BOSS_STATE, { boss_id: 1 });
     expect(statesAfter.length).toBe(statesBefore.length);
   });
 
@@ -676,9 +677,9 @@ describe('关键路径/深度分支', () => {
     await _playerService.update(players[0].id, {
       hp: 999999, max_hp: 999999, phy_atk: 999999, mag_atk: 999999, level: 100,
     } as any);
-    const bossState = await _dsService.list('boss_state', { boss_id: 1 });
+    const bossState = await _dsService.list(Collections.BOSS_STATE, { boss_id: 1 });
     if (bossState.length) {
-      await _dsService.update('boss_state', bossState[0].id, {
+      await _dsService.update(Collections.BOSS_STATE, bossState[0].id, {
         current_hp: 1000, max_hp: 1000, last_death_time: 0,
       });
     }

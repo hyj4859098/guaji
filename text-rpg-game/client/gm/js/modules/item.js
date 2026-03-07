@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, posOptions, EQUIP_POS_NAMES } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, posOptions, EQUIP_POS_NAMES, escapeHtml } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
 const TYPE_MAP = { 1: '消耗品', 2: '装备', 3: '材料', 4: '道具/技能书', 5: '多倍卡', 6: 'VIP卡' };
@@ -209,12 +209,12 @@ export async function loadItemList(page = 1) {
           <th>回血</th><th>回蓝</th><th>描述</th><th>操作</th>
         </tr></thead>
         <tbody>${list.map(it => `<tr>
-          <td>${it.id}</td><td>${it.name}</td>
+          <td>${it.id}</td><td>${escapeHtml(it.name)}</td>
           <td>${TYPE_MAP[it.type] ?? it.type}</td>
           <td>${it.type === 2 && it.pos ? (EQUIP_POS_NAMES[it.pos] ?? it.pos) : '-'}</td>
           <td>${it.hp_restore ?? 0}</td>
           <td>${it.mp_restore ?? 0}</td>
-          <td>${it.description || ''}</td>
+          <td>${escapeHtml(it.description || '')}</td>
           <td>
             <button class="btn btn-info" onclick="editItem(${it.id})">编辑</button>
             <button class="btn btn-danger" onclick="deleteItem(${it.id})">删除</button>
@@ -230,12 +230,6 @@ export async function loadItemList(page = 1) {
         <button class="btn btn-info" onclick="loadItemList(${totalPages})" ${currentPage >= totalPages ? 'disabled' : ''}>末页</button>
       </div>`;
 
-    window._gmFilterTable = window._gmFilterTable || function (input, tableId) {
-      const kw = input.value.toLowerCase();
-      document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-      });
-    };
   } catch {
     showToast('加载物品列表失败', 'error');
   }

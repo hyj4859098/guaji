@@ -4,6 +4,7 @@
 import { MonsterService } from '../../service/monster.service';
 import { cacheService } from '../../service/cache.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 describe('MonsterService 集成测试', () => {
   const monsterService = new MonsterService();
@@ -74,7 +75,7 @@ describe('MonsterService 集成测试', () => {
   it('get 掉落物品名不存在时使用 fallback', async () => {
     // 使用高 ID 避免与其他测试或 init 数据冲突
     const TEMP_ITEM_ID = 999990002;
-    await dataStorageService.insert('item', {
+    await dataStorageService.insert(Collections.ITEM, {
       id: TEMP_ITEM_ID,
       name: '_monster_test_temp_',
       type: 1,
@@ -85,13 +86,13 @@ describe('MonsterService 集成测试', () => {
       hit_rate: 80, dodge_rate: 5, crit_rate: 5, exp: 1, gold: 1, reputation: 0, map_id: 1,
       skill1: '', skill2: '',
     } as any);
-    const dropId = await dataStorageService.insert('monster_drop', {
+    const dropId = await dataStorageService.insert(Collections.MONSTER_DROP, {
       monster_id: monsterId,
       item_id: TEMP_ITEM_ID,
       quantity: undefined,
       probability: undefined,
     });
-    await dataStorageService.delete('item', TEMP_ITEM_ID);
+    await dataStorageService.delete(Collections.ITEM, TEMP_ITEM_ID);
     cacheService.monster.invalidate(monsterId);
     const monster = await monsterService.get(monsterId);
     expect(monster).not.toBeNull();
@@ -100,7 +101,7 @@ describe('MonsterService 集成测试', () => {
     expect(drop?.item_name).toBe(`物品${TEMP_ITEM_ID}`);
     expect(drop?.quantity).toBe(1);
     expect(drop?.probability).toBe(0);
-    await dataStorageService.delete('monster_drop', dropId);
+    await dataStorageService.delete(Collections.MONSTER_DROP, dropId);
     await monsterService.delete(monsterId);
   });
 });

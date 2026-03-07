@@ -41,17 +41,17 @@ git commit -m "新功能：xxx"
 git push
 ```
 
-双击 **更新服务器.bat**
+双击 **快速部署.bat**
 
 ## 出问题怎么办
 
 ### 部署后报错、无法访问
 
-在本地双击 **回滚服务器.bat**，或在服务器执行：
+在本地双击 **回滚.bat**，或在服务器执行：
 
 ```bash
 cd /opt/guaji
-bash rollback-server.sh
+bash scripts/rollback.sh
 ```
 
 会恢复：数据库备份 + 代码到部署前版本。

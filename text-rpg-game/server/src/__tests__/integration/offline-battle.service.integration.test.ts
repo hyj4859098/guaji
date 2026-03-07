@@ -9,6 +9,7 @@ import { OfflineBattleService } from '../../service/offline-battle.service';
 import { PlayerService } from '../../service/player.service';
 import { BagService } from '../../service/bag.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 const UNIQUE = `_offline_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -252,7 +253,7 @@ describe('OfflineBattleService 集成测试', () => {
       map_id: 1,
     } as any);
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('monster_drop', {
+    await dataStorageService.insert(Collections.MONSTER_DROP, {
       monster_id: monsterId,
       item_id: 13,
       quantity: 1,
@@ -265,15 +266,15 @@ describe('OfflineBattleService 集成测试', () => {
     } as any);
     const result = await offlineService.simulate(uid, { enemy_id: monsterId, last_battle_time: now - 120, auto_heal: null });
     expect(result).toHaveProperty('totalBattles');
-    const drops = await dataStorageService.list('monster_drop', { monster_id: monsterId });
-    for (const d of drops) await dataStorageService.delete('monster_drop', d.id);
+    const drops = await dataStorageService.list(Collections.MONSTER_DROP, { monster_id: monsterId });
+    for (const d of drops) await dataStorageService.delete(Collections.MONSTER_DROP, d.id);
     await monsterService.delete(monsterId);
     await playerService.update(playerId, { auto_battle_config: { enemy_id: 1, last_battle_time: now, auto_heal: null } } as any);
   }, 15000);
 
   it('simulate 无技能分支', async () => {
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.deleteMany('player_skill', { uid });
+    await dataStorageService.deleteMany(Collections.PLAYER_SKILL, { uid });
     await playerService.update(playerId, {
       hp: 500,
       max_hp: 500,

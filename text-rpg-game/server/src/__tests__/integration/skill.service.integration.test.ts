@@ -9,6 +9,7 @@ import { SkillService } from '../../service/skill.service';
 import { PlayerSkillModel } from '../../model/skill.model';
 import { BagService } from '../../service/bag.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -137,7 +138,7 @@ describe('SkillService 集成测试', () => {
       await skillService.equipSkill(uid, learned!.skill_id ?? learned!.id);
 
       const now = Math.floor(Date.now() / 1000);
-      const secondSkillId = await dataStorageService.insert('skill', {
+      const secondSkillId = await dataStorageService.insert(Collections.SKILL, {
         name: '_bm_冰箭术',
         type: 1,
         damage: 15,
@@ -149,7 +150,7 @@ describe('SkillService 集成测试', () => {
         update_time: now,
       });
 
-      await dataStorageService.insert('player_skill', {
+      await dataStorageService.insert(Collections.PLAYER_SKILL, {
         uid,
         skill_id: secondSkillId,
         level: 1,
@@ -166,8 +167,8 @@ describe('SkillService 集成测试', () => {
       const first = listAfter.find((s: any) => (s.skill_id ?? s.id) === (learned!.skill_id ?? learned!.id));
       expect(first?.is_equipped).toBe(0);
 
-      await dataStorageService.deleteMany('player_skill', { uid, skill_id: secondSkillId });
-      await dataStorageService.delete('skill', secondSkillId);
+      await dataStorageService.deleteMany(Collections.PLAYER_SKILL, { uid, skill_id: secondSkillId });
+      await dataStorageService.delete(Collections.SKILL, secondSkillId);
     });
   });
 });

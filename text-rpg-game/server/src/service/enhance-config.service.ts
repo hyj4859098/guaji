@@ -2,6 +2,7 @@
  * 强化/祝福材料配置 - 从 config 表读取，避免硬编码 item_id
  */
 import { dataStorageService } from './data-storage.service';
+import { Collections } from '../config/collections';
 
 export interface EnhanceMaterialIds {
   stone: number;
@@ -19,7 +20,7 @@ const DEFAULT: EnhanceMaterialIds = {
 
 /** 获取强化材料 item_id 配置 */
 export async function getEnhanceMaterialIds(): Promise<EnhanceMaterialIds> {
-  const row = await dataStorageService.getByCondition('config', { name: 'enhance_materials' });
+  const row = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'enhance_materials' });
   if (!row || !row.value) return DEFAULT;
   try {
     const parsed = JSON.parse(row.value) as Partial<EnhanceMaterialIds>;

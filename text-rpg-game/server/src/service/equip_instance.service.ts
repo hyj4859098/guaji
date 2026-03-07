@@ -8,6 +8,7 @@ import { calcBlessingEffects, extractBlessingAttrs, BlessingEffect } from '../ut
 import { isEquipment } from '../utils/item-type';
 import { Uid } from '../types';
 import { logger } from '../utils/logger';
+import { Collections } from '../config/collections';
 
 export class EquipInstanceService {
   private model = new EquipInstanceModel();
@@ -16,12 +17,12 @@ export class EquipInstanceService {
    * 创建装备实例（手动添加时用基础值，无浮动）
    */
   async createFromBase(uid: Uid, item_id: number): Promise<number | null> {
-    const item = await dataStorageService.getByCondition('item', { id: item_id }, undefined);
+    const item = await dataStorageService.getByCondition(Collections.ITEM, { id: item_id }, undefined);
     if (!item || !isEquipment(item)) {
       logger.warn('createFromBase 跳过：物品非装备类型', { item_id, type: item?.type });
       return null;
     }
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id }, undefined);
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id }, undefined);
     if (!equipBase) {
       logger.warn('equip_base 不存在', { item_id });
       return null;
@@ -49,12 +50,12 @@ export class EquipInstanceService {
    * 从掉落创建装备实例（主属性 ±20% 浮动）
    */
   async createFromDrop(uid: Uid, item_id: number): Promise<number | null> {
-    const item = await dataStorageService.getByCondition('item', { id: item_id }, undefined);
+    const item = await dataStorageService.getByCondition(Collections.ITEM, { id: item_id }, undefined);
     if (!item || !isEquipment(item)) {
       logger.warn('createFromDrop 跳过：物品非装备类型', { item_id, type: item?.type });
       return null;
     }
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id }, undefined);
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id }, undefined);
     if (!equipBase) {
       logger.warn('equip_base 不存在', { item_id });
       return null;
@@ -96,16 +97,16 @@ export class EquipInstanceService {
     const instance = await this.model.get(instanceId);
     if (!instance || String(instance.uid) !== String(uid)) return false;
     const equipmentUid = String(instanceId);
-    const userEquips = await dataStorageService.list('user_equip', { uid, equipment_uid: equipmentUid });
+    const userEquips = await dataStorageService.list(Collections.USER_EQUIP, { uid, equipment_uid: equipmentUid });
     if (userEquips.length > 0) {
       const attrs = await this.buildEquipAttrs(instance);
       const EquipEffectUtil = (await import('../utils/equip-effect')).EquipEffectUtil;
       await EquipEffectUtil.removeEquipEffect(uid, { equip_attributes: attrs });
     }
-    await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: equipmentUid });
-    const bags = await dataStorageService.list('bag', { uid, equipment_uid: equipmentUid });
+    await dataStorageService.deleteMany(Collections.USER_EQUIP, { uid, equipment_uid: equipmentUid });
+    const bags = await dataStorageService.list(Collections.BAG, { uid, equipment_uid: equipmentUid });
     for (const bag of bags) {
-      await dataStorageService.delete('bag', bag.id);
+      await dataStorageService.delete(Collections.BAG, bag.id);
     }
     return await this.model.delete(instanceId);
   }
@@ -126,18 +127,18 @@ export class EquipInstanceService {
     const instance = await this.model.get(instanceId);
     if (!instance || String(instance.uid) !== String(sellerUid)) return false;
     const equipmentUid = String(instanceId);
-    const userEquips = await dataStorageService.list('user_equip', { uid: sellerUid, equipment_uid: equipmentUid });
+    const userEquips = await dataStorageService.list(Collections.USER_EQUIP, { uid: sellerUid, equipment_uid: equipmentUid });
     if (userEquips.length > 0) {
       const attrs = await this.buildEquipAttrs(instance);
       const EquipEffectUtil = (await import('../utils/equip-effect')).EquipEffectUtil;
       await EquipEffectUtil.removeEquipEffect(sellerUid, { equip_attributes: attrs });
     }
-    await dataStorageService.deleteMany('user_equip', { uid: sellerUid, equipment_uid: equipmentUid });
-    const bags = await dataStorageService.list('bag', { uid: sellerUid, equipment_uid: equipmentUid });
+    await dataStorageService.deleteMany(Collections.USER_EQUIP, { uid: sellerUid, equipment_uid: equipmentUid });
+    const bags = await dataStorageService.list(Collections.BAG, { uid: sellerUid, equipment_uid: equipmentUid });
     for (const bag of bags) {
-      await dataStorageService.delete('bag', bag.id);
+      await dataStorageService.delete(Collections.BAG, bag.id);
     }
-    await dataStorageService.insert('bag', {
+    await dataStorageService.insert(Collections.BAG, {
       uid: buyerUid,
       item_id: instance.item_id,
       count: 1,
@@ -151,7 +152,7 @@ export class EquipInstanceService {
    * 主属性用 main_value，其他属性从 equip_base 取
    */
   async buildEquipAttrs(instance: any): Promise<Record<string, number>> {
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: instance.item_id }, undefined);
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: instance.item_id }, undefined);
     if (!equipBase) return {};
     const equipModule = await import('../utils/equip');
     const attr = equipModule.getEquipMainAttr(instance.pos);
@@ -189,7 +190,7 @@ export class EquipInstanceService {
    * 构建装备基础属性（用于悬浮窗对比，主属性为 equip_base 的基准值）
    */
   async buildBaseAttrs(instance: any): Promise<Record<string, number>> {
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: instance.item_id }, undefined);
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: instance.item_id }, undefined);
     if (!equipBase) return {};
     return {
       hp: (equipBase as any).base_hp ?? 0,
@@ -206,7 +207,7 @@ export class EquipInstanceService {
 
   /** 获取装备需求等级（equip_base.base_level） */
   async getEquipLevel(instance: any): Promise<number> {
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: instance.item_id }, undefined);
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: instance.item_id }, undefined);
     return (equipBase as any)?.base_level ?? 1;
   }
 
@@ -214,7 +215,7 @@ export class EquipInstanceService {
   async buildBlessingEffects(instance: any): Promise<BlessingEffect[]> {
     const blessingLevel = instance.blessing_level ?? 0;
     if (blessingLevel <= 0) return [];
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: instance.item_id }, undefined);
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: instance.item_id }, undefined);
     const equipLevel = (equipBase as any)?.base_level ?? 1;
     return calcBlessingEffects(instance.pos, blessingLevel, equipLevel);
   }

@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { dataStorageService } from './data-storage.service';
 import { logger } from '../utils/logger';
+import { Collections } from '../config/collections';
 
 interface ConfigCache {
   [key: string]: any;
@@ -56,7 +57,7 @@ export class ConfigService {
    */
   private async loadConfigFromDb(configName: string): Promise<void> {
     try {
-      const config = await dataStorageService.getByCondition('config', { name: configName });
+      const config = await dataStorageService.getByCondition(Collections.CONFIG, { name: configName });
       if (config) {
         this.configCache[configName] = JSON.parse(config.value);
         logger.info(`从数据库加载配置成功: ${configName}`);
@@ -111,17 +112,17 @@ export class ConfigService {
       const configValue = JSON.stringify(this.configCache[configName]);
       
       // 检查配置是否存在
-      const existingConfig = await dataStorageService.getByCondition('config', { name: configName });
+      const existingConfig = await dataStorageService.getByCondition(Collections.CONFIG, { name: configName });
       
       if (existingConfig) {
         // 更新现有配置
-        await dataStorageService.update('config', existingConfig.id, {
+        await dataStorageService.update(Collections.CONFIG, existingConfig.id, {
           value: configValue,
           update_time: Math.floor(Date.now() / 1000)
         });
       } else {
         // 插入新配置
-        await dataStorageService.insert('config', {
+        await dataStorageService.insert(Collections.CONFIG, {
           name: configName,
           value: configValue
         });
@@ -145,7 +146,7 @@ export class ConfigService {
       // 刷新所有配置
       this.loadConfigFiles();
       // 从数据库加载配置
-      const configs = await dataStorageService.list('config');
+      const configs = await dataStorageService.list(Collections.CONFIG);
       configs.forEach(config => {
         try {
           this.configCache[config.name] = JSON.parse(config.value);

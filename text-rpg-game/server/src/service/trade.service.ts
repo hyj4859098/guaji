@@ -9,6 +9,7 @@
  */
 import { Uid } from '../types/index';
 import { isEquipment } from '../utils/item-type';
+import { Collections } from '../config/collections';
 import { PlayerService } from './player.service';
 import { BagService } from './bag.service';
 import { EquipInstanceService } from './equip_instance.service';
@@ -366,7 +367,7 @@ class TradeService {
 
   private async transferItems(fromUid: Uid, toUid: Uid, items: TradeItem[]): Promise<void> {
     for (const ti of items) {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: ti.item_id });
+      const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: ti.item_id });
       const isEquip = isEquipment(itemInfo);
 
       if (isEquip && ti.equipment_uid) {

@@ -12,6 +12,7 @@ import { createError, ErrorCode } from '../utils/error';
 import { getMaterialCount, consumeMaterial } from '../utils/material';
 import { withUserLock } from '../utils/per-user-lock';
 import { pushPlayerFullUpdate } from '../utils/push-update';
+import { Collections } from '../config/collections';
 const MAX_ENHANCE_LEVEL = 20;
 const FAIL_BROKEN_RATE = 30; // 失败时 30% 装备损坏
 
@@ -75,7 +76,7 @@ export class EquipUpgradeService {
     }
 
     const equipmentUid = String(instanceId);
-    const inBag = await dataStorageService.list('bag', { uid, equipment_uid: equipmentUid });
+    const inBag = await dataStorageService.list(Collections.BAG, { uid, equipment_uid: equipmentUid });
     if (inBag.length === 0) {
       throw createError(ErrorCode.INVALID_PARAMS, '只能强化背包中的装备，请先卸下');
     }

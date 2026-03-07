@@ -9,6 +9,7 @@ import { PlayerService } from '../../service/player.service';
 import { dataStorageService } from '../../service/data-storage.service';
 import { giveItem } from '../../__test-utils__/integration-helpers';
 import { ErrorCode } from '../../utils/error';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 const UNIQUE = `_ie_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -40,10 +41,10 @@ describe('ItemEffectService 集成测试', () => {
   });
 
   it('restore 仅 addMp 生效', async () => {
-    const allItems = await dataStorageService.list('item', undefined);
+    const allItems = await dataStorageService.list(Collections.ITEM, undefined);
     const mpOnlyItem = allItems.find((i: any) => (i.hp_restore || 0) <= 0 && (i.mp_restore || 0) > 0);
     if (mpOnlyItem) {
-      const eff = await dataStorageService.getByCondition('item_effect', { item_id: mpOnlyItem.id });
+      const eff = await dataStorageService.getByCondition(Collections.ITEM_EFFECT, { item_id: mpOnlyItem.id });
       if (eff?.effect_type === 'restore') {
         await request(app).post('/api/admin/player/give-item').set({ Authorization: `Bearer ${adminToken}` }).send({ uid, item_id: mpOnlyItem.id, count: 1 });
         const list = await bagService.list(uid);
@@ -58,19 +59,19 @@ describe('ItemEffectService 集成测试', () => {
 
   it('execute 未知 effect_type 返回 ok:false', async () => {
     const TEST_ITEM_ID = 999990001;
-    await dataStorageService.insert('item', { id: TEST_ITEM_ID, name: '_unknown_effect_', type: 4, description: '' });
-    await dataStorageService.insert('item_effect', { item_id: TEST_ITEM_ID, effect_type: 'unknown_type', create_time: 0, update_time: 0 });
+    await dataStorageService.insert(Collections.ITEM, { id: TEST_ITEM_ID, name: '_unknown_effect_', type: 4, description: '' });
+    await dataStorageService.insert(Collections.ITEM_EFFECT, { item_id: TEST_ITEM_ID, effect_type: 'unknown_type', create_time: 0, update_time: 0 });
     try {
       const result = await ItemEffectService.execute(uid, TEST_ITEM_ID, 1);
       expect(result.ok).toBe(false);
     } finally {
-      await dataStorageService.deleteMany('item_effect', { item_id: TEST_ITEM_ID });
-      await dataStorageService.delete('item', TEST_ITEM_ID);
+      await dataStorageService.deleteMany(Collections.ITEM_EFFECT, { item_id: TEST_ITEM_ID });
+      await dataStorageService.delete(Collections.ITEM, TEST_ITEM_ID);
     }
   });
 
   it('expand_bag actualCount 超过 maxUsable 抛错', async () => {
-    const config = await dataStorageService.getByCondition('config', { name: 'functional_items' });
+    const config = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'functional_items' });
     const expandId = config?.value ? (typeof config.value === 'string' ? JSON.parse(config.value) : config.value).expand_bag : 11;
     if (!expandId) return;
     await request(app).post('/api/admin/player/give-item').set({ Authorization: `Bearer ${adminToken}` }).send({ uid, item_id: expandId, count: 5 });
@@ -90,7 +91,7 @@ describe('ItemEffectService 集成测试', () => {
   });
 
   it('add_stat 永久属性果实使用成功', async () => {
-    const statFruitIds = (await dataStorageService.getByCondition('config', { name: 'functional_items' }))?.value;
+    const statFruitIds = (await dataStorageService.getByCondition(Collections.CONFIG, { name: 'functional_items' }))?.value;
     const ids = statFruitIds ? (typeof statFruitIds === 'string' ? JSON.parse(statFruitIds) : statFruitIds).stat_fruit_ids : [120];
     if (!ids?.length) return;
     const fruitId = ids[0];
@@ -104,7 +105,7 @@ describe('ItemEffectService 集成测试', () => {
   });
 
   it('expand_bag 容量已达上限抛错', async () => {
-    const config = await dataStorageService.getByCondition('config', { name: 'functional_items' });
+    const config = await dataStorageService.getByCondition(Collections.CONFIG, { name: 'functional_items' });
     const expandId = config?.value ? (typeof config.value === 'string' ? JSON.parse(config.value) : config.value).expand_bag : 11;
     if (!expandId) return;
     await request(app)
@@ -132,7 +133,7 @@ describe('ItemEffectService 集成测试', () => {
     const vipItem = list.find((i: any) => i.item_id === 201 && !i.equipment_uid);
     expect(vipItem).toBeDefined();
 
-    const itemInfo = await dataStorageService.getByCondition('item', { id: 201 });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: 201 });
     const result = await ItemEffectService.execute(uid, 201, 1, itemInfo);
     expect(result.ok).toBe(true);
 
@@ -185,7 +186,7 @@ describe('ItemEffectService 集成测试', () => {
     const boostItem = list.find((i: any) => i.item_id === 101 && !i.equipment_uid);
     expect(boostItem).toBeDefined();
 
-    const itemInfo = await dataStorageService.getByCondition('item', { id: 101 });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: 101 });
     const result = await ItemEffectService.execute(uid, 101, 1, itemInfo);
     expect(result.ok).toBe(true);
   });

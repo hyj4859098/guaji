@@ -12,7 +12,7 @@ echo ">>> 启动服务..."
 cd "$PROJECT_DIR/text-rpg-game/server"
 if command -v pm2 &>/dev/null; then
   pm2 delete text-rpg-game 2>/dev/null || true
-  pm2 start npm --name text-rpg-game -- start
+  pm2 start dist/app.js --name text-rpg-game --cwd "$PROJECT_DIR/text-rpg-game/server"
   pm2 save
   echo "已用 PM2 启动"
   pm2 logs text-rpg-game --lines 5 --nostream

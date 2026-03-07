@@ -6,6 +6,7 @@ import { success, fail } from '../../utils/response';
 import { ErrorCode } from '../../utils/error';
 import { isEquipment, getItemType } from '../../utils/item-type';
 import { adminHandler, adminGetById, adminDelete, parseIdParam } from './admin-utils';
+import { Collections } from '../../config/collections';
 
 const router = Router();
 const itemService = new ItemService();
@@ -88,7 +89,7 @@ router.put('/:id', adminHandler(async (req, res) => {
     if (!name || type == null) return fail(res, ErrorCode.INVALID_PARAMS, '缺少名称或类型');
     const itemType = Number(type);
     if (itemType < 1 || itemType > 6) return fail(res, ErrorCode.INVALID_PARAMS, 'type 必须在 1-6 之间');
-    const existingItem = await dataStorageService.getByCondition('item', { id });
+    const existingItem = await dataStorageService.getByCondition(Collections.ITEM, { id });
     if (existingItem && isEquipment(existingItem) && !isEquipment({ type: itemType })) {
       await itemService.deleteEquipBaseByItemId(id);
     }
@@ -120,7 +121,7 @@ router.put('/:id', adminHandler(async (req, res) => {
       });
     }
     if (getItemType(updatedTypeObj) === 'tool' && itemType === 4 && effect_type === 'learn_skill' && skill_name) {
-      const existingSkill = await dataStorageService.getByCondition('skill', { book_id: id });
+      const existingSkill = await dataStorageService.getByCondition(Collections.SKILL, { book_id: id });
       if (!existingSkill) {
         await skillService.add({
           uid: 0,

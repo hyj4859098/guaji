@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
 const SHOP_TYPE_MAP = { gold: '金币商店', reputation: '声望商店', points: '积分商店' };
@@ -98,7 +98,7 @@ export async function loadShopList() {
           <td>${si.id}</td>
           <td>${SHOP_TYPE_MAP[si.shop_type] || si.shop_type}</td>
           <td>${si.item_id}</td>
-          <td>${si.item_name || ''}</td>
+          <td>${escapeHtml(si.item_name || '')}</td>
           <td class="num">${si.price}</td>
           <td>${CATEGORY_MAP[si.category] || si.category}</td>
           <td class="num">${si.sort_order ?? 0}</td>
@@ -110,12 +110,6 @@ export async function loadShopList() {
         </tr>`).join('')}</tbody>
       </table>`;
 
-    window._gmFilterTable = window._gmFilterTable || function (input, tableId) {
-      const kw = input.value.toLowerCase();
-      document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-      });
-    };
   } catch {
     showToast('加载商店列表失败', 'error');
   }

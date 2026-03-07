@@ -28,10 +28,10 @@ fi
 
 # 第二步：安装 Node.js
 echo ""
-echo ">>> [2/4] 安装 Node.js..."
+echo ">>> [2/5] 安装 Node.js..."
 if ! command -v node &> /dev/null; then
   cd /tmp
-  NODE_VER="18.19.0"
+  NODE_VER="20.11.1"
   wget -q "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-linux-x64.tar.xz" -O node.tar.xz
   tar -xf node.tar.xz -C /usr/local --strip-components=1
   rm -f node.tar.xz
@@ -45,7 +45,7 @@ fi
 
 # 第三步：安装 MongoDB
 echo ""
-echo ">>> [3/4] 安装 MongoDB..."
+echo ">>> [3/5] 安装 MongoDB..."
 if [ -d /usr/local/mongodb ] && ! /usr/local/mongodb/bin/mongod --version &>/dev/null; then
   echo "检测到旧版 MongoDB 无法运行，重装..."
   rm -rf /usr/local/mongodb
@@ -75,9 +75,21 @@ else
   echo "MongoDB 已存在"
 fi
 
-# 第四步：创建目录结构
+# 第四步：安装 PM2
 echo ""
-echo ">>> [4/4] 创建项目目录..."
+echo ">>> [4/5] 安装 PM2..."
+if ! command -v pm2 &> /dev/null; then
+  npm install -g pm2
+  echo "PM2 已安装: $(pm2 -v)"
+else
+  echo "PM2 已存在: $(pm2 -v)"
+fi
+# 设置 PM2 开机自启
+pm2 startup 2>/dev/null || true
+
+# 第五步：创建目录结构
+echo ""
+echo ">>> [5/5] 创建项目目录..."
 mkdir -p "$PROJECT_DIR/text-rpg-game/server"
 mkdir -p "$PROJECT_DIR/backups"
 echo "目录已创建: $PROJECT_DIR"
@@ -91,6 +103,6 @@ firewall-cmd --reload 2>/dev/null || true
 echo ""
 echo "=========================================="
 echo "环境准备完成！"
-echo "请在本机双击「上传部署.bat」完成首次部署"
+echo "请在本机双击「快速部署.bat」完成首次代码部署"
 echo "（上传部署会打包 dist、node_modules、client 等生产代码并上传）"
 echo "=========================================="

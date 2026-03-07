@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 
 const API = getApiBaseUrl();
 let dropType = 'monster'; // 'monster' | 'boss'
@@ -61,14 +61,14 @@ export async function loadDropList() {
           <option value="monster" ${!isBoss ? 'selected' : ''}>怪物掉落</option>
           <option value="boss" ${isBoss ? 'selected' : ''}>Boss掉落</option>
         </select>
-        <input type="text" id="drop-search" placeholder="搜索掉落..." oninput="filterDropTable()">
+        <input type="text" id="drop-search" placeholder="搜索掉落..." oninput="window._gmFilterTable(this,'drop-table')">
         <input type="number" id="drop-entity-filter" placeholder="${colName}筛选" min="1" value="${filterId || ''}" style="margin-left:8px;width:120px">
         <button class="btn btn-info" onclick="loadDropList()" style="margin-left:4px">筛选</button>
       </div>
-      <table class="gm-table">
+      <table class="gm-table" id="drop-table">
         <thead><tr><th>ID</th><th>${colName}</th><th>物品</th><th>数量</th><th>概率</th><th>操作</th></tr></thead>
         <tbody>${list.map(d => `<tr>
-          <td>${d.id}</td><td>${d[colKey]} ${d[nameKey] ? `(${d[nameKey]})` : ''}</td><td>${d.item_id} ${d.item_name ? `(${d.item_name})` : ''}</td>
+          <td>${d.id}</td><td>${d[colKey]} ${d[nameKey] ? `(${escapeHtml(d[nameKey])})` : ''}</td><td>${d.item_id} ${d.item_name ? `(${escapeHtml(d.item_name)})` : ''}</td>
           <td>${d.quantity ?? 1}</td><td>${d.probability ?? 0}%</td>
           <td>
             <button class="btn btn-info" onclick="editDrop(${d.id})">编辑</button>
@@ -81,12 +81,6 @@ export async function loadDropList() {
   }
 }
 
-function filterDropTable() {
-  const kw = (document.getElementById('drop-search')?.value || '').toLowerCase();
-  document.querySelectorAll('#drop-list .gm-table tbody tr').forEach(tr => {
-    tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-  });
-}
 
 export function addDrop() {
   showFormModal(dropType === 'boss' ? '新增Boss掉落' : '新增怪物掉落', formHtml(null), saveDrop);
@@ -142,7 +136,5 @@ export async function deleteDrop(id) {
     else showToast(result.msg || '失败', 'error');
   } catch { showToast('网络错误', 'error'); }
 }
-
-window.filterDropTable = filterDropTable;
 
 export default { loadDropList, addDrop, saveDrop, editDrop, updateDrop, deleteDrop };

@@ -132,11 +132,14 @@
       
       <div id="cache-tab" class="tab-content hidden">
         <h3>缓存管理</h3>
+        <p style="color:#666;font-size:12px;margin:0 0 8px;">清除服务器内存缓存，修改配置数据后可手动刷新。</p>
         <button class="btn btn-info" onclick="clearCache('monster')">清除怪物缓存</button>
         <button class="btn btn-info" onclick="clearCache('skill')">清除技能缓存</button>
+        <button class="btn btn-info" onclick="clearCache('player')">清除玩家缓存</button>
         <button class="btn btn-info" onclick="clearCache('map')">清除地图缓存</button>
         <button class="btn btn-info" onclick="clearCache('item')">清除物品缓存</button>
         <button class="btn btn-info" onclick="clearCache('level_exp')">清除等级经验缓存</button>
+        <button class="btn btn-danger" onclick="clearCache('all')" style="margin-left:16px;">清除全部缓存</button>
       </div>
       
       <div id="player-tab" class="tab-content hidden">

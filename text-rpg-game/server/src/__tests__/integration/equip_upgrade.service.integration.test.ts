@@ -11,6 +11,7 @@ import { EquipInstanceService } from '../../service/equip_instance.service';
 import { dataStorageService } from '../../service/data-storage.service';
 import { getEnhanceMaterialIds } from '../../service/enhance-config.service';
 import { ErrorCode } from '../../utils/error';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 const UNIQUE = `_eq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -173,7 +174,7 @@ describe('关键路径/深度分支', () => {
     expect(equip).toBeTruthy();
     const instanceId = parseInt(String(equip!.equipment_uid), 10);
 
-    await dataStorageService.update('equip_instance', instanceId, { enhance_level: 5 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { enhance_level: 5 });
 
     const spy = jest.spyOn(Math, 'random');
     try {
@@ -207,7 +208,7 @@ describe('关键路径/深度分支', () => {
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     const instanceId = parseInt(String(equip!.equipment_uid), 10);
 
-    await dataStorageService.update('equip_instance', instanceId, { enhance_level: 5 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { enhance_level: 5 });
 
     const spy = jest.spyOn(Math, 'random');
     try {
@@ -238,7 +239,7 @@ describe('关键路径/深度分支', () => {
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     const instanceId = parseInt(String(equip!.equipment_uid), 10);
 
-    await dataStorageService.update('equip_instance', instanceId, { enhance_level: 5 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { enhance_level: 5 });
 
     const spy = jest.spyOn(Math, 'random');
     try {
@@ -271,7 +272,7 @@ describe('关键路径/深度分支', () => {
 
     const spy = jest.spyOn(Math, 'random');
     try {
-      await dataStorageService.update('equip_instance', instanceId, { enhance_level: 8 });
+      await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { enhance_level: 8 });
       spy.mockReturnValueOnce(0.35);
       const result = await _equipUpgradeService.enhance(uid, instanceId, {
         useLuckyCharm: true,
@@ -342,7 +343,7 @@ describe('关键路径/深度分支', () => {
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     const instanceId = parseInt(String(equip!.equipment_uid), 10);
 
-    await dataStorageService.update('equip_instance', instanceId, { enhance_level: 20 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { enhance_level: 20 });
 
     await expect(
       _equipUpgradeService.enhance(uid, instanceId, { useLuckyCharm: false, useAntiExplode: false })
@@ -359,7 +360,7 @@ describe('关键路径/深度分支', () => {
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     const instanceId = parseInt(String(equip!.equipment_uid), 10);
 
-    await dataStorageService.update('equip_instance', instanceId, { enhance_level: 19 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { enhance_level: 19 });
 
     const spy = jest.spyOn(Math, 'random');
     try {

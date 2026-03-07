@@ -10,6 +10,7 @@ import { Uid } from '../types';
 import { withUserLock } from '../utils/per-user-lock';
 import { tryWithTransaction } from '../config/db';
 import { Shop } from '../types/shop';
+import { Collections } from '../config/collections';
 
 export type ShopItem = Shop;
 
@@ -35,7 +36,7 @@ export class ShopService {
     if (items.length === 0) return [];
 
     const itemIds = [...new Set(items.map((si: any) => si.item_id))];
-    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const allItems = await dataStorageService.getByIds(Collections.ITEM, itemIds);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
 
     const enriched = items.map((si: any) => {
@@ -67,7 +68,7 @@ export class ShopService {
       throw createError(ErrorCode.NOT_FOUND, '商品不存在或已下架');
     }
 
-    const itemInfo = await dataStorageService.getByCondition('item', { id: shopItem.item_id });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: shopItem.item_id });
     if (!itemInfo) {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '物品不存在');
     }
@@ -124,7 +125,7 @@ export class ShopService {
     if (items.length === 0) return [];
 
     const itemIds = [...new Set(items.map((si: any) => si.item_id))];
-    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const allItems = await dataStorageService.getByIds(Collections.ITEM, itemIds);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
 
     const enriched = items.map((si: any) => {
@@ -146,7 +147,7 @@ export class ShopService {
     if (data.price <= 0) {
       throw createError(ErrorCode.INVALID_PARAMS, '价格必须大于0');
     }
-    const itemInfo = await dataStorageService.getByCondition('item', { id: data.item_id });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: data.item_id });
     if (!itemInfo) {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '关联的物品不存在');
     }
@@ -168,7 +169,7 @@ export class ShopService {
       throw createError(ErrorCode.INVALID_PARAMS, '价格必须大于0');
     }
     if (data.item_id != null) {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: data.item_id });
+      const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: data.item_id });
       if (!itemInfo) throw createError(ErrorCode.ITEM_NOT_FOUND, '关联的物品不存在');
       if (isEquipment(itemInfo)) throw createError(ErrorCode.INVALID_PARAMS, '装备类物品不可上架商店');
     }

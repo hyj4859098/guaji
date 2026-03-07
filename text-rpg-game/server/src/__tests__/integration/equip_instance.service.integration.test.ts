@@ -10,6 +10,7 @@ import { EquipService } from '../../service/equip.service';
 import { BagService } from '../../service/bag.service';
 import { dataStorageService } from '../../service/data-storage.service';
 import { enrichEquipDetail, enrichEquipFromBase } from '../../utils/enrich-equip';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 const UNIQUE = `_ei_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -104,7 +105,7 @@ describe('EquipInstanceService 集成测试', () => {
       const id = await equipInstanceService.createFromBase(uid, 13);
       if (!id) return;
       const { dataStorageService } = await import('../../service/data-storage.service');
-      await dataStorageService.update('equip_instance', id, { blessing_level: 1 });
+      await dataStorageService.update(Collections.EQUIP_INSTANCE, id, { blessing_level: 1 });
       const instance = await equipInstanceService.get(id);
       expect(instance).not.toBeNull();
       const effects = await equipInstanceService.buildBlessingEffects(instance!);
@@ -246,7 +247,7 @@ describe('EquipInstanceService 集成测试', () => {
     const id = await equipInstanceService.createFromBase(uid, 13);
     expect(id).not.toBeNull();
     const { dataStorageService } = await import('../../service/data-storage.service');
-    await dataStorageService.update('equip_instance', id!, { blessing_level: 3 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, id!, { blessing_level: 3 });
     const instance = await equipInstanceService.get(id!);
     expect(instance).not.toBeNull();
     const effects = await equipInstanceService.buildBlessingEffects(instance!);
@@ -275,7 +276,7 @@ describe('EquipInstanceService 集成测试', () => {
     });
 
     it('enrichEquipFromBase 从 equip_base 构建兜底详情', async () => {
-      const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: 13 });
+      const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: 13 });
       if (!equipBase) return;
 
       const detail = enrichEquipFromBase(equipBase);
@@ -323,7 +324,7 @@ describe('关键路径/深度分支', () => {
 
   it('createFromDrop 产生的实例属性在 ±20% 范围内', async () => {
     const { uid } = await createTestUser(app, { prefix: 'r2', suffix: 'dropfl' });
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: 13 });
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: 13 });
     if (!equipBase) return;
 
     const results: any[] = [];

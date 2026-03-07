@@ -44,7 +44,7 @@ pkill -f "node dist/app.js" 2>/dev/null || true
 sleep 2
 if command -v pm2 &>/dev/null; then
   pm2 delete text-rpg-game 2>/dev/null || true
-  pm2 start npm --name text-rpg-game -- start
+  pm2 start dist/app.js --name text-rpg-game --cwd "$PROJECT_DIR/text-rpg-game/server"
   pm2 save
   echo "已用 PM2 启动"
 else
@@ -80,7 +80,7 @@ else
     cd "$PROJECT_DIR/text-rpg-game/server"
     if command -v pm2 &>/dev/null; then
       pm2 delete text-rpg-game 2>/dev/null || true
-      pm2 start npm --name text-rpg-game -- start
+      pm2 start dist/app.js --name text-rpg-game --cwd "$PROJECT_DIR/text-rpg-game/server"
       pm2 save
     else
       nohup node dist/app.js > /var/log/text-rpg-game.log 2>&1 &

@@ -8,6 +8,7 @@ import { logger } from './logger';
 import { dataStorageService } from '../service/data-storage.service';
 import { writeDropToDb } from './drop-handler';
 import { wsManager } from '../event/ws-manager';
+import { Collections } from '../config/collections';
 
 // ======================= 自动吃药 =======================
 
@@ -113,7 +114,7 @@ export async function processDropList(
     if (!dropList?.length && fallbackTableName) {
       dropList = await dataStorageService.list(fallbackTableName, { monster_id: Number(entityId) });
     }
-    const items = await dataStorageService.list('item', undefined);
+    const items = await dataStorageService.list(Collections.ITEM, undefined);
     const itemMap = new Map(items.map((i: any) => [i.id, i]));
     dropList = dropList.map((d: any) => ({
       item_id: d.item_id,
@@ -142,7 +143,7 @@ export async function processDropList(
   if (pendingDrops.length === 0) return [];
 
   const uniqueItemIds = [...new Set(pendingDrops.map(d => d.itemId))];
-  const itemInfos = await dataStorageService.getByIds('item', uniqueItemIds);
+  const itemInfos = await dataStorageService.getByIds(Collections.ITEM, uniqueItemIds);
   const itemInfoMap = new Map(itemInfos.map((i: any) => [i.id, i]));
 
   const result: any[] = [];

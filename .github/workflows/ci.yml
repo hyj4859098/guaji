@@ -147,6 +147,7 @@ jobs:
             fi
             sleep 2
           done
+          curl -sf http://localhost:3000/api/health > /dev/null 2>&1 || { echo "服务启动失败"; exit 1; }
         env:
           MONGODB_DATABASE: turn-based-game-test
 
@@ -160,3 +161,11 @@ jobs:
         env:
           CI: true
           BASE_URL: http://localhost:3000
+
+      - name: Upload E2E results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: text-rpg-game/test-results/
+          retention-days: 7

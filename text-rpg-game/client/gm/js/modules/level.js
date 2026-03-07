@@ -33,8 +33,8 @@ export async function loadLevelList() {
     if (!el) return;
     const list = result.data || [];
     el.innerHTML = `
-      <div class="gm-search"><input type="text" id="level-search" placeholder="搜索等级..." oninput="filterLevelTable()"></div>
-      <table class="gm-table">
+      <div class="gm-search"><input type="text" id="level-search" placeholder="搜索等级..." oninput="window._gmFilterTable(this,'level-table')"></div>
+      <table class="gm-table" id="level-table">
         <thead><tr><th>等级</th><th>所需经验</th><th>操作</th></tr></thead>
         <tbody>${list.map(l => {
           const id = l.id;
@@ -52,12 +52,6 @@ export async function loadLevelList() {
   }
 }
 
-function filterLevelTable() {
-  const kw = (document.getElementById('level-search')?.value || '').toLowerCase();
-  document.querySelectorAll('#level-list .gm-table tbody tr').forEach(tr => {
-    tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-  });
-}
 
 export function addLevelExp() {
   showFormModal('新增等级经验', formHtml(null), saveLevelExp);
@@ -104,7 +98,5 @@ export async function deleteLevel(id) {
     else showToast(result.msg || '失败', 'error');
   } catch { showToast('网络错误', 'error'); }
 }
-
-window.filterLevelTable = filterLevelTable;
 
 export default { loadLevelList, addLevelExp, saveLevelExp, editLevel, updateLevelExp, deleteLevel };

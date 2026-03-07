@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 
 const API = getApiBaseUrl();
 
@@ -47,12 +47,12 @@ export async function loadMapList() {
     if (!el) return;
     const list = result.data || [];
     el.innerHTML = `
-      <div class="gm-search"><input type="text" id="map-search" placeholder="搜索地图..." oninput="filterMapTable()"></div>
-      <table class="gm-table">
+      <div class="gm-search"><input type="text" id="map-search" placeholder="搜索地图..." oninput="window._gmFilterTable(this,'map-table')"></div>
+      <table class="gm-table" id="map-table">
         <thead><tr><th>ID</th><th>名称</th><th>等级范围</th><th>描述</th><th>操作</th></tr></thead>
         <tbody>${list.map(m => `<tr>
-          <td>${m.id}</td><td>${m.name}</td><td>${m.level_min ?? 1} - ${m.level_max ?? 99}</td>
-          <td>${m.description || ''}</td>
+          <td>${m.id}</td><td>${escapeHtml(m.name)}</td><td>${m.level_min ?? 1} - ${m.level_max ?? 99}</td>
+          <td>${escapeHtml(m.description || '')}</td>
           <td>
             <button class="btn btn-info" onclick="editMap(${m.id})">编辑</button>
             <button class="btn btn-danger" onclick="deleteMap(${m.id})">删除</button>
@@ -64,12 +64,6 @@ export async function loadMapList() {
   }
 }
 
-function filterMapTable() {
-  const kw = (document.getElementById('map-search')?.value || '').toLowerCase();
-  document.querySelectorAll('#map-list .gm-table tbody tr').forEach(tr => {
-    tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-  });
-}
 
 export function addMap() {
   showFormModal('新增地图', formHtml(null), saveMap);
@@ -120,7 +114,5 @@ export async function deleteMap(id) {
     else showToast(result.msg || '失败', 'error');
   } catch { showToast('网络错误', 'error'); }
 }
-
-window.filterMapTable = filterMapTable;
 
 export default { loadMapList, addMap, saveMap, editMap, updateMap, deleteMap };

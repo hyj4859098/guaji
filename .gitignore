@@ -9,3 +9,6 @@ npm-debug.log*
 Thumbs.db
 .cursor/
 .mongo-uri.json
+test-results/
+playwright-report/
+coverage/

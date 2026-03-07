@@ -257,7 +257,7 @@ test.describe('多人实时交互', () => {
       if (await goldInput.isVisible().catch(() => false)) {
         await goldInput.fill('10');
         await goldInput.press('Tab');
-        await page.waitForTimeout(1000);
+        await pageA.waitForTimeout(1000);
       }
 
       await pageA.getByRole('button', { name: '确认物品' }).click();

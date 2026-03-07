@@ -53,6 +53,9 @@ describe('数据快照: 装备穿/卸循环', () => {
   beforeAll(async () => {
     const user = await createTestUser(app, { prefix: 'snap', charName: '快照测试' });
     uid = user.uid;
+    // 设置高等级，避免 base_level 被其他测试污染导致穿戴失败
+    const players = await playerService.list(uid);
+    if (players[0]) await playerService.update(players[0].id, { level: 99 } as any);
   }, 10000);
 
   it('穿戴→卸下 3 次循环后数据不变', async () => {
@@ -209,7 +212,8 @@ describe('数据快照: 强化后数据一致性', () => {
     // 补充强化石
     const { getEnhanceMaterialIds } = await import('../../service/enhance-config.service');
     const matIds = await getEnhanceMaterialIds();
-    await bagService.addItem(uid, matIds.stone, 10000);
+    await bagService.addItem(uid, matIds.stone, 9999);
+    await bagService.addItem(uid, matIds.anti_explode, 10);
 
     const bag = await bagService.list(uid);
     const sword = bag.find((i: any) => i.item_id === 13 && i.equipment_uid);

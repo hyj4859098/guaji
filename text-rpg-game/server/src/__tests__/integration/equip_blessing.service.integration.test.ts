@@ -12,6 +12,7 @@ import { EquipInstanceService } from '../../service/equip_instance.service';
 import { getEnhanceMaterialIds } from '../../service/enhance-config.service';
 import { dataStorageService } from '../../service/data-storage.service';
 import { ErrorCode } from '../../utils/error';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 const UNIQUE = `_bless_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -149,6 +150,11 @@ describe('关键路径/深度分支', () => {
 
   beforeAll(async () => {
     matIds = await getEnhanceMaterialIds();
+    // 防御性重置：确保 equip_base base_level 不被其他测试污染
+    const ebList = await dataStorageService.list(Collections.EQUIP_BASE, { item_id: 13 });
+    if (ebList[0]) {
+      await dataStorageService.update(Collections.EQUIP_BASE, ebList[0].id, { base_level: 1 });
+    }
   });
 
   it('祝福失败后装备仍在，等级不变', async () => {
@@ -258,7 +264,7 @@ describe('关键路径/深度分支', () => {
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     const instanceId = parseInt(String(equip!.equipment_uid), 10);
 
-    await dataStorageService.update('equip_instance', instanceId, { blessing_level: 30 });
+    await dataStorageService.update(Collections.EQUIP_INSTANCE, instanceId, { blessing_level: 30 });
 
     await expect(_blessingService.bless(uid, instanceId)).rejects.toThrow(/上限/);
   });

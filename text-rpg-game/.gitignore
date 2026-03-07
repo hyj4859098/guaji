@@ -13,3 +13,4 @@ test-results/
 server/battle_test_output.txt
 server/cov-*.txt
 server/coverage-*.txt
+server/test-result.txt

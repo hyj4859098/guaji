@@ -8,6 +8,7 @@ import { createTestUser, adminLogin, giveItem, giveGold } from '../../__test-uti
 import { BagService } from '../../service/bag.service';
 import { PlayerService } from '../../service/player.service';
 import { EquipInstanceService } from '../../service/equip_instance.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -122,18 +123,18 @@ describe('AuctionService 集成测试', () => {
     if (!equip) return;
     const aid = await auctionService.listItem(uid1, { bag_id: equip.original_id ?? equip.id, price: 1 });
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const auction = await dataStorageService.getById('auction', aid);
+    const auction = await dataStorageService.getById(Collections.AUCTION, aid);
     if (!auction?.equipment_uid) return;
     const eqId = Number(auction.equipment_uid);
     try {
-      await dataStorageService.delete('equip_instance', eqId);
+      await dataStorageService.delete(Collections.EQUIP_INSTANCE, eqId);
       const r = await auctionService.list({ type: 2 });
       const found = r.items.find((a: any) => a.id === aid);
       expect(found).toBeDefined();
       expect(found?.equip_level).toBeDefined();
       expect(found?.equip_attributes).toBeDefined();
     } finally {
-      await dataStorageService.delete('auction', aid);
+      await dataStorageService.delete(Collections.AUCTION, aid);
     }
   });
 
@@ -308,8 +309,9 @@ describe('关键路径/深度分支', () => {
     });
     try {
       await _auctionService.buy(uid, id, 1);
-      fail('should throw');
+      throw new Error('should throw');
     } catch (e: any) {
+      if (e.message === 'should throw') throw e;
       expect(e.message).toMatch(/自己/);
     }
     await _auctionService.offShelf(uid, id);
@@ -329,8 +331,9 @@ describe('关键路径/深度分支', () => {
     });
     try {
       await _auctionService.offShelf(uidB, id);
-      fail('should throw');
+      throw new Error('should throw');
     } catch (e: any) {
+      if (e.message === 'should throw') throw e;
       expect(e.message).toMatch(/权限|不是|自己/);
     }
     await _auctionService.offShelf(uidA, id);
@@ -381,8 +384,9 @@ describe('关键路径/深度分支', () => {
 
     try {
       await _auctionService.buy(buyer.uid, aucId, 1);
-      fail('should throw');
+      throw new Error('should throw');
     } catch (e: any) {
+      if (e.message === 'should throw') throw e;
       expect(e.message).toMatch(/金币|不足/);
     }
     await _auctionService.offShelf(seller.uid, aucId);

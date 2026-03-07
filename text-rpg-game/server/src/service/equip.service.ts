@@ -11,6 +11,7 @@ import { logger } from '../utils/logger';
 import { createError, ErrorCode } from '../utils/error';
 import { enrichEquipDetail } from '../utils/enrich-equip';
 import { pushPlayerFullUpdate } from '../utils/push-update';
+import { Collections } from '../config/collections';
 
 export class EquipService {
   private equipInstanceService: EquipInstanceService;
@@ -20,19 +21,19 @@ export class EquipService {
   }
 
   async list(uid: Uid): Promise<any[]> {
-    const userEquips = await dataStorageService.list('user_equip', { uid });
+    const userEquips = await dataStorageService.list(Collections.USER_EQUIP, { uid });
     if (userEquips.length === 0) return [];
 
     // 批量查询装备实例
     const instanceIds = userEquips
       .map((ue: any) => parseInt(String(ue.equipment_uid), 10))
       .filter((id: number) => !isNaN(id));
-    const instances = await dataStorageService.getByIds('equip_instance', instanceIds);
+    const instances = await dataStorageService.getByIds(Collections.EQUIP_INSTANCE, instanceIds);
     const instanceMap = new Map(instances.map((i: any) => [i.id, i]));
 
     // 批量查询 item 信息
     const itemIds = [...new Set(instances.map((i: any) => i.item_id))];
-    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const allItems = await dataStorageService.getByIds(Collections.ITEM, itemIds);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
 
     const result: any[] = [];
@@ -79,7 +80,7 @@ export class EquipService {
     }
 
     if (!equip.type) {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: equip.item_id });
+      const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: equip.item_id });
       if (itemInfo) {
         equip.type = itemInfo.type;
         equip.pos = itemInfo.pos;
@@ -138,7 +139,7 @@ export class EquipService {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('user_equip', {
+    await dataStorageService.insert(Collections.USER_EQUIP, {
       uid,
       equipment_uid: equip.equipment_uid,
       create_time: now,
@@ -180,14 +181,14 @@ export class EquipService {
       throw createError(ErrorCode.BAG_EQUIPMENT_FULL, '背包装备已满，无法卸下');
     }
 
-    await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: String(instanceId) });
+    await dataStorageService.deleteMany(Collections.USER_EQUIP, { uid, equipment_uid: String(instanceId) });
     await bagService.add({ uid, item_id: instance.item_id, count: 1, equipment_uid: String(instanceId) });
 
     // 数据不变式
     const verifyBags = await bagService.list(uid);
     const returned = verifyBags.find((i: any) => String(i.equipment_uid) === String(instanceId));
     if (returned) {
-      const itemInfo = await dataStorageService.getByCondition('item', { id: instance.item_id });
+      const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: instance.item_id });
       if (itemInfo && !isEquipment(itemInfo)) {
         logger.error('DATA_INTEGRITY: 卸下后物品类型变异', { uid, equipmentUid, actualType: itemInfo.type, item_id: instance.item_id });
       }

@@ -10,6 +10,7 @@ import { EquipService } from '../../service/equip.service';
 import { AuctionService } from '../../service/auction.service';
 import { SkillService } from '../../service/skill.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -146,16 +147,16 @@ describe('关键路径/深度分支', () => {
     const playersAfter = await request(app).get('/api/player/list').set('Authorization', `Bearer ${token}`);
     expect(playersAfter.body.data.length).toBe(0);
 
-    const orphanBags = await dataStorageService.list('bag', { uid });
-    const orphanEquips = await dataStorageService.list('user_equip', { uid });
-    const orphanSkills = await dataStorageService.list('player_skill', { uid });
+    const orphanBags = await dataStorageService.list(Collections.BAG, { uid });
+    const orphanEquips = await dataStorageService.list(Collections.USER_EQUIP, { uid });
+    const orphanSkills = await dataStorageService.list(Collections.PLAYER_SKILL, { uid });
 
     expect(orphanBags.length).toBe(0);
     expect(orphanEquips.length).toBe(0);
     expect(orphanSkills.length).toBe(0);
 
     if (auctionId) {
-      const auction = await dataStorageService.getById('auction', auctionId);
+      const auction = await dataStorageService.getById(Collections.AUCTION, auctionId);
       expect(auction).toBeNull();
     }
   });

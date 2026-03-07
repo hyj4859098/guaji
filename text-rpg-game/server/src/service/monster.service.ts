@@ -3,6 +3,7 @@ import { Monster } from '../types/monster';
 import { IBaseService, Id } from '../types/index';
 import { dataStorageService } from './data-storage.service';
 import { cacheService } from './cache.service';
+import { Collections } from '../config/collections';
 
 export class MonsterService implements IBaseService<Monster> {
   private model: MonsterModel;
@@ -16,8 +17,8 @@ export class MonsterService implements IBaseService<Monster> {
     if (cached) return cached;
     const monster = await this.model.get(id);
     if (!monster) return null;
-    const drops = await dataStorageService.list('monster_drop', { monster_id: Number(id) });
-    const items = await dataStorageService.list('item', undefined);
+    const drops = await dataStorageService.list(Collections.MONSTER_DROP, { monster_id: Number(id) });
+    const items = await dataStorageService.list(Collections.ITEM, undefined);
     const itemMap = new Map(items.map((i: any) => [i.id, i]));
     const dropsWithName = drops.map((d: any) => ({
       item_id: d.item_id,

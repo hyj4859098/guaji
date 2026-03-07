@@ -8,6 +8,7 @@
  * - 不支持自动战斗
  */
 import { PlayerService } from './player.service';
+import { Collections } from '../config/collections';
 import { SkillService } from './skill.service';
 import { EquipInstanceService } from './equip_instance.service';
 import { BagService } from './bag.service';
@@ -53,11 +54,11 @@ export class BossService {
   private _seq = 0;
 
   async getBoss(id: number): Promise<any | null> {
-    const boss = await dataStorageService.getById('boss', id);
+    const boss = await dataStorageService.getById(Collections.BOSS, id);
     if (!boss) return null;
-    let dropList = await dataStorageService.list('boss_drop', { boss_id: id });
-    if (!dropList?.length) dropList = await dataStorageService.list('monster_drop', { monster_id: id });
-    const items = await dataStorageService.list('item', undefined);
+    let dropList = await dataStorageService.list(Collections.BOSS_DROP, { boss_id: id });
+    if (!dropList?.length) dropList = await dataStorageService.list(Collections.MONSTER_DROP, { monster_id: id });
+    const items = await dataStorageService.list(Collections.ITEM, undefined);
     const itemMap = new Map(items.map((i: any) => [i.id, i]));
     const dropsWithName = dropList.map((d: any) => ({
       item_id: d.item_id,
@@ -70,10 +71,10 @@ export class BossService {
 
   async getBossList(uid: Uid, mapId?: number): Promise<any[]> {
     const filter = mapId != null ? { map_id: mapId } : {};
-    const bosses = await dataStorageService.list('boss', filter);
+    const bosses = await dataStorageService.list(Collections.BOSS, filter);
     if (!bosses.length) return [];
 
-    const states = await dataStorageService.list('boss_state', {});
+    const states = await dataStorageService.list(Collections.BOSS_STATE, {});
     const stateMap = new Map(states.map((s: any) => [s.boss_id, s]));
 
     const now = Math.floor(Date.now() / 1000);
@@ -154,11 +155,11 @@ export class BossService {
   }
 
   private async ensureBossState(boss: any): Promise<void> {
-    const existing = await dataStorageService.list('boss_state', { boss_id: boss.id });
+    const existing = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: boss.id });
     if (existing.length) return;
 
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('boss_state', {
+    await dataStorageService.insert(Collections.BOSS_STATE, {
       boss_id: boss.id,
       current_hp: boss.hp,
       max_hp: boss.hp,
@@ -169,14 +170,14 @@ export class BossService {
   }
 
   private async getBossState(bossId: number): Promise<any | null> {
-    const list = await dataStorageService.list('boss_state', { boss_id: bossId });
+    const list = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: bossId });
     return list.length ? list[0] : null;
   }
 
   private async respawnBoss(bossId: number, maxHp: number): Promise<void> {
-    const list = await dataStorageService.list('boss_state', { boss_id: bossId });
+    const list = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: bossId });
     if (list.length) {
-      await dataStorageService.update('boss_state', list[0].id, {
+      await dataStorageService.update(Collections.BOSS_STATE, list[0].id, {
         current_hp: maxHp,
         max_hp: maxHp,
         last_death_time: 0,
@@ -201,14 +202,14 @@ export class BossService {
   }
 
   private async atomicDamageBoss(bossId: number, damage: number): Promise<{ newHp: number; isKill: boolean } | null> {
-    const list = await dataStorageService.list('boss_state', { boss_id: bossId });
+    const list = await dataStorageService.list(Collections.BOSS_STATE, { boss_id: bossId });
     if (!list.length) return null;
 
     const state = list[0];
     if (state.current_hp <= 0) return null;
 
     const doc = await findOneAndUpdate(
-      'boss_state',
+      Collections.BOSS_STATE,
       { boss_id: bossId, current_hp: { $gt: 0 } },
       { $inc: { current_hp: -Math.max(0, damage) } },
       { returnDocument: 'after' }
@@ -220,7 +221,7 @@ export class BossService {
     const isKill = newHp <= 0;
 
     if (isKill) {
-      await dataStorageService.update('boss_state', state.id, {
+      await dataStorageService.update(Collections.BOSS_STATE, state.id, {
         current_hp: 0,
         last_death_time: Math.floor(Date.now() / 1000),
       });
@@ -308,7 +309,7 @@ export class BossService {
     return processDropList(uid, boss, dropMultiplier, {
       bagService: this.bagService,
       equipInstanceService: this.equipInstanceService,
-    }, 'boss_drop', 'monster_drop');
+    }, Collections.BOSS_DROP, Collections.MONSTER_DROP);
   }
 
   private loseResult(): BossResult {

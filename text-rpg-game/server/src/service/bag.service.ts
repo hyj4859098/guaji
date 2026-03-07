@@ -8,6 +8,7 @@ import { createError, ErrorCode } from '../utils/error';
 import { getHpRestore, getMpRestore, isEquipment } from '../utils/item-type';
 import { enrichEquipDetail } from '../utils/enrich-equip';
 import { wsManager } from '../event/ws-manager';
+import { Collections } from '../config/collections';
 import { ItemEffectService } from './item-effect.service';
 
 const DEFAULT_EQUIPMENT_CAPACITY = 100;
@@ -33,7 +34,7 @@ export class BagService implements IBaseService<Bag> {
 
     // 批量查询所有 item 信息（避免 N+1）
     const itemIds = [...new Set(bags.map((b) => b.item_id))];
-    const allItems = await dataStorageService.getByIds('item', itemIds);
+    const allItems = await dataStorageService.getByIds(Collections.ITEM, itemIds);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
 
     const bagsWithDetails = await Promise.all(bags.map(async (bag) => {
@@ -216,7 +217,7 @@ export class BagService implements IBaseService<Bag> {
 
     logger.info('物品信息', { item });
 
-    const itemInfo = await dataStorageService.getByCondition('item', { id: item.item_id });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: item.item_id });
     if (!itemInfo) {
       logger.warn('物品类型不存在', { itemId: item.item_id });
       throw createError(ErrorCode.ITEM_NOT_FOUND, '物品类型不存在');
@@ -277,7 +278,7 @@ export class BagService implements IBaseService<Bag> {
     if (!Number.isInteger(count) || count < 1 || count > 9999) {
       throw createError(ErrorCode.INVALID_PARAMS, '数量无效');
     }
-    const itemInfo = await dataStorageService.getByCondition('item', { id: itemId });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: itemId });
 
     if (!itemInfo) {
       throw createError(ErrorCode.ITEM_NOT_FOUND, '物品不存在');

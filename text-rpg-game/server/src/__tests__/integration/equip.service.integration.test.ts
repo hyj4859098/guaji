@@ -6,6 +6,7 @@ import { createTestUser, giveItem } from '../../__test-utils__/integration-helpe
 import { EquipService } from '../../service/equip.service';
 import { BagService } from '../../service/bag.service';
 import { dataStorageService } from '../../service/data-storage.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -31,9 +32,8 @@ describe('EquipService 集成测试', () => {
     expect(list).toEqual([]);
   });
 
-  it('removeEquip 不存在的装备返回 false', async () => {
-    const ok = await equipService.removeEquip(uid, 999999);
-    expect(ok).toBe(false);
+  it('removeEquip 不存在的装备抛错', async () => {
+    await expect(equipService.removeEquip(uid, 999999)).rejects.toThrow();
   });
 
   it('穿戴装备完整流程', async () => {
@@ -45,33 +45,29 @@ describe('EquipService 集成测试', () => {
     expect(ok).toBe(true);
     const equips = await equipService.list(uid);
     expect(equips.length).toBeGreaterThanOrEqual(1);
-    const removed = await equipService.removeEquip(uid, equip.equipment_uid);
-    expect(removed).toBe(true);
+    await equipService.removeEquip(uid, equip.equipment_uid);
   });
 
-  it('removeEquip 他人装备返回 false', async () => {
+  it('removeEquip 他人装备抛错', async () => {
     await bagService.addItem(uid, 13, 1);
     const list = await bagService.list(uid);
     const equip = list.find((i: any) => i.item_id === 13 && i.equipment_uid);
     if (equip) {
-      const ok = await equipService.removeEquip(999999, equip.equipment_uid);
-      expect(ok).toBe(false);
+      await expect(equipService.removeEquip(999999, equip.equipment_uid)).rejects.toThrow();
     }
   });
 
-  it('wearEquip 非装备返回 false', async () => {
+  it('wearEquip 非装备抛错', async () => {
     await bagService.addItem(uid, 1, 1);
     const list = await bagService.list(uid);
     const item = list.find((i: any) => i.item_id === 1 && !i.equipment_uid);
     if (item) {
-      const ok = await equipService.wearEquip(uid, item.original_id ?? item.id);
-      expect(ok).toBe(false);
+      await expect(equipService.wearEquip(uid, item.original_id ?? item.id)).rejects.toThrow();
     }
   });
 
-  it('wearEquip 背包物品不存在返回 false', async () => {
-    const ok = await equipService.wearEquip(uid, 999999);
-    expect(ok).toBe(false);
+  it('wearEquip 背包物品不存在抛错', async () => {
+    await expect(equipService.wearEquip(uid, 999999)).rejects.toThrow();
   });
 
   it('wearEquip 装备等级不足抛错', async () => {
@@ -83,12 +79,12 @@ describe('EquipService 集成测试', () => {
     const origLevel = players[0].level ?? 99;
     try {
       await playerService.update(players[0].id, { level: 1 } as any);
-      const ebList = await dataStorageService.list('equip_base', { item_id: 13 });
+      const ebList = await dataStorageService.list(Collections.EQUIP_BASE, { item_id: 13 });
       const eb = ebList[0];
       if (!eb) return;
       const origBaseLevel = eb.base_level ?? 1;
       try {
-        await dataStorageService.update('equip_base', eb.id, { base_level: 50 });
+        await dataStorageService.update(Collections.EQUIP_BASE, eb.id, { base_level: 50 });
         await bagService.addItem(uid, 13, 1);
         const list = await bagService.list(uid);
         const equip = list.find((i: any) => i.item_id === 13 && i.equipment_uid);
@@ -96,7 +92,7 @@ describe('EquipService 集成测试', () => {
           await expect(bagService.wearItem(uid, equip.original_id ?? equip.id, equipService)).rejects.toThrow();
         }
       } finally {
-        await dataStorageService.update('equip_base', eb.id, { base_level: origBaseLevel });
+        await dataStorageService.update(Collections.EQUIP_BASE, eb.id, { base_level: origBaseLevel });
       }
     } finally {
       await playerService.update(players[0].id, { level: origLevel } as any);
@@ -112,7 +108,7 @@ describe('EquipService 集成测试', () => {
       const equips = await equipService.list(uid);
       expect(equips.length).toBeGreaterThanOrEqual(1);
       expect(equips[0]).toHaveProperty('blessing_effects');
-      await equipService.removeEquip(uid, equip.equipment_uid);
+      try { await equipService.removeEquip(uid, equip.equipment_uid); } catch { /* cleanup */ }
     }
   });
 
@@ -128,24 +124,22 @@ describe('EquipService 集成测试', () => {
       expect(ok).toBe(true);
       const worn = await equipService.list(uid);
       expect(worn.filter((e: any) => e.item_id === 13).length).toBe(1);
-      await equipService.removeEquip(uid, equips[1].equipment_uid);
+      try { await equipService.removeEquip(uid, equips[1].equipment_uid); } catch { /* cleanup */ }
     }
   });
 
-  it('removeEquip 无效 equipmentUid 返回 false', async () => {
-    const ok = await equipService.removeEquip(uid, 'invalid');
-    expect(ok).toBe(false);
+  it('removeEquip 无效 equipmentUid 抛错', async () => {
+    await expect(equipService.removeEquip(uid, 'invalid')).rejects.toThrow();
   });
 
-  it('removeEquip NaN 解析返回 false', async () => {
-    const ok = await equipService.removeEquip(uid, NaN as any);
-    expect(ok).toBe(false);
+  it('removeEquip NaN 解析抛错', async () => {
+    await expect(equipService.removeEquip(uid, NaN as any)).rejects.toThrow();
   });
 
   it('list 跳过 equipment_uid 非数字的项', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('user_equip', {
+    await dataStorageService.insert(Collections.USER_EQUIP, {
       uid,
       equipment_uid: 'abc',
       create_time: now,
@@ -153,13 +147,13 @@ describe('EquipService 集成测试', () => {
     });
     const list = await equipService.list(uid);
     expect(Array.isArray(list)).toBe(true);
-    await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: 'abc' });
+    await dataStorageService.deleteMany(Collections.USER_EQUIP, { uid, equipment_uid: 'abc' });
   });
 
   it('list 跳过 instance 为 null 的项', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
     const now = Math.floor(Date.now() / 1000);
-    await dataStorageService.insert('user_equip', {
+    await dataStorageService.insert(Collections.USER_EQUIP, {
       uid,
       equipment_uid: '99999999',
       create_time: now,
@@ -167,7 +161,7 @@ describe('EquipService 集成测试', () => {
     });
     const list = await equipService.list(uid);
     expect(Array.isArray(list)).toBe(true);
-    await dataStorageService.deleteMany('user_equip', { uid, equipment_uid: '99999999' });
+    await dataStorageService.deleteMany(Collections.USER_EQUIP, { uid, equipment_uid: '99999999' });
   });
 
   it('pushFullUpdate 不抛错', async () => {
@@ -180,9 +174,8 @@ describe('EquipService 集成测试', () => {
     const equip = list.find((i: any) => i.item_id === 13 && i.equipment_uid);
     if (equip) {
       const bagId = equip.original_id ?? equip.id;
-      const ok = await equipService.wearEquip(uid, bagId);
-      expect(ok).toBe(true);
-      await equipService.removeEquip(uid, equip.equipment_uid);
+      await equipService.wearEquip(uid, bagId);
+      try { await equipService.removeEquip(uid, equip.equipment_uid); } catch { /* cleanup */ }
     }
   });
 
@@ -191,13 +184,11 @@ describe('EquipService 集成测试', () => {
     const list = await bagService.list(uid);
     const consumable = list.find((i: any) => i.item_id === 1 && !i.equipment_uid);
     expect(consumable).toBeDefined();
-    const ok = await equipService.wearEquip(uid, consumable!.original_id ?? consumable!.id);
-    expect(ok).toBe(false);
+    await expect(equipService.wearEquip(uid, consumable!.original_id ?? consumable!.id)).rejects.toThrow();
   });
 
-  it('wearEquip 装备不存在时返回 false (id=888888)', async () => {
-    const ok = await equipService.wearEquip(uid, 888888);
-    expect(ok).toBe(false);
+  it('wearEquip 装备不存在时抛错 (id=888888)', async () => {
+    await expect(equipService.wearEquip(uid, 888888)).rejects.toThrow();
   });
 
   it('wearEquip 替换已穿戴同位装备 (giveItem)', async () => {
@@ -219,17 +210,15 @@ describe('EquipService 集成测试', () => {
     expect(wornAfter.some((e: any) => String(e.equipment_uid) === String(second.equipment_uid))).toBe(true);
     expect(wornAfter.some((e: any) => String(e.equipment_uid) === String(first.equipment_uid))).toBe(false);
 
-    await equipService.removeEquip(uid, second.equipment_uid);
+    try { await equipService.removeEquip(uid, second.equipment_uid); } catch { /* cleanup */ }
   });
 
-  it('removeEquip 实例 NaN 返回 false (abc)', async () => {
-    const ok = await equipService.removeEquip(uid, 'abc');
-    expect(ok).toBe(false);
+  it('removeEquip 实例 NaN 抛错 (abc)', async () => {
+    await expect(equipService.removeEquip(uid, 'abc')).rejects.toThrow();
   });
 
-  it('removeEquip 实例不存在返回 false', async () => {
-    const ok = await equipService.removeEquip(uid, 999999);
-    expect(ok).toBe(false);
+  it('removeEquip 实例不存在抛错', async () => {
+    await expect(equipService.removeEquip(uid, 999999)).rejects.toThrow();
   });
 
 });
@@ -244,12 +233,11 @@ describe('关键路径/深度分支', () => {
     const bags = await _bagService.list(uid);
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     if (!equip) return;
-    const rawBag = await dataStorageService.list('bag', { uid, item_id: 13 });
+    const rawBag = await dataStorageService.list(Collections.BAG, { uid, item_id: 13 });
     if (rawBag.length) {
-      await dataStorageService.update('bag', rawBag[0].id, { type: null } as any);
+      await dataStorageService.update(Collections.BAG, rawBag[0].id, { type: null } as any);
     }
-    const ok = await _equipService.wearEquip(uid, equip.original_id ?? equip.id);
-    expect(typeof ok).toBe('boolean');
+    await _equipService.wearEquip(uid, equip.original_id ?? equip.id);
   });
 
   it('wearEquip 等级不足抛错', async () => {
@@ -258,23 +246,23 @@ describe('关键路径/深度分支', () => {
     const bags = await _bagService.list(uid);
     const equip = bags.find((b: any) => b.item_id === 13 && b.equipment_uid);
     if (!equip) return;
-    const equipBase = await dataStorageService.getByCondition('equip_base', { item_id: 13 });
+    const equipBase = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: 13 });
     if (equipBase) {
-      await dataStorageService.update('equip_base', equipBase.id, { base_level: 50 });
+      await dataStorageService.update(Collections.EQUIP_BASE, equipBase.id, { base_level: 50 });
     }
-    const ok = await _equipService.wearEquip(uid, equip.original_id ?? equip.id);
-    expect(ok).toBe(false);
-    if (equipBase) {
-      await dataStorageService.update('equip_base', equipBase.id, { base_level: 1 });
+    try {
+      await expect(_equipService.wearEquip(uid, equip.original_id ?? equip.id)).rejects.toThrow();
+    } finally {
+      if (equipBase) {
+        await dataStorageService.update(Collections.EQUIP_BASE, equipBase.id, { base_level: 1 });
+      }
     }
   });
 
-  it('removeEquip 无效/不存在的 equipmentUid 返回 false', async () => {
+  it('removeEquip 无效/不存在的 equipmentUid 抛错', async () => {
     const { uid } = await createTestUser(app, { prefix: 'ds', suffix: 'eqFull' });
-    const ok1 = await _equipService.removeEquip(uid, 'invalid_id');
-    expect(ok1).toBe(false);
-    const ok2 = await _equipService.removeEquip(uid, 999888);
-    expect(ok2).toBe(false);
+    await expect(_equipService.removeEquip(uid, 'invalid_id')).rejects.toThrow();
+    await expect(_equipService.removeEquip(uid, 999888)).rejects.toThrow();
   });
 
   it('wearEquip bag 记录无 type 时从 item 表获取', async () => {
@@ -285,12 +273,11 @@ describe('关键路径/深度分支', () => {
     if (eq) {
       const { dataStorageService } = await import('../../service/data-storage.service');
       const bagId = eq.original_id ?? eq.id;
-      await dataStorageService.update('bag', bagId, { type: null } as any);
-      const ok = await _equipService.wearEquip(user.uid, bagId);
-      expect(ok).toBe(true);
+      await dataStorageService.update(Collections.BAG, bagId, { type: null } as any);
+      await _equipService.wearEquip(user.uid, bagId);
       const equips = await _equipService.list(user.uid);
       expect(equips.length).toBeGreaterThanOrEqual(1);
-      await _equipService.removeEquip(user.uid, equips[0].equipment_uid);
+      try { await _equipService.removeEquip(user.uid, equips[0].equipment_uid); } catch { /* cleanup */ }
     }
   });
 
@@ -300,8 +287,7 @@ describe('关键路径/深度分支', () => {
     const bags = await _bagService.list(user.uid);
     const item = bags.find((b: any) => b.item_id === 1 && !b.equipment_uid);
     if (item) {
-      const ok = await _equipService.wearEquip(user.uid, item.original_id ?? item.id);
-      expect(ok).toBe(false);
+      await expect(_equipService.wearEquip(user.uid, item.original_id ?? item.id)).rejects.toThrow();
     }
   });
 

@@ -60,8 +60,8 @@ export async function loadEquipList() {
     if (!el) return;
     const list = result.data || [];
     el.innerHTML = `
-      <div class="gm-search"><input type="text" id="equip-search" placeholder="搜索装备..." oninput="filterEquipTable()"></div>
-      <table class="gm-table">
+      <div class="gm-search"><input type="text" id="equip-search" placeholder="搜索装备..." oninput="window._gmFilterTable(this,'equip-table')"></div>
+      <table class="gm-table" id="equip-table">
         <thead><tr>
           <th>物品ID</th><th>部位</th><th>等级</th><th>HP</th><th>MP</th>
           <th>物攻</th><th>物防</th><th>魔攻</th><th>魔防</th>
@@ -86,12 +86,6 @@ export async function loadEquipList() {
   }
 }
 
-function filterEquipTable() {
-  const kw = (document.getElementById('equip-search')?.value || '').toLowerCase();
-  document.querySelectorAll('#equip-list .gm-table tbody tr').forEach(tr => {
-    tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-  });
-}
 
 export async function editEquip(id) {
   try {
@@ -125,7 +119,5 @@ export async function deleteEquip(id) {
     else showToast(result.msg || '失败', 'error');
   } catch { showToast('网络错误', 'error'); }
 }
-
-window.filterEquipTable = filterEquipTable;
 
 export default { loadEquipList, editEquip, updateEquip, deleteEquip };

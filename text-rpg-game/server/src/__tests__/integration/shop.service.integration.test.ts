@@ -5,6 +5,7 @@ import request from 'supertest';
 import { createApp } from '../../create-app';
 import { createTestUser } from '../../__test-utils__/integration-helpers';
 import { ShopService } from '../../service/shop.service';
+import { Collections } from '../../config/collections';
 
 const app = createApp();
 
@@ -154,7 +155,7 @@ describe('ShopService 集成测试', () => {
 
   it('buy 不支持的商店类型抛错', async () => {
     const { dataStorageService } = await import('../../service/data-storage.service');
-    const id = await dataStorageService.insert('shop', {
+    const id = await dataStorageService.insert(Collections.SHOP, {
       shop_type: 'unknown_currency',
       item_id: 1,
       price: 1,
@@ -163,7 +164,7 @@ describe('ShopService 集成测试', () => {
       enabled: true,
     });
     await expect(shopService.buy(uid, id, 1)).rejects.toThrow(/不支持的商店类型/);
-    await dataStorageService.delete('shop', id);
+    await dataStorageService.delete(Collections.SHOP, id);
   });
 });
 

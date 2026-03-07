@@ -12,6 +12,7 @@ import { logger } from '../utils/logger';
 import { Uid } from '../types';
 import { getCollection } from '../config/db';
 import { createError, ErrorCode } from '../utils/error';
+import { Collections } from '../config/collections';
 
 export { ItemType };
 
@@ -44,7 +45,7 @@ export class ItemService {
    */
   async getItemById(id: number) {
     // 直接从数据库获取
-    return await dataStorageService.getById('item', id);
+    return await dataStorageService.getById(Collections.ITEM, id);
   }
 
   /**
@@ -54,7 +55,7 @@ export class ItemService {
    */
   async getItemsByType(type: number) {
     // 直接从数据库获取
-    return await dataStorageService.list('item', { type });
+    return await dataStorageService.list(Collections.ITEM, { type });
   }
 
   /**
@@ -62,14 +63,14 @@ export class ItemService {
    * @returns 物品列表
    */
   async getAllItems() {
-    return await dataStorageService.list('item');
+    return await dataStorageService.list(Collections.ITEM);
   }
 
   /**
    * 分页获取物品（支持 type 筛选）
    */
   async listWithPagination(filter?: { type?: number }, page = 1, pageSize = 20): Promise<{ data: any[]; total: number; page: number; pageSize: number }> {
-    const coll = getCollection('item');
+    const coll = getCollection(Collections.ITEM);
     const q: any = {};
     if (filter?.type != null && filter.type > 0) q.type = filter.type;
     const [data, total] = await Promise.all([
@@ -86,7 +87,7 @@ export class ItemService {
   async addItem(data: { id?: number; name: string; type: number; pos?: number; hp_restore?: number; mp_restore?: number; vip_days?: number; description?: string }): Promise<number> {
     const customId = data.id != null && Number.isInteger(data.id) && data.id > 0 ? Number(data.id) : null;
     if (customId != null) {
-      const existing = await dataStorageService.getByCondition('item', { id: customId });
+      const existing = await dataStorageService.getByCondition(Collections.ITEM, { id: customId });
       if (existing) {
         throw createError(ErrorCode.INVALID_PARAMS, `该 ID ${customId} 已被占用，请使用其他 ID 或留空自动生成`);
       }
@@ -106,7 +107,7 @@ export class ItemService {
     if (customId != null) {
       insertData.id = customId;
     }
-    return await dataStorageService.insert('item', insertData);
+    return await dataStorageService.insert(Collections.ITEM, insertData);
   }
 
   /**
@@ -115,14 +116,14 @@ export class ItemService {
   async updateItem(id: number, data: Partial<{ name: string; type: number; pos: number; hp_restore: number; mp_restore: number; vip_days: number; description: string }>): Promise<boolean> {
     const updateData: any = { ...data, update_time: Math.floor(Date.now() / 1000) };
     if (data?.vip_days != null) updateData.vip_days = Number(data.vip_days);
-    return await dataStorageService.update('item', id, updateData);
+    return await dataStorageService.update(Collections.ITEM, id, updateData);
   }
 
   /** 删除 equip_base（物品 type 从 2 改为非 2 时调用） */
   async deleteEquipBaseByItemId(itemId: number): Promise<void> {
-    const eb = await dataStorageService.getByCondition('equip_base', { item_id: itemId });
+    const eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: itemId });
     if (eb) {
-      await dataStorageService.delete('equip_base', eb.id);
+      await dataStorageService.delete(Collections.EQUIP_BASE, eb.id);
       logger.info('deleteEquipBaseByItemId', { itemId });
     }
   }
@@ -141,7 +142,7 @@ export class ItemService {
     base_dodge_rate?: number;
     base_crit_rate?: number;
   }): Promise<void> {
-    const item = await dataStorageService.getByCondition('item', { id: itemId });
+    const item = await dataStorageService.getByCondition(Collections.ITEM, { id: itemId });
     if (!item || !isEquipment(item)) {
       logger.warn('syncEquipBase 跳过：物品非装备类型', { itemId, type: item?.type });
       return;
@@ -162,11 +163,11 @@ export class ItemService {
       base_crit_rate: opts.base_crit_rate ?? 0,
       update_time: now
     };
-    const existing = await dataStorageService.getByCondition('equip_base', { item_id: itemId });
+    const existing = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: itemId });
     if (existing) {
-      await dataStorageService.update('equip_base', existing.id, data);
+      await dataStorageService.update(Collections.EQUIP_BASE, existing.id, data);
     } else {
-      await dataStorageService.insert('equip_base', { ...data, create_time: now });
+      await dataStorageService.insert(Collections.EQUIP_BASE, { ...data, create_time: now });
     }
   }
 
@@ -185,7 +186,7 @@ export class ItemService {
 
     const typeObj = { type: itemType };
     if (isConsumable(typeObj) || isMaterial(typeObj)) {
-      const item = await dataStorageService.getByCondition('item', { id: itemId });
+      const item = await dataStorageService.getByCondition(Collections.ITEM, { id: itemId });
       if (item && (getHpRestore(item) > 0 || getMpRestore(item) > 0)) {
         effectType = 'restore';
       }
@@ -205,16 +206,16 @@ export class ItemService {
       }
     }
 
-    const existing = await dataStorageService.getByCondition('item_effect', { item_id: itemId });
+    const existing = await dataStorageService.getByCondition(Collections.ITEM_EFFECT, { item_id: itemId });
     if (effectType) {
       const payload = { ...effectData, effect_type: effectType };
       if (existing) {
-        await dataStorageService.update('item_effect', existing.id, payload);
+        await dataStorageService.update(Collections.ITEM_EFFECT, existing.id, payload);
       } else {
-        await dataStorageService.insert('item_effect', payload);
+        await dataStorageService.insert(Collections.ITEM_EFFECT, payload);
       }
     } else if (existing) {
-      await dataStorageService.delete('item_effect', existing.id);
+      await dataStorageService.delete(Collections.ITEM_EFFECT, existing.id);
     }
   }
 
@@ -222,12 +223,12 @@ export class ItemService {
    * 获取物品详情（含 item_effect、equip_base、关联技能，供 GM 编辑表单回显）
    */
   async getItemWithEffect(id: number): Promise<any | null> {
-    const item = await dataStorageService.getByCondition('item', { id });
+    const item = await dataStorageService.getByCondition(Collections.ITEM, { id });
     if (!item) return null;
-    const eff = await dataStorageService.getByCondition('item_effect', { item_id: id });
+    const eff = await dataStorageService.getByCondition(Collections.ITEM_EFFECT, { item_id: id });
     const result: any = { ...item, effect_type: eff?.effect_type || '', effect_attr: eff?.attr, effect_value: eff?.value, effect_max: eff?.max, effect_also_add_current: eff?.also_add_current };
     if (eff?.effect_type === 'learn_skill') {
-      const skill = await dataStorageService.getByCondition('skill', { book_id: id });
+      const skill = await dataStorageService.getByCondition(Collections.SKILL, { book_id: id });
       if (skill) {
         result.skill_name = skill.name;
         result.skill_type = skill.type;
@@ -237,7 +238,7 @@ export class ItemService {
       }
     }
     if (isEquipment(item)) {
-      const eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
+      const eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: id });
       if (eb) {
         result.base_level = eb.base_level;
         result.base_hp = eb.base_hp;
@@ -258,11 +259,11 @@ export class ItemService {
    * 删除物品（Admin，同步删除 item_effect、equip_base）
    */
   async deleteItem(id: number): Promise<boolean> {
-    const eff = await dataStorageService.getByCondition('item_effect', { item_id: id });
-    if (eff) await dataStorageService.delete('item_effect', eff.id);
-    const eb = await dataStorageService.getByCondition('equip_base', { item_id: id });
-    if (eb) await dataStorageService.delete('equip_base', eb.id);
-    return await dataStorageService.delete('item', id);
+    const eff = await dataStorageService.getByCondition(Collections.ITEM_EFFECT, { item_id: id });
+    if (eff) await dataStorageService.delete(Collections.ITEM_EFFECT, eff.id);
+    const eb = await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: id });
+    if (eb) await dataStorageService.delete(Collections.EQUIP_BASE, eb.id);
+    return await dataStorageService.delete(Collections.ITEM, id);
   }
 
   /**
@@ -273,7 +274,7 @@ export class ItemService {
 
     if (isEquipment(item)) {
       const eb = item.id != null
-        ? await dataStorageService.getByCondition('equip_base', { item_id: item.id })
+        ? await dataStorageService.getByCondition(Collections.EQUIP_BASE, { item_id: item.id })
         : null;
       if (eb) {
         attributes.attack = (eb as any).base_phy_atk ?? 0;
@@ -351,7 +352,7 @@ export class ItemService {
       return '用于合成或任务';
     }
     if (getItemType(item) === 'tool') {
-      const skill = await dataStorageService.getByCondition('skill', { book_id: itemId });
+      const skill = await dataStorageService.getByCondition(Collections.SKILL, { book_id: itemId });
       if (skill) {
         return '使用后学习对应技能';
       }

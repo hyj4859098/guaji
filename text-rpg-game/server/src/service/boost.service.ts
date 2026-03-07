@@ -3,6 +3,7 @@ import { dataStorageService } from './data-storage.service';
 import { isBoostCard } from '../utils/item-type';
 import { logger } from '../utils/logger';
 import { Uid } from '../types/index';
+import { Collections } from '../config/collections';
 import {
   BoostConfig, BoostCategoryKey, BoostMultiplierKey,
   BOOST_MULTIPLIER_VALUES, getDefaultBoostConfig,
@@ -28,7 +29,7 @@ export class BoostService {
   }
 
   async useBoostCard(uid: Uid, itemId: number, count: number = 1): Promise<boolean> {
-    const itemInfo = await dataStorageService.getByCondition('item', { id: itemId });
+    const itemInfo = await dataStorageService.getByCondition(Collections.ITEM, { id: itemId });
     if (!itemInfo || !isBoostCard(itemInfo)) return false;
 
     const category = itemInfo.boost_category as BoostCategoryKey;

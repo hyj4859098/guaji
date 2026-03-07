@@ -19,24 +19,19 @@ function registerGlobals() {
   window.loadMonsterList = monster.loadMonsterList;
   window.addMonster = monster.addMonster;
   window.saveMonster = monster.saveMonster;
-  window.cancelAddMonster = monster.cancelAddMonster;
   window.editMonster = monster.editMonster;
-  window.cancelEditMonster = monster.cancelEditMonster;
   window.updateMonster = monster.updateMonster;
   window.deleteMonster = monster.deleteMonster;
 
   window.loadBossList = boss.loadBossList;
   window.addBoss = boss.addBoss;
   window.saveBoss = boss.saveBoss;
-  window.cancelAddBoss = boss.cancelAddBoss;
   window.editBoss = boss.editBoss;
-  window.cancelEditBoss = boss.cancelEditBoss;
   window.updateBoss = boss.updateBoss;
   window.deleteBoss = boss.deleteBoss;
 
   window.loadSkillList = skill.loadSkillList;
   window.editSkill = skill.editSkill;
-  window.cancelEditSkill = skill.cancelEditSkill;
   window.updateSkill = skill.updateSkill;
   window.deleteSkill = skill.deleteSkill;
 

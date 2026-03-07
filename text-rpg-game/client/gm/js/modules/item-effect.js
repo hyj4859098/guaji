@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
 const EFFECT_TYPE_MAP = {
@@ -115,7 +115,7 @@ export async function loadItemEffectList() {
           if (d.effect_type === 'expand_bag') paramStr = `value=${d.value ?? 50}, max=${d.max ?? 500}`;
           else if (d.effect_type === 'add_stat') paramStr = `${ATTR_MAP[d.attr] || d.attr}+${d.value ?? 1}${d.also_add_current ? '(含当前)' : ''}`;
           return `<tr>
-            <td>${d.id}</td><td>${d.item_id}</td><td>${d.item_name || '-'}</td>
+            <td>${d.id}</td><td>${d.item_id}</td><td>${escapeHtml(d.item_name || '-')}</td>
             <td>${EFFECT_TYPE_MAP[d.effect_type] || d.effect_type}</td><td>${paramStr}</td>
             <td>
               <button class="btn btn-info" onclick="editItemEffect(${d.id})">编辑</button>
@@ -124,24 +124,8 @@ export async function loadItemEffectList() {
           </tr>`;
         }).join('')}</tbody>
       </table>`;
-    window._gmFilterTable = window._gmFilterTable || function (input, tableId) {
-      const kw = (input?.value || '').toLowerCase();
-      document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-      });
-    };
   } catch {
     showToast('加载道具效果列表失败', 'error');
-  }
-}
-
-export async function loadItemsForSelect() {
-  try {
-    const r = await fetch(`${API_BASE_URL}/admin/item`, { headers: authHeaders() });
-    const result = await r.json();
-    return result.code === 0 ? (result.data || []) : [];
-  } catch {
-    return [];
   }
 }
 

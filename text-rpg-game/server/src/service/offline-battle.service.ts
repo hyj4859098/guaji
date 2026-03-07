@@ -13,6 +13,7 @@ import { SkillService } from './skill.service';
 import { BagService } from './bag.service';
 import { EquipInstanceService } from './equip_instance.service';
 import { LevelExpService } from './level_exp.service';
+import { Collections } from '../config/collections';
 import { dataStorageService } from './data-storage.service';
 import { isEquipment, getHpRestore, getMpRestore } from '../utils/item-type';
 import { logger } from '../utils/logger';
@@ -99,7 +100,7 @@ export class OfflineBattleService {
     const bags = await this.bagService.list(uid);
     const levelExpList = await this.levelExpService.list();
     const levelExpMap = new Map(levelExpList.map(le => [le.level, le.exp]));
-    const allItems = await dataStorageService.list('item', undefined);
+    const allItems = await dataStorageService.list(Collections.ITEM, undefined);
     const itemMap = new Map(allItems.map((i: any) => [i.id, i]));
 
     const buffed = applyBattleBonuses(player);
@@ -332,14 +333,14 @@ export class OfflineBattleService {
     for (const [itemId, potion] of state.potions) {
       const consumed = potion.originalCount - potion.count;
       if (consumed <= 0) continue;
-      const rawBags = await dataStorageService.list('bag', { uid, item_id: itemId });
+      const rawBags = await dataStorageService.list(Collections.BAG, { uid, item_id: itemId });
       for (const bag of rawBags) {
         if (bag.equipment_uid) continue;
         const newCount = Math.max(0, (bag.count || 0) - consumed);
         if (newCount <= 0) {
-          await dataStorageService.delete('bag', bag.id);
+          await dataStorageService.delete(Collections.BAG, bag.id);
         } else {
-          await dataStorageService.update('bag', bag.id, { count: newCount });
+          await dataStorageService.update(Collections.BAG, bag.id, { count: newCount });
         }
         break;
       }

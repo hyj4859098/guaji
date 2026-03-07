@@ -1,4 +1,4 @@
-import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal } from './core.js';
+import { getToken, getApiBaseUrl, showToast, showFormModal, hideFormModal, escapeHtml } from './core.js';
 const API_BASE_URL = getApiBaseUrl();
 
 const TYPE_MAP = { 0: '物理攻击', 1: '魔法攻击' };
@@ -61,7 +61,7 @@ export async function loadSkillList() {
           <th>MP消耗</th><th>概率</th><th>技能书ID</th><th>操作</th>
         </tr></thead>
         <tbody>${result.data.map(s => `<tr>
-          <td>${s.id}</td><td>${s.name}</td>
+          <td>${s.id}</td><td>${escapeHtml(s.name)}</td>
           <td>${TYPE_MAP[s.type] ?? s.type}</td>
           <td>${s.damage ?? 0}</td>
           <td>${s.cost ?? s.mp_cost ?? 0}</td>
@@ -74,12 +74,6 @@ export async function loadSkillList() {
         </tr>`).join('')}</tbody>
       </table>`;
 
-    window._gmFilterTable = window._gmFilterTable || function (input, tableId) {
-      const kw = input.value.toLowerCase();
-      document.querySelectorAll(`#${tableId} tbody tr`).forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(kw) ? '' : 'none';
-      });
-    };
   } catch {
     showToast('加载技能列表失败', 'error');
   }
@@ -96,8 +90,6 @@ export async function editSkill(id) {
     showFormModal('编辑技能', `<input type="hidden" id="skill-id" value="${skill.id}">${buildFormHtml(skill)}`, updateSkill);
   } catch { showToast('网络错误', 'error'); }
 }
-
-export function cancelEditSkill() { hideFormModal(); }
 
 export async function updateSkill() {
   const id = parseInt(document.getElementById('skill-id')?.value);
@@ -131,5 +123,5 @@ export async function deleteSkill(id) {
 
 export default {
   loadSkillList,
-  editSkill, cancelEditSkill, updateSkill, deleteSkill
+  editSkill, updateSkill, deleteSkill
 };
