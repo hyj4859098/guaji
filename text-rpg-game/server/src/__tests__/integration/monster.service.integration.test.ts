@@ -75,6 +75,7 @@ describe('MonsterService 集成测试', () => {
   it('get 掉落物品名不存在时使用 fallback', async () => {
     // 使用高 ID 避免与其他测试或 init 数据冲突
     const TEMP_ITEM_ID = 999990002;
+    await dataStorageService.delete(Collections.ITEM, TEMP_ITEM_ID).catch(() => {});
     await dataStorageService.insert(Collections.ITEM, {
       id: TEMP_ITEM_ID,
       name: '_monster_test_temp_',
